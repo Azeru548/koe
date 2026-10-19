@@ -1,0 +1,14 @@
+# Local artifacts
+node_modules/
+output/
+.freebuff/
+preview-*.mp3
+preview-*.wav
+preview-piper-*.wav
+output.mp3
+/*.zip
+
+# MCP server
+mcp/node_modules/
+mcp/.env
+voiceovers/

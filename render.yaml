@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: koe-tts-studio
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: TTS_BACKEND
+        value: native
+      # Copy this value from the Render dashboard into mcp/.env as TTS_API_KEY
+      - key: API_KEY
+        generateValue: true

@@ -1,0 +1,18 @@
+{
+  "name": "koe-tts-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server that generates voiceovers through the Koe TTS Studio API",
+  "main": "index.js",
+  "bin": {
+    "koe-tts-mcp": "index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "adm-zip": "^0.5.16",
+    "zod": "^3.24.0"
+  }
+}

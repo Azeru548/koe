@@ -869,7 +869,10 @@ const PIPER_VOICES = [
   { id:"en_US-lessac-medium", name:"Lessac", lang:"en-US", region:"English (US)", gender:"Male", style:"Natural", color:"#5b21b6" }
 ];
 
-const SERVER = "http://localhost:3000";
+const SERVER = location.protocol === "file:" ? "http://localhost:3000" : "";
+const API_KEY = new URLSearchParams(location.search).get("key") || localStorage.getItem("ttsApiKey") || "";
+if (API_KEY) localStorage.setItem("ttsApiKey", API_KEY);
+function authHeaders() { return API_KEY ? { "x-api-key": API_KEY } : {}; }
 const NUM_BARS = 32;
 let selectedVoice = null;
 let currentLang   = "all";
@@ -931,7 +934,7 @@ function onEngineChange() {
 async function checkServer() {
   const pill = document.getElementById("serverPill");
   try {
-    const res = await fetch(`${SERVER}/health`, { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`${SERVER}/health`, { headers: authHeaders(), signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       const d = await res.json();
       pill.textContent = `● Server online`;
@@ -1100,7 +1103,7 @@ async function quickPreview(voiceId) {
     if (currentEngine === "piper") {
       res = await fetch(`${SERVER}/tts-preview-piper`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           voice: voiceId,
           text: `Hi, I'm ${v.name}. This is a preview of my voice.`,
@@ -1109,7 +1112,7 @@ async function quickPreview(voiceId) {
     } else {
       res = await fetch(`${SERVER}/tts-preview`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           voice: voiceId,
           text:  `Hi, I'm ${v.name}. ${v.style} voice, ready to narrate your content.`,
@@ -1146,7 +1149,7 @@ async function previewVoice() {
     if (currentEngine === "piper") {
       res = await fetch(`${SERVER}/tts-preview-piper`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           voice: selectedVoice.id,
           text: `This is ${selectedVoice.name}, speaking as a preview. How does this sound for your project?`,
@@ -1155,7 +1158,7 @@ async function previewVoice() {
     } else {
       res = await fetch(`${SERVER}/tts-preview`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           voice: selectedVoice.id,
           text:  `This is ${selectedVoice.name}, speaking at your selected rate and pitch. How does this sound for your project?`,
@@ -1201,7 +1204,7 @@ async function generate() {
   try {
     const res = await fetch(`${SERVER}/tts`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         text,
         voice: selectedVoice.id,
@@ -1247,7 +1250,7 @@ function startPolling(jobId) {
   if (pollIntervals[jobId]) return;
   pollIntervals[jobId] = setInterval(async () => {
     try {
-      const res  = await fetch(`${SERVER}/job/${jobId}`);
+      const res  = await fetch(`${SERVER}/job/${jobId}`, { headers: authHeaders() });
       const data = await res.json();
       const idx  = jobs.findIndex(j => j.id === jobId);
       if (idx !== -1) {
@@ -1274,12 +1277,12 @@ function startPolling(jobId) {
 }
 
 function downloadJob(jobId) {
-  window.open(`${SERVER}/download/${jobId}`);
+  window.open(`${SERVER}/download/${jobId}?key=${encodeURIComponent(API_KEY)}`);
 }
 
 async function deleteJob(jobId) {
   try {
-    await fetch(`${SERVER}/job/${jobId}`, { method: "DELETE" });
+    await fetch(`${SERVER}/job/${jobId}`, { method: "DELETE", headers: authHeaders() });
   } catch {}
   if (pollIntervals[jobId]) { clearInterval(pollIntervals[jobId]); delete pollIntervals[jobId]; }
   jobs = jobs.filter(j => j.id !== jobId);
