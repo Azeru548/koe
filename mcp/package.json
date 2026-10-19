@@ -1,8 +1,8 @@
 {
   "name": "koe-tts-mcp",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "MCP server that generates voiceovers through the Koe TTS Studio API",
+  "description": "MCP server that generates free, rate-limited voiceovers through the Koe TTS Studio API",
   "main": "index.js",
   "bin": {
     "koe-tts-mcp": "index.js"

@@ -712,6 +712,7 @@ input[type="range"]::-moz-range-thumb {
   <div class="topbar-pills">
     <span class="pill engine" id="enginePill">Microsoft Neural</span>
     <span class="pill" id="serverPill">Checking…</span>
+    <span class="pill" id="quotaPill" title="Free-tier usage">Free tier</span>
   </div>
 </div>
 
@@ -870,9 +871,86 @@ const PIPER_VOICES = [
 ];
 
 const SERVER = location.protocol === "file:" ? "http://localhost:3000" : "";
-const API_KEY = new URLSearchParams(location.search).get("key") || localStorage.getItem("ttsApiKey") || "";
+let API_KEY = new URLSearchParams(location.search).get("key") || localStorage.getItem("ttsApiKey") || "";
 if (API_KEY) localStorage.setItem("ttsApiKey", API_KEY);
+let keyPromise = null;
 function authHeaders() { return API_KEY ? { "x-api-key": API_KEY } : {}; }
+
+function fmtWait(sec) {
+  if (!Number.isFinite(sec) || sec <= 0) return "";
+  if (sec < 90) return `${Math.ceil(sec)}s`;
+  if (sec < 3600) return `${Math.ceil(sec / 60)}m`;
+  return `${Math.ceil(sec / 3600)}h`;
+}
+
+// Every browser gets its own free tenant key (no payment, per-user limits).
+async function ensureApiKey() {
+  if (API_KEY) return API_KEY;
+  if (keyPromise) return keyPromise;
+  keyPromise = (async () => {
+    try {
+      const res = await fetch(`${SERVER}/api/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!res.ok) return "";
+      const data = await res.json();
+      if (data && data.key) {
+        API_KEY = data.key;
+        localStorage.setItem("ttsApiKey", API_KEY);
+      }
+      return API_KEY;
+    } catch {
+      return "";
+    } finally {
+      keyPromise = null;
+    }
+  })();
+  return keyPromise;
+}
+
+async function apiFetch(path, options = {}) {
+  if (!API_KEY) await ensureApiKey();
+  const build = () => ({
+    ...options,
+    headers: { ...(options.headers || {}), ...authHeaders() },
+  });
+  let res = await fetch(`${SERVER}${path}`, build());
+  if (res.status === 401 && API_KEY) {
+    // Stale key (e.g. the operator rotated KOE_SECRET): mint a fresh one once.
+    localStorage.removeItem("ttsApiKey");
+    API_KEY = "";
+    await ensureApiKey();
+    res = await fetch(`${SERVER}${path}`, build());
+  }
+  return res;
+}
+
+async function refreshUsage() {
+  const pill = document.getElementById("quotaPill");
+  if (!pill) return;
+  try {
+    const res = await apiFetch("/usage");
+    if (!res.ok) return;
+    const d = await res.json();
+    if (d.unlimited) {
+      pill.textContent = "Unlimited";
+      pill.className = "pill online";
+      pill.title = "Admin key — no limits.";
+      return;
+    }
+    const hour = (d.usage && d.usage.hour) || {};
+    const day = (d.usage && d.usage.day) || {};
+    pill.textContent = `${hour.words || 0}/${hour.wordsLimit || "?"} words/h`;
+    const near = hour.wordsLimit && hour.words >= hour.wordsLimit * 0.8;
+    pill.className = near ? "pill offline" : "pill online";
+    pill.title =
+      `Free tier (${d.subject || "anon"}).\n` +
+      `Hour: ${hour.requests || 0}/${hour.requestsLimit} requests, ${hour.words || 0}/${hour.wordsLimit} words.\n` +
+      `Today: ${day.words || 0}/${day.wordsLimit} words.`;
+  } catch { /* leave the pill as-is */ }
+}
 const NUM_BARS = 32;
 let selectedVoice = null;
 let currentLang   = "all";
@@ -891,7 +969,9 @@ window.addEventListener("DOMContentLoaded", () => {
   renderVoices();
   checkServer();
   loadStoredJobs();
+  ensureApiKey().then(refreshUsage);
   setInterval(checkServer, 30000);
+  setInterval(refreshUsage, 60000);
   onEngineChange();
 });
 
@@ -1101,18 +1181,18 @@ async function quickPreview(voiceId) {
   try {
     let res;
     if (currentEngine === "piper") {
-      res = await fetch(`${SERVER}/tts-preview-piper`, {
+      res = await apiFetch("/tts-preview-piper", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           voice: voiceId,
           text: `Hi, I'm ${v.name}. This is a preview of my voice.`,
         })
       });
     } else {
-      res = await fetch(`${SERVER}/tts-preview`, {
+      res = await apiFetch("/tts-preview", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           voice: voiceId,
           text:  `Hi, I'm ${v.name}. ${v.style} voice, ready to narrate your content.`,
@@ -1121,16 +1201,20 @@ async function quickPreview(voiceId) {
         })
       });
     }
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const wait = data.retryAfterSeconds ? ` Retry in ${fmtWait(data.retryAfterSeconds)}.` : "";
+      throw new Error((data.error || `Preview failed (${res.status})`) + wait);
+    }
     setWaveStatus(`Playing — ${v.name}`);
     playBlob(await res.blob(), () => {
       animateWave(false);
       setWaveStatus("Waveform preview");
     });
-  } catch {
+  } catch (err) {
     animateWave(false);
-    setWaveStatus("Preview failed — is the server running?");
-    toast("Server unreachable. Start server.js first.", "error");
+    setWaveStatus("Preview failed");
+    toast(err.message || "Preview failed. Check the server.", "error");
   }
 }
 
@@ -1147,18 +1231,18 @@ async function previewVoice() {
   try {
     let res;
     if (currentEngine === "piper") {
-      res = await fetch(`${SERVER}/tts-preview-piper`, {
+      res = await apiFetch("/tts-preview-piper", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           voice: selectedVoice.id,
           text: `This is ${selectedVoice.name}, speaking as a preview. How does this sound for your project?`,
         })
       });
     } else {
-      res = await fetch(`${SERVER}/tts-preview`, {
+      res = await apiFetch("/tts-preview", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           voice: selectedVoice.id,
           text:  `This is ${selectedVoice.name}, speaking at your selected rate and pitch. How does this sound for your project?`,
@@ -1167,16 +1251,20 @@ async function previewVoice() {
         })
       });
     }
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const wait = data.retryAfterSeconds ? ` Retry in ${fmtWait(data.retryAfterSeconds)}.` : "";
+      throw new Error((data.error || `Preview failed (${res.status})`) + wait);
+    }
     setWaveStatus(`Playing — ${selectedVoice.name}`);
     playBlob(await res.blob(), () => {
       animateWave(false);
       setWaveStatus("Waveform preview");
     });
-  } catch {
+  } catch (err) {
     animateWave(false);
     setWaveStatus("Preview failed");
-    toast("Preview failed. Check the server.", "error");
+    toast(err.message || "Preview failed. Check the server.", "error");
   }
   document.getElementById("previewBtn").disabled = false;
 }
@@ -1202,9 +1290,9 @@ async function generate() {
   animateWave(true);
 
   try {
-    const res = await fetch(`${SERVER}/tts`, {
+    const res = await apiFetch("/tts", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text,
         voice: selectedVoice.id,
@@ -1214,7 +1302,11 @@ async function generate() {
       })
     });
 
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const wait = data.retryAfterSeconds ? ` Retry in ${fmtWait(data.retryAfterSeconds)}.` : "";
+      throw new Error((data.error || `Request failed (${res.status})`) + wait);
+    }
     const { jobId, parts, wordCount } = await res.json();
 
     const words = text.trim().split(/\s+/).length;
@@ -1236,10 +1328,11 @@ async function generate() {
     setWaveStatus(`Job ${jobId.slice(-5)} queued — ${parts} part${parts !== 1 ? "s" : ""}`, `~${Math.ceil(words / 2.5 / 8)}s`);
     toast(`Job started — ${parts} part${parts !== 1 ? "s" : ""} queued`, "success");
     startPolling(jobId);
+    refreshUsage();
   } catch (err) {
     animateWave(false);
     setWaveStatus("Submit failed");
-    toast("Failed to start job. Is the server running?", "error");
+    toast(err.message || "Failed to start job. Is the server running?", "error");
     console.error(err);
   }
 
@@ -1250,7 +1343,21 @@ function startPolling(jobId) {
   if (pollIntervals[jobId]) return;
   pollIntervals[jobId] = setInterval(async () => {
     try {
-      const res  = await fetch(`${SERVER}/job/${jobId}`, { headers: authHeaders() });
+      const res  = await apiFetch(`/job/${jobId}`);
+      if (res.status === 404 || res.status === 403 || res.status === 401) {
+        clearInterval(pollIntervals[jobId]);
+        delete pollIntervals[jobId];
+        animateWave(false);
+        const idx = jobs.findIndex(j => j.id === jobId);
+        if (idx !== -1) {
+          jobs[idx] = { ...jobs[idx], status: "failed", error: "Job expired or is no longer available" };
+          saveStoredJobs();
+          renderJobs();
+        }
+        toast(res.status === 401 ? "Not authorized. Refresh the page to get a free key." : "Job expired — audio is ephemeral.", "error");
+        return;
+      }
+      if (!res.ok) return;
       const data = await res.json();
       const idx  = jobs.findIndex(j => j.id === jobId);
       if (idx !== -1) {
@@ -1262,12 +1369,13 @@ function startPolling(jobId) {
         clearInterval(pollIntervals[jobId]);
         delete pollIntervals[jobId];
         animateWave(false);
+        refreshUsage();
         if (data.status === "done") {
           setWaveStatus("Ready to download");
-          toast(`Done! ${jobs[idx]?.voice || "Audio"} is ready.`, "success");
+          toast(`Done! ${jobs[idx]?.voice || "Audio"} is ready (download soon — audio expires).`, "success");
         } else {
           setWaveStatus("Generation failed");
-          toast("Job failed. Check server logs.", "error");
+          toast(data.error || "Job failed. Check server logs.", "error");
         }
       }
     } catch {
@@ -1276,13 +1384,14 @@ function startPolling(jobId) {
   }, 2000);
 }
 
-function downloadJob(jobId) {
+async function downloadJob(jobId) {
+  if (!API_KEY) await ensureApiKey();
   window.open(`${SERVER}/download/${jobId}?key=${encodeURIComponent(API_KEY)}`);
 }
 
 async function deleteJob(jobId) {
   try {
-    await fetch(`${SERVER}/job/${jobId}`, { method: "DELETE", headers: authHeaders() });
+    await apiFetch(`/job/${jobId}`, { method: "DELETE" });
   } catch {}
   if (pollIntervals[jobId]) { clearInterval(pollIntervals[jobId]); delete pollIntervals[jobId]; }
   jobs = jobs.filter(j => j.id !== jobId);

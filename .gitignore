@@ -2,9 +2,14 @@
 node_modules/
 output/
 .freebuff/
+.koe-state.json
+.koe-state.json.tmp
+jobs.json
 preview-*.mp3
 preview-*.wav
 preview-piper-*.wav
+preview.mp3
+preview.wav
 output.mp3
 /*.zip
 

@@ -6,6 +6,7 @@ preview-*.wav
 preview-piper-*.wav
 output.mp3
 jobs.json
+.koe-state.json
 mcp
 .freebuff
 .git

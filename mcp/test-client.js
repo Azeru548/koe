@@ -2,7 +2,8 @@
 "use strict";
 
 // Smoke test for the koe-tts MCP server. Run it against a running studio:
-//   TTS_STUDIO_URL=http://localhost:3000 TTS_API_KEY=... node mcp/test-client.js
+//   TTS_STUDIO_URL=http://localhost:3000 node mcp/test-client.js
+// A free tenant key is auto-registered on first use (see KOE_CREDENTIALS_FILE).
 
 const path = require("path");
 const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
@@ -30,6 +31,7 @@ async function main() {
   };
 
   await call("studio_status", {});
+  await call("get_usage", {});
   await call("list_voices", { engine: "edge", lang: "en-GB" });
   const gen = await call("generate_voiceover", {
     text: "This clip was generated through the Koe TTS MCP server, end to end.",

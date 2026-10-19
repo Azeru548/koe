@@ -9,6 +9,32 @@ services:
     envVars:
       - key: TTS_BACKEND
         value: native
-      # Copy this value from the Render dashboard into mcp/.env as TTS_API_KEY
+
+      # Signs the stateless free tenant keys. Set once and keep it stable —
+      # rotating it invalidates every free key (clients re-register automatically).
+      - key: KOE_SECRET
+        generateValue: true
+
+      # Public product: anyone can mint a free key, but anonymous calls are
+      # rejected. The MCP server and studio UI register a key automatically.
+      - key: KOE_REQUIRE_KEY
+        value: "true"
+
+      # Global safety rail (edge-tts is a free, unofficial endpoint).
+      - key: KOE_GLOBAL_CONCURRENCY
+        value: "2"
+      - key: KOE_GLOBAL_QUEUE
+        value: "20"
+      - key: KOE_GLOBAL_WORDS_DAY
+        value: "30000"
+
+      # Ephemeral audio: zips are deleted after 15 minutes, job metadata after 1 hour.
+      - key: KOE_AUDIO_TTL_SEC
+        value: "900"
+      - key: KOE_JOB_TTL_SEC
+        value: "3600"
+
+      # Admin key: unlimited, sees every tenant's jobs. Copy it from the Render
+      # dashboard if you want to use the studio as the operator.
       - key: API_KEY
         generateValue: true

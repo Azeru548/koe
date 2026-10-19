@@ -3,8 +3,9 @@ const cors = require("cors");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { exec, execFile, execSync } = require("child_process");
+const { execFile, execSync } = require("child_process");
 const archiver = require("archiver");
+const guard = require("./guard");
 const PIPER_IMAGE = "piper-tts";
 const PIPER_MODEL = "en_US-lessac-medium.onnx";
 const PIPER_ROOT = process.env.PIPER_ROOT || path.join(process.env.HOME || process.env.USERPROFILE || __dirname, "piper-docker");
@@ -43,14 +44,17 @@ const CAPABILITIES = TTS_BACKEND === "native"
   : { edge: true, piper: true };
 
 const app = express();
+app.disable("x-powered-by");
+app.set("trust proxy", 1); // behind Render's LB — req.ip must come from X-Forwarded-For
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+app.use((req, res, next) => { res.setHeader("X-Content-Type-Options", "nosniff"); next(); });
 
 // ─────────────────────────────────────────────
 //  AUTH (optional) — set API_KEY to require it
 // ─────────────────────────────────────────────
 
-const API_KEY = process.env.API_KEY || "";
+const API_KEY = process.env.API_KEY || ""; // optional ADMIN key: bypasses all limits, sees all jobs
 
 function keyMatches(candidate) {
   const a = Buffer.from(String(candidate));
@@ -58,13 +62,38 @@ function keyMatches(candidate) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Free public product: every request is one of
+//   admin  → matches API_KEY            (unlimited)
+//   tenant → a valid signed key         (per-key limits; free keys via POST /api/register)
+//   anon   → no key                     (smaller per-IP limits; powers the UI demo)
+const OPEN_PATHS = new Set(["/health", "/api/register", "/api/limits", "/"]);
+
 app.use((req, res, next) => {
-  if (!API_KEY || req.path === "/health") return next();
+  req.ctx = { ip: String(req.ip || (req.connection && req.connection.remoteAddress) || "unknown"), tid: null, admin: false };
+  if (OPEN_PATHS.has(req.path)) return next();
   const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   const provided = req.headers["x-api-key"] || bearer || req.query.key || "";
-  if (keyMatches(provided)) return next();
-  res.status(401).json({ error: "Unauthorized — send the key as x-api-key header, Authorization: Bearer, or ?key=" });
+  if (provided) {
+    if (API_KEY && keyMatches(provided)) { req.ctx.admin = true; return next(); }
+    const tid = guard.verifyKey(provided);
+    if (tid) { req.ctx.tid = tid; return next(); }
+    return res.status(401).json({
+      error: "Invalid API key — get a free one via POST /api/register",
+      hint: "Keys are signed with KOE_SECRET; if the operator rotated it, old keys stopped working.",
+    });
+  }
+  if (guard.cfg.requireKey && !OPEN_PATHS.has(req.path)) {
+    return res.status(401).json({ error: "API key required — get a free one via POST /api/register" });
+  }
+  next();
 });
+
+// Which limits apply to this caller (null = admin, unlimited)
+function callerSubject(req) {
+  if (req.ctx.admin) return null;
+  if (req.ctx.tid) return { id: `key:${req.ctx.tid}`, kind: "key" };
+  return { id: guard.anonSubject(req.ctx.ip), kind: "anon" };
+}
 
 // Serve the studio UI from the same origin (used on Render)
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
@@ -73,35 +102,175 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 //  STORAGE
 // ─────────────────────────────────────────────
 
-const OUTPUT_DIR = path.join(__dirname, "output");
-const JOBS_FILE  = path.join(__dirname, "jobs.json");
+const OUTPUT_DIR  = process.env.KOE_OUTPUT_DIR || path.join(__dirname, "output");
+const WORK_DIR    = path.join(OUTPUT_DIR, "work");
+const AUDIO_DIR   = path.join(OUTPUT_DIR, "audio");
+const PREVIEW_DIR = path.join(OUTPUT_DIR, "previews");
+const JOBS_FILE   = process.env.KOE_JOBS_FILE || path.join(OUTPUT_DIR, "jobs.json");
 
-if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-if (!fs.existsSync(JOBS_FILE))  fs.writeFileSync(JOBS_FILE, "[]");
+const LEGACY_JOB_ZIP_RE = /^\d{13}-[a-z0-9]{5}\.zip$/i;
+const PREVIEW_FILE_RE   = /^preview(?:-piper)?-\d+[-a-z0-9]*\.(?:mp3|wav)$/i;
+
+for (const dir of [OUTPUT_DIR, WORK_DIR, AUDIO_DIR, PREVIEW_DIR]) {
+  fs.mkdirSync(dir, { recursive: true });
+}
+if (!fs.existsSync(JOBS_FILE)) fs.writeFileSync(JOBS_FILE, "[]");
 
 // ─────────────────────────────────────────────
 //  JOB STORE HELPERS
 // ─────────────────────────────────────────────
 
+const activeJobs = new Set();
+const deletedJobs = new Set();
+
 function loadJobs() {
   try {
-    return JSON.parse(fs.readFileSync(JOBS_FILE, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(JOBS_FILE, "utf8"));
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
+function saveJobs(jobs) {
+  const tmp = `${JOBS_FILE}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(jobs, null, 2));
+  try {
+    fs.renameSync(tmp, JOBS_FILE);
+  } catch {
+    fs.copyFileSync(tmp, JOBS_FILE);
+    fs.rmSync(tmp, { force: true });
+  }
+}
+
 function saveJob(updatedJob) {
+  if (deletedJobs.has(updatedJob.id)) return; // deleted while it was still generating
   const jobs = loadJobs();
   const idx  = jobs.findIndex(j => j.id === updatedJob.id);
   if (idx !== -1) jobs[idx] = updatedJob;
   else jobs.push(updatedJob);
-  fs.writeFileSync(JOBS_FILE, JSON.stringify(jobs, null, 2));
+  saveJobs(jobs);
 }
 
 function getJob(id) {
   return loadJobs().find(j => j.id === id) || null;
 }
+
+function deleteJobArtifacts(jobId) {
+  fs.rmSync(path.join(AUDIO_DIR, `${jobId}.zip`), { force: true });
+  fs.rmSync(path.join(WORK_DIR, jobId), { recursive: true, force: true });
+}
+
+// Generated audio is ephemeral: clear every audio artifact at boot. Job
+// metadata may survive a restart, but never claims to be downloadable.
+function bootCleanup() {
+  for (const dir of [WORK_DIR, AUDIO_DIR, PREVIEW_DIR]) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  // Pre-ephemeral versions also left per-job folders inside output/.
+  try {
+    const reserved = new Set(["work", "audio", "previews", path.basename(JOBS_FILE)]);
+    for (const name of fs.readdirSync(OUTPUT_DIR)) {
+      if (reserved.has(name)) continue;
+      const full = path.join(OUTPUT_DIR, name);
+      const stat = fs.statSync(full);
+      if (stat.isDirectory()) fs.rmSync(full, { recursive: true, force: true });
+      else if (/\.zip$/i.test(name)) fs.rmSync(full, { force: true });
+    }
+  } catch { /* read-only or already clean */ }
+
+  // Pre-ephemeral versions wrote zips/previews next to server.js.
+  try {
+    for (const name of fs.readdirSync(__dirname)) {
+      if (LEGACY_JOB_ZIP_RE.test(name) || PREVIEW_FILE_RE.test(name)) {
+        fs.rmSync(path.join(__dirname, name), { force: true });
+      }
+    }
+  } catch { /* read-only or already clean */ }
+
+  const now = Date.now();
+  const kept = [];
+  for (const job of loadJobs()) {
+    const created = Date.parse(job.createdAt || 0);
+    if (!Number.isFinite(created) || now - created > guard.cfg.jobTtlSec * 1000) continue;
+    if (job.status === "done") {
+      job.file = null;
+      job.audioDeletedAt = new Date().toISOString();
+    } else if (job.status !== "failed") {
+      job.status = "failed";
+      job.error = "Server restarted before this job finished";
+    }
+    kept.push(job);
+  }
+  saveJobs(kept);
+}
+
+// Periodic TTL sweep: delete expired audio, prune old jobs, and remove
+// orphaned work dirs/zips/previews left behind by crashes.
+function sweep() {
+  const now = Date.now();
+  const jobs = loadJobs();
+  const kept = [];
+  const keptIds = new Set();
+  let changed = false;
+
+  for (const job of jobs) {
+    if (activeJobs.has(job.id)) {
+      kept.push(job);
+      keptIds.add(job.id);
+      continue;
+    }
+    const created = Date.parse(job.createdAt || 0);
+    if (!Number.isFinite(created) || now - created > guard.cfg.jobTtlSec * 1000) {
+      deleteJobArtifacts(job.id);
+      changed = true;
+      continue;
+    }
+
+    if (job.status === "done" && job.file && !activeJobs.has(job.id)) {
+      const doneAt = Date.parse(job.completedAt || job.createdAt || 0);
+      if (Number.isFinite(doneAt) && now - doneAt > guard.cfg.audioTtlSec * 1000) {
+        deleteJobArtifacts(job.id);
+        job.file = null;
+        job.audioDeletedAt = new Date().toISOString();
+        changed = true;
+      }
+    }
+
+    kept.push(job);
+    keptIds.add(job.id);
+  }
+
+  if (changed) saveJobs(kept);
+
+  try {
+    for (const name of fs.readdirSync(WORK_DIR)) {
+      if (!activeJobs.has(name) && !keptIds.has(name)) {
+        fs.rmSync(path.join(WORK_DIR, name), { recursive: true, force: true });
+      }
+    }
+  } catch { /* dir vanished */ }
+
+  try {
+    for (const name of fs.readdirSync(AUDIO_DIR)) {
+      const id = name.replace(/\.zip$/i, "");
+      if (!keptIds.has(id)) fs.rmSync(path.join(AUDIO_DIR, name), { force: true });
+    }
+  } catch { /* dir vanished */ }
+
+  try {
+    for (const name of fs.readdirSync(PREVIEW_DIR)) {
+      const file = path.join(PREVIEW_DIR, name);
+      const stat = fs.statSync(file);
+      if (now - stat.mtimeMs > guard.cfg.previewTtlSec * 1000) fs.rmSync(file, { force: true });
+    }
+  } catch { /* dir vanished */ }
+}
+
+bootCleanup();
+setInterval(sweep, guard.cfg.sweepIntervalSec * 1000).unref?.();
 
 // ─────────────────────────────────────────────
 //  TEXT SPLITTING
@@ -154,19 +323,19 @@ const MAX_BUFFER = 1024 * 1024 * 10;
 
 function runDockerEdgeTTS({ text, voice, rate, pitch, hostDir, containerDir, fileName }) {
   return new Promise((resolve, reject) => {
-    const safeText = text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const cmd = [
-      "docker run --rm",
-      `-v "${hostDir}:${containerDir}"`,
+    // execFile (not exec) — user-supplied text/voice never touch a shell.
+    const args = [
+      "run", "--rm",
+      "-v", `${hostDir}:${containerDir}`,
       "edge-tts",
-      `--voice ${voice}`,
-      `--rate "${formatRate(rate)}"`,
-      `--pitch "${formatPitch(pitch)}"`,
-      `--text "${safeText}"`,
-      `--write-media "${containerDir}/${fileName}"`,
-    ].join(" \\");
+      "--voice", voice,
+      "--rate", formatRate(rate),
+      "--pitch", formatPitch(pitch),
+      "--text", text,
+      "--write-media", `${containerDir}/${fileName}`,
+    ];
 
-    exec(cmd, { maxBuffer: MAX_BUFFER, timeout: EDGE_TIMEOUT_MS }, (err, stdout, stderr) => {
+    execFile("docker", args, { maxBuffer: MAX_BUFFER, timeout: EDGE_TIMEOUT_MS }, (err, stdout, stderr) => {
       if (err) {
         console.error(`[TTS ERROR docker] voice=${voice}\n${stderr}`);
         return reject(new Error(stderr || err.message));
@@ -201,28 +370,25 @@ function runNativeEdgeTTS({ text, voice, rate, pitch, outPath }) {
 
 function runDockerPiperTTS({ text, hostDir, containerDir, fileName }) {
   return new Promise((resolve, reject) => {
-    const safeText = text
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\$/g, "\\$");
-
-    const cmd = [
-      `echo "${safeText}" |`,
-      "docker run --rm -i",
-      `-v "${PIPER_MODELS_DIR}:/models"`,
-      `-v "${hostDir}:${containerDir}"`,
+    const args = [
+      "run", "--rm", "-i",
+      "-v", `${PIPER_MODELS_DIR}:/models`,
+      "-v", `${hostDir}:${containerDir}`,
       PIPER_IMAGE,
-      `--model /models/${PIPER_MODEL}`,
-      `--output_file ${containerDir}/${fileName}`,
-    ].join(" \\");
+      "--model", `/models/${PIPER_MODEL}`,
+      "--output_file", `${containerDir}/${fileName}`,
+    ];
 
-    exec(cmd, { maxBuffer: MAX_BUFFER, timeout: PIPER_TIMEOUT_MS }, (err, stdout, stderr) => {
+    const child = execFile("docker", args, { maxBuffer: MAX_BUFFER, timeout: PIPER_TIMEOUT_MS }, (err, stdout, stderr) => {
       if (err) {
         console.error("[PIPER ERROR docker]", stderr);
         return reject(new Error(stderr || err.message));
       }
       resolve();
     });
+
+    child.stdin.write(text);
+    child.stdin.end();
   });
 }
 
@@ -295,6 +461,28 @@ function createZip(sourceDir, destPath) {
 //  ROUTES
 // ─────────────────────────────────────────────
 
+// ── FREE PRODUCT ROUTES ──────────────────────────────────
+
+// POST /api/register — mint a free tenant key (capped per IP per day)
+app.post("/api/register", (req, res) => {
+  try {
+    const minted = guard.registerFromIp(req.ctx.ip);
+    res.json({ key: minted.key, tenant: minted.tid, limits: guard.publicLimits() });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message, retryAfterSeconds: err.retryAfterSec });
+  }
+});
+
+// GET /api/limits — public policy (no secrets)
+app.get("/api/limits", (req, res) => res.json(guard.publicLimits()));
+
+// GET /usage — this caller's usage vs limits
+app.get("/usage", (req, res) => {
+  const subject = callerSubject(req);
+  if (!subject) return res.json({ subject: "admin", unlimited: true });
+  res.json({ subject: subject.kind, usage: guard.usageSnapshot(subject.id, subject.kind) });
+});
+
 // POST /tts
 app.post("/tts", async (req, res) => {
   const {
@@ -303,14 +491,26 @@ app.post("/tts", async (req, res) => {
     rate = 1,
     pitch = 0,
     engine = "edge"
-  } = req.body;
+  } = req.body || {};
 
-  if (!text || !text.trim()) {
+  if (typeof text !== "string" || !text.trim()) {
     return res.status(400).json({ error: "No text provided" });
   }
 
   if (engine !== "edge" && engine !== "piper") {
     return res.status(400).json({ error: "Invalid engine — use 'edge' or 'piper'" });
+  }
+
+  const rateNum = Number(rate);
+  const pitchNum = Number(pitch);
+  if (!Number.isFinite(rateNum) || rateNum < 0.5 || rateNum > 2) {
+    return res.status(400).json({ error: "Invalid rate — use a number between 0.5 and 2." });
+  }
+  if (!Number.isInteger(pitchNum) || Math.abs(pitchNum) > 100) {
+    return res.status(400).json({ error: "Invalid pitch — use an integer between -100 and 100." });
+  }
+  if (!/^[A-Za-z0-9_.-]{1,100}$/.test(String(voice))) {
+    return res.status(400).json({ error: "Invalid voice id." });
   }
 
   if (!CAPABILITIES[engine]) {
@@ -319,34 +519,82 @@ app.post("/tts", async (req, res) => {
     });
   }
 
-  const jobId      = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const jobDir     = path.join(OUTPUT_DIR, jobId);
-  const zipPath    = path.join(__dirname, `${jobId}.zip`);
-  const parts      = splitText(text);
-  const wordCount  = text.trim().split(/\s+/).length;
+  const words = text.trim().split(/\s+/).length;
+  if (text.length > guard.cfg.maxCharsPerJob) {
+    return res.status(413).json({ error: `Script too long (${text.length} chars) — max ${guard.cfg.maxCharsPerJob} chars per job.`, maxChars: guard.cfg.maxCharsPerJob });
+  }
+  if (words > guard.cfg.maxWordsPerJob) {
+    return res.status(413).json({ error: `Script too long (${words} words) — max ${guard.cfg.maxWordsPerJob} words per job.`, maxWords: guard.cfg.maxWordsPerJob });
+  }
 
-  fs.mkdirSync(jobDir, { recursive: true });
+  // ── rate limiting / queueing (free multi-tenant guards) ──
+  const subject = callerSubject(req);
+
+  const circ = guard.checkCircuit();
+  if (circ.open) {
+    return res.status(503).json({ error: "Synthesis is cooling down after upstream errors", retryAfterSeconds: circ.retryAfterSec });
+  }
+  if (guard.queueFull()) {
+    return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
+  }
+  if (subject) {
+    const verdict = guard.charge({ subjectId: subject.id, kind: subject.kind, words });
+    if (!verdict.ok) {
+      return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds });
+    }
+  }
+  const slot = guard.tryAcquireSlot();
+  if (!slot) {
+    // Lost a race for the last queue place: return the charge.
+    if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
+    return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
+  }
+
+  const jobId      = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const jobDir     = path.join(WORK_DIR, jobId);
+  const zipPath    = path.join(AUDIO_DIR, `${jobId}.zip`);
+  const parts      = splitText(text);
+  const wordCount  = words;
 
   const job = {
     id:         jobId,
-    status:     "processing",
+    status:     "queued",
     voice,
     engine,
-    rate:       parseFloat(rate),
-    pitch:      parseInt(pitch, 10),
+    rate:       rateNum,
+    pitch:      pitchNum,
     parts:      parts.length,
     wordCount,
+    tenant:     subject ? subject.id : null,
+    words,
+    textChars:  text.length,
     createdAt:  new Date().toISOString(),
     completedAt: null,
+    audioExpiresAt: null,
+    audioDeletedAt: null,
     file:       null,
     error:      null,
   };
 
-  saveJob(job);
-  res.json({ jobId, parts: parts.length, wordCount });
+  try {
+    fs.mkdirSync(jobDir, { recursive: true });
+    saveJob(job);
+  } catch (err) {
+    guard.releaseSlot();
+    if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
+    deleteJobArtifacts(jobId);
+    console.error(`[JOB ${jobId}] could not be created:`, err.message);
+    return res.status(500).json({ error: "Could not create the job" });
+  }
 
+  // Schedule the work first so a failed response write can never orphan the slot.
   setImmediate(async () => {
+    activeJobs.add(jobId);
     try {
+      await slot;
+      job.status = `generating (0/${parts.length})`;
+      saveJob(job);
+
       for (let i = 0; i < parts.length; i++) {
         const base = `part_${String(i + 1).padStart(3, "0")}`;
 
@@ -355,8 +603,8 @@ app.post("/tts", async (req, res) => {
             engine: "edge",
             text: parts[i],
             voice,
-            rate,
-            pitch,
+            rate: rateNum,
+            pitch: pitchNum,
             hostDir: jobDir,
             containerDir: "/app/output",
             fileName: `${base}.mp3`,
@@ -379,46 +627,80 @@ app.post("/tts", async (req, res) => {
       await createZip(jobDir, zipPath);
       fs.rmSync(jobDir, { recursive: true, force: true });
 
-      job.status      = "done";
-      job.file        = `${jobId}.zip`;
-      job.completedAt = new Date().toISOString();
-      job.progress    = 100;
+      job.status         = "done";
+      job.file           = `${jobId}.zip`;
+      job.completedAt    = new Date().toISOString();
+      job.audioExpiresAt = new Date(Date.now() + guard.cfg.audioTtlSec * 1000).toISOString();
+      job.progress       = 100;
       saveJob(job);
+      guard.recordUpstreamSuccess();
 
     } catch (err) {
-      console.error(`[JOB ${jobId}] failed:`, err.message);
+      const message = String((err && err.message) || err).slice(0, 500);
+      console.error(`[JOB ${jobId}] failed:`, message);
       job.status = "failed";
-      job.error  = err.message;
+      job.error  = message;
       saveJob(job);
-      if (fs.existsSync(jobDir)) fs.rmSync(jobDir, { recursive: true, force: true });
+      if (subject) guard.refund({ subjectId: subject.id, words });
+      guard.recordUpstreamFailure(err);
+      deleteJobArtifacts(jobId);
+    } finally {
+      if (deletedJobs.delete(jobId)) deleteJobArtifacts(jobId);
+      guard.releaseSlot();
+      activeJobs.delete(jobId);
     }
   });
+
+  res.json({ jobId, parts: parts.length, wordCount });
 });
+
+
+// Tenant isolation: a job is visible only to its creator (or the admin key)
+function canAccessJob(req, job) {
+  if (req.ctx.admin) return true;
+  if (!job.tenant) return false; // legacy/anonymous-less jobs are never exposed
+  if (req.ctx.tid) return job.tenant === `key:${req.ctx.tid}`;
+  return job.tenant === guard.anonSubject(req.ctx.ip);
+}
+
+function publicJob(job) {
+  const { tenant, ...rest } = job;
+  if (rest.audioExpiresAt && !rest.audioDeletedAt) {
+    rest.expiresInSeconds = Math.max(0, Math.round((Date.parse(rest.audioExpiresAt) - Date.now()) / 1000));
+  }
+  return rest;
+}
 
 // GET /job/:id
 app.get("/job/:id", (req, res) => {
   const job = getJob(req.params.id);
   if (!job) return res.status(404).json({ error: "Job not found" });
-  res.json(job);
+  if (!canAccessJob(req, job)) return res.status(403).json({ error: "Forbidden — this job belongs to another tenant" });
+  res.setHeader("Cache-Control", "no-store");
+  res.json(publicJob(job));
 });
 
 // GET /jobs
 app.get("/jobs", (req, res) => {
-  const jobs = loadJobs().reverse();
-  res.json(jobs);
+  const jobs = loadJobs().reverse().filter(j => canAccessJob(req, j)).slice(0, 100);
+  res.setHeader("Cache-Control", "no-store");
+  res.json(jobs.map(publicJob));
 });
 
 // GET /download/:id
 app.get("/download/:id", (req, res) => {
   const job = getJob(req.params.id);
   if (!job) return res.status(404).json({ error: "Job not found" });
+  if (!canAccessJob(req, job)) return res.status(403).json({ error: "Forbidden — this job belongs to another tenant" });
   if (job.status !== "done") return res.status(409).json({ error: "Job not ready", status: job.status });
+  if (!job.file) return res.status(410).json({ error: "Audio expired — generated audio is ephemeral. Generate it again." });
 
-  const filePath = path.join(__dirname, `${req.params.id}.zip`);
+  const filePath = path.join(AUDIO_DIR, `${req.params.id}.zip`);
   if (!fs.existsSync(filePath)) {
-    return res.status(410).json({ error: "File no longer available" });
+    return res.status(410).json({ error: "Audio expired — generated audio is ephemeral. Generate it again." });
   }
 
+  res.setHeader("Cache-Control", "no-store");
   res.download(filePath, `tts-${req.params.id}.zip`);
 });
 
@@ -427,80 +709,157 @@ app.delete("/job/:id", (req, res) => {
   const jobs    = loadJobs();
   const job     = jobs.find(j => j.id === req.params.id);
   if (!job) return res.status(404).json({ error: "Not found" });
+  if (!canAccessJob(req, job)) return res.status(403).json({ error: "Forbidden — this job belongs to another tenant" });
 
-  const zipPath = path.join(__dirname, `${req.params.id}.zip`);
-  if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-
-  const updated = jobs.filter(j => j.id !== req.params.id);
-  fs.writeFileSync(JOBS_FILE, JSON.stringify(updated, null, 2));
+  if (activeJobs.has(req.params.id)) deletedJobs.add(req.params.id);
+  deleteJobArtifacts(req.params.id);
+  saveJobs(jobs.filter(j => j.id !== req.params.id));
 
   res.json({ deleted: req.params.id });
 });
 
+// ── shared preview handler (metered + ephemeral) ──────────
+
+function streamPreview(res, filePath, contentType, downloadName) {
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    fs.unlink(filePath, () => {});
+  };
+
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", `inline; filename="${downloadName}"`);
+  res.setHeader("Cache-Control", "no-store");
+
+  const stream = fs.createReadStream(filePath);
+  stream.on("error", () => {
+    cleanup();
+    if (!res.headersSent) res.status(500).json({ error: "Preview could not be read" });
+    else res.destroy();
+  });
+  stream.on("close", cleanup);
+  res.on("close", cleanup);
+  stream.pipe(res);
+}
+
+async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate = 1, pitch = 0 }) {
+  const { voice = defaultVoice, text = defaultText } = req.body || {};
+
+  if (!CAPABILITIES[engine]) {
+    return res.status(503).json({ error: `Engine '${engine}' is not available on this server (backend: ${TTS_BACKEND})` });
+  }
+  if (typeof text !== "string" || !text.trim()) {
+    return res.status(400).json({ error: "No text provided" });
+  }
+  if (text.length > guard.cfg.maxCharsPerPreview) {
+    return res.status(400).json({ error: `Preview text too long — max ${guard.cfg.maxCharsPerPreview} chars.` });
+  }
+
+  const rateNum = Number(rate);
+  const pitchNum = Number(pitch);
+  if (!Number.isFinite(rateNum) || rateNum < 0.5 || rateNum > 2) {
+    return res.status(400).json({ error: "Invalid rate — use a number between 0.5 and 2." });
+  }
+  if (!Number.isInteger(pitchNum) || Math.abs(pitchNum) > 100) {
+    return res.status(400).json({ error: "Invalid pitch — use an integer between -100 and 100." });
+  }
+  if (!/^[A-Za-z0-9_.-]{1,100}$/.test(String(voice))) {
+    return res.status(400).json({ error: "Invalid voice id." });
+  }
+
+  const circ = guard.checkCircuit();
+  if (circ.open) {
+    return res.status(503).json({ error: "Synthesis is cooling down after upstream errors", retryAfterSeconds: circ.retryAfterSec });
+  }
+
+  const words = text.trim().split(/\s+/).length;
+  const subject = callerSubject(req);
+  if (subject) {
+    const verdict = guard.charge({ subjectId: subject.id, kind: subject.kind, words });
+    if (!verdict.ok) {
+      return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds });
+    }
+  }
+
+  const slot = guard.tryAcquireSlot();
+  if (!slot) {
+    if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
+    return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
+  }
+
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    guard.releaseSlot();
+  };
+
+  const ext = engine === "piper" ? "wav" : "mp3";
+  const prefix = engine === "piper" ? "preview-piper" : "preview";
+  const fileName = `${prefix}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}.${ext}`;
+  const previewPath = path.join(PREVIEW_DIR, fileName);
+
+  try {
+    await slot;
+    try {
+      await runTTS({
+        engine,
+        text,
+        voice,
+        rate: rateNum,
+        pitch: pitchNum,
+        hostDir: PREVIEW_DIR,
+        containerDir: engine === "piper" ? "/output" : "/app/output",
+        fileName,
+      });
+    } finally {
+      release();
+    }
+
+    if (!fs.existsSync(previewPath)) {
+      if (subject) guard.refund({ subjectId: subject.id, words });
+      return res.status(500).json({ error: "Preview file not written" });
+    }
+
+    guard.recordUpstreamSuccess();
+    streamPreview(res, previewPath, ext === "wav" ? "audio/wav" : "audio/mpeg", `preview.${ext}`);
+  } catch (err) {
+    release();
+    if (subject) guard.refund({ subjectId: subject.id, words });
+    guard.recordUpstreamFailure(err);
+    console.error(`[PREVIEW ${engine}] failed:`, String(err.message || err).slice(0, 300));
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Preview generation failed", detail: String(err.message || err).slice(0, 300) });
+    }
+  }
+}
+
 // POST /tts-preview — Edge only, streams MP3 directly
 app.post("/tts-preview", (req, res) => {
-  const {
-    voice = "en-US-GuyNeural",
-    text  = "This is a preview of your selected voice.",
-    rate  = 1,
-    pitch = 0,
-  } = req.body;
-
-  const fileName     = `preview-${Date.now()}.mp3`;
-  const previewPath  = path.join(__dirname, fileName);
-
-  runTTS({ engine: "edge", text, voice, rate, pitch, hostDir: __dirname, containerDir: "/app", fileName })
-    .then(() => {
-      if (!fs.existsSync(previewPath)) {
-        return res.status(500).json({ error: "Preview file not written" });
-      }
-
-      res.setHeader("Content-Type", "audio/mpeg");
-      res.setHeader("Content-Disposition", "inline; filename=preview.mp3");
-
-      const stream = fs.createReadStream(previewPath);
-      stream.pipe(res);
-      stream.on("close", () => { fs.unlink(previewPath, () => {}); });
-      stream.on("error", () => { fs.unlink(previewPath, () => {}); });
-    })
-    .catch((err) => {
-      console.error("[PREVIEW ERROR]", err.message);
-      res.status(500).json({ error: "Preview generation failed", detail: err.message });
-    });
+  const { rate = 1, pitch = 0 } = req.body || {};
+  handlePreview({
+    engine: "edge",
+    req, res,
+    defaultVoice: "en-US-GuyNeural",
+    defaultText: "This is a preview of your selected voice.",
+    rate, pitch,
+  });
 });
 
 // POST /tts-preview-piper — Piper only, streams WAV directly
 app.post("/tts-preview-piper", (req, res) => {
-  const {
-    voice = "en_US-lessac-medium",
-    text  = "This is a preview of your selected Piper voice.",
-  } = req.body;
-
-  const fileName     = `preview-piper-${Date.now()}.wav`;
-  const previewPath  = path.join(__dirname, fileName);
-
-  runTTS({ engine: "piper", text, voice, hostDir: __dirname, containerDir: "/output", fileName })
-    .then(() => {
-      if (!fs.existsSync(previewPath)) {
-        return res.status(500).json({ error: "Preview file not written" });
-      }
-
-      res.setHeader("Content-Type", "audio/wav");
-      res.setHeader("Content-Disposition", "inline; filename=preview.wav");
-
-      const stream = fs.createReadStream(previewPath);
-      stream.pipe(res);
-      stream.on("close", () => { fs.unlink(previewPath, () => {}); });
-      stream.on("error", () => { fs.unlink(previewPath, () => {}); });
-    })
-    .catch((err) => {
-      console.error("[PIPER PREVIEW ERROR]", err.message);
-      res.status(500).json({ error: "Piper preview generation failed", detail: err.message });
-    });
+  handlePreview({
+    engine: "piper",
+    req, res,
+    defaultVoice: "en_US-lessac-medium",
+    defaultText: "This is a preview of your selected Piper voice.",
+  });
 });
 
 // GET /health
 app.get("/health", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   res.json({
     status:       "ok",
     uptime:       Math.round(process.uptime()),
@@ -508,17 +867,46 @@ app.get("/health", (req, res) => {
     time:         new Date().toISOString(),
     backend:      TTS_BACKEND,
     engines:      CAPABILITIES,
-    authRequired: Boolean(API_KEY),
+    authRequired: Boolean(API_KEY) || guard.cfg.requireKey,
+    adminKeyConfigured: Boolean(API_KEY),
+    keyRequired:  guard.cfg.requireKey,
+    freeKeys:     true,
+    queue:        guard.slotStats(),
+    ephemeral:    { audioTtlSeconds: guard.cfg.audioTtlSec, jobTtlSeconds: guard.cfg.jobTtlSec },
+    limits:       guard.publicLimits(),
   });
+});
+
+// JSON error handler (bad body, too large, unexpected failures)
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err && (err.type === "entity.too.large" || err.status === 413)) {
+    return res.status(413).json({ error: "Request body too large — max 10 MB." });
+  }
+  if (err && err.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Invalid JSON body" });
+  }
+  console.error("[SERVER ERROR]", String((err && err.message) || err).slice(0, 300));
+  res.status(500).json({ error: "Internal server error" });
 });
 
 // ─────────────────────────────────────────────
 //  START
 // ─────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const httpServer = app.listen(PORT, () => {
   console.log(`TTS Studio server running → http://localhost:${PORT}`);
   console.log(`Output dir: ${OUTPUT_DIR}`);
   console.log(`TTS backend: ${TTS_BACKEND}${TTS_BACKEND === "native" ? ` (edge: ${CAPABILITIES.edge}, piper: ${CAPABILITIES.piper})` : ""}`);
-  console.log(`API key: ${API_KEY ? "required" : "not set (open access)"}`);
+  console.log(`Admin API key: ${API_KEY ? "configured (unlimited)" : "not set"}`);
+  console.log(`Free tier: ${guard.cfg.requireKey ? "key required" : "anonymous allowed"} · audio TTL ${guard.cfg.audioTtlSec}s · queue ${guard.cfg.globalConcurrency}`);
 });
+
+function shutdown() {
+  guard.saveState();
+  httpServer.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 3000).unref();
+}
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+

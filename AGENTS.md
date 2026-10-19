@@ -2,17 +2,26 @@
 
 This repo is a self-hosted text-to-speech studio plus an **MCP server** (`mcp/`). If you are an AI agent, this file is your complete reference for generating voiceover audio on demand — no ElevenLabs, no paid APIs. Everything below was verified against the actual code.
 
+It is also a **free public product**: every MCP install auto-registers its own signed free key, quotas are enforced per tenant, and generated audio is **ephemeral** (deleted automatically).
+
 ```
-you (agent) ──MCP tools──> mcp/index.js ──HTTPS──> TTS Studio (localhost or Render) ──> edge-tts/piper ──> MP3/WAV
+you (agent) ──MCP tools──> mcp/index.js ──HTTPS──> TTS Studio ──> edge-tts/piper ──> MP3/WAV
+                                        │                │
+                                        │                └── audio deleted after ~15 min
+                                        └── auto free key in ~/.koe/credentials.json
                                         └── saves the audio file(s) to a local folder and returns the path(s)
 ```
 
 ## TL;DR
 
 1. Call `generate_voiceover` with the script text and (optionally) a voice id.
-2. It returns JSON whose `files` array holds a **local absolute path** to the finished MP3.
-3. Use that file (ffmpeg, Remotion, HyperFrames, an editor, ...) in your video project.
-4. If anything fails, call `studio_status` first — it tells you if the server is reachable, asleep, or missing an engine.
+2. The MCP auto-registers/reuses a free tenant key, so there is nothing to pay for or configure.
+3. It returns JSON whose `files` array holds a **local absolute path** to the finished MP3.
+4. Use that file (ffmpeg, Remotion, HyperFrames, an editor, ...) in your video project.
+5. If anything fails, call `studio_status` (and `get_usage` for quota) — it tells you if the server is reachable, asleep, rate-limited, or missing an engine.
+
+**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The whole instance shares **2 concurrent jobs, a 20-job queue, and 30,000 words/day**. One job may be at most **6,000 words / 40,000 characters**. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds`.
+
 
 ---
 
@@ -36,14 +45,27 @@ Pings the studio's `/health`. **Call this first whenever a generate call fails.*
   "backend": "native",
   "engines": { "edge": true, "piper": false },
   "authRequired": true,
-  "studioUrl": "https://your-service.onrender.com"
+  "adminKeyConfigured": false,
+  "keyRequired": true,
+  "freeKeys": true,
+  "queue": { "active": 0, "queued": 0, "concurrency": 2, "queueMax": 20 },
+  "ephemeral": { "audioTtlSeconds": 900, "jobTtlSeconds": 3600 },
+  "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 6000, "maxChars": 40000, "maxPreviewChars": 600 }, "global": { "concurrency": 2, "queueMax": 20, "wordsPerDay": 30000 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
+  "studioUrl": "https://your-service.onrender.com",
+  "client": {
+    "keyMode": "auto",
+    "credentialsFile": "C:/Users/You/.koe/credentials.json",
+    "usage": { "subject": "key", "usage": { "hour": { "requests": 1, "words": 42, "requestsLimit": 60, "wordsLimit": 2000, "resetsInSeconds": 2100 }, "day": { "requests": 1, "words": 42, "wordsLimit": 20000, "resetsInSeconds": 50000 } } }
+  }
 }
 ```
 
 Reading it:
 - `backend: "native"` = the server runs the `edge-tts`/`piper` CLIs directly (Render). `"docker"` = local Docker images.
 - `engines.edge` / `engines.piper` = which engines are actually usable. If `engines.piper` is `false`, requests with `engine: "piper"` will 503.
-- `authRequired: true` = the server demands an API key; if you get 401s, your `TTS_API_KEY` is wrong or missing.
+- `keyRequired: true` = the server requires a free key. The MCP registers one automatically; `client.keyMode` is `env` (explicit `TTS_API_KEY`), `stored`, `auto`, or `none`.
+- `queue` / `limits` = current queue depth and the public rate policy. `ephemeral` = how long audio and jobs live.
+- `client.usage` = this install's current window (same shape as the `get_usage` tool; `null` if no key yet).
 
 ### `list_voices`
 
@@ -71,7 +93,7 @@ The main tool. Submits a TTS job, polls it to completion, downloads the result, 
 | `pitch` | integer −100–100 | `0` | Pitch shift in Hz. |
 | `file_name` | string, optional | `voiceover-<jobId>` | Output name without folder; `.mp3`/`.wav` suffix optional (it is added for you). Folders/special chars are sanitized. |
 | `timeout_seconds` | integer 30–900 | `300` | How long to wait before giving up (the server keeps working). |
-| `cleanup` | boolean | `true` | Deletes the job + zip from the server after download. Set `false` to keep it downloadable via HTTP. |
+| `cleanup` | boolean | `true` | Deletes the job + zip from the server after download. Audio is deleted automatically after ~15 min even if you set `false`. |
 
 Success result:
 
@@ -84,13 +106,18 @@ Success result:
   "voice": "en-US-GuyNeural",
   "engine": "edge",
   "parts": 1,
-  "wordCount": 42
+  "wordCount": 42,
+  "expiresInSeconds": 894,
+  "note": "The studio audio is ephemeral; your local file is the permanent copy."
 }
 ```
 
 - `files` — absolute local paths. Usually one file. If merging failed (rare WAV-format mismatch), you get several `*.partNN.wav` files and a `note` explaining it.
 - `format` — `"mp3"` for edge, `"wav"` for piper.
+- `expiresInSeconds` — how long the studio keeps its server-side copy; the local file never expires.
 - Output location: `VOICEOVER_DIR` env var, else `./voiceovers` relative to the **agent's working directory**.
+
+**Rate limits/errors:** the MCP retries once automatically when the queue is full or the upstream is cooling down (`429`/`503` with a short `retryAfterSeconds`). A persistent `429` means the tenant's hourly/daily words or requests are exhausted — wait for the reset or check `get_usage`. A `413` means the script exceeds 6,000 words / 40,000 chars per job.
 
 Timing reality check: a short sentence takes ~2–5 s on a warm server. On the Render free plan the instance sleeps after ~15 min idle; the first call then takes up to ~60 s (the MCP's 120 s HTTP timeout covers this). A multi-thousand-word script can take minutes — raise `timeout_seconds`.
 
@@ -102,11 +129,28 @@ Check one job by id — use it after a `generate_voiceover` timeout (the error m
 | --- | --- | --- |
 | `job_id` | string, required | The `jobId` from a generate call. |
 
-Returns the raw job object (see §3 for the shape and status values).
+Returns the raw job object (see §3 for the shape and status values). Jobs are tenant-isolated and expire after `jobTtlSeconds` (default 1 hour) — a `404` means it is gone; regenerate.
 
 ### `list_recent_voiceovers`
 
-The 10 newest jobs on the server (newest first), before any cleanup: `{ id, status, voice, engine, wordCount, createdAt, error }` per job. Useful for answering "did my job land?" across sessions.
+Your 10 newest jobs (newest first): `{ id, status, voice, engine, wordCount, createdAt, completedAt, expiresInSeconds, error }` per job. Tenant isolation means you never see another user's jobs.
+
+### `get_usage`
+
+No parameters. Returns this install's free-tier window:
+
+```json
+{
+  "keyMode": "auto",
+  "subject": "key",
+  "usage": {
+    "hour": { "requests": 3, "words": 812, "requestsLimit": 60, "wordsLimit": 2000, "resetsInSeconds": 1830 },
+    "day":  { "requests": 3, "words": 812, "wordsLimit": 20000, "resetsInSeconds": 59000 }
+  }
+}
+```
+
+Use it before a very long batch, or after a `429`, to decide whether to wait.
 
 ---
 
@@ -129,14 +173,14 @@ generate_voiceover(
 
 **Recovering a timed-out job** (the generate call reported a timeout; the server may have finished anyway):
 
-1. `get_voiceover_status(job_id)` → when `status` is `"done"`, the zip is on the server (unless the server restarted — Render's disk is ephemeral).
-2. The MCP has no "download by id" tool, so fetch it over HTTP and unzip (the zip holds `part_001.mp3`, `part_002.mp3`, ... in order):
+1. `get_voiceover_status(job_id)` → when `status` is `"done"`, check `expiresInSeconds`; audio is ephemeral (default 15 min), and the server may also have restarted.
+2. The MCP has no "download by id" tool, so fetch it over HTTP and unzip (the zip holds `part_001.mp3`, `part_002.mp3`, ... in order). Use your key from `TTS_API_KEY` or from `~/.koe/credentials.json`:
 
 ```bash
 curl -H "x-api-key: $TTS_API_KEY" -o job.zip "$TTS_STUDIO_URL/download/<jobId>"
 ```
 
-3. If the job is `failed`, read its `error` field and fix the input (bad voice id, engine unavailable, ...). If the job vanished entirely (404/410), just call `generate_voiceover` again.
+3. If the job is `failed`, read its `error` field and fix the input (bad voice id, engine unavailable, ...). If the job vanished entirely (`404`) or the audio expired (`410`), just call `generate_voiceover` again. A `403` means the job belongs to a different tenant/key.
 
 **Piper (offline) voice:** `generate_voiceover(text: ..., engine: "piper")` — no rate/pitch, slower on a free instance, returns WAV. Only if `studio_status` shows `engines.piper: true`.
 
@@ -156,15 +200,22 @@ The server's job JSON (returned by `GET /job/:id`):
   "pitch": 0,
   "parts": 2,
   "wordCount": 812,
+  "words": 812,
+  "textChars": 4633,
   "createdAt": "2026-10-19T14:33:20.101Z",
   "completedAt": "2026-10-19T14:33:31.900Z",
+  "audioExpiresAt": "2026-10-19T14:48:31.900Z",
+  "audioDeletedAt": null,
+  "expiresInSeconds": 894,
   "file": "1792426000000-ab12c.zip",
   "error": null,
   "progress": 100
 }
 ```
 
-`status` walks through: `"processing"` → `"generating (i/n)"` while parts run → `"done"` or `"failed"` (then `error` holds the message). `progress` (0–100) appears once the first part finishes. Treat anything not `done`/`failed` as still running.
+`status` walks through: `"queued"` → `"generating (i/n)"` while parts run → `"done"` or `"failed"` (then `error` holds the message). `progress` (0–100) appears once the first part finishes. Treat anything not `done`/`failed` as still running.
+
+After the audio TTL, `file` becomes `null`, `audioDeletedAt` is set, and `GET /download/:id` returns `410`. The job object itself is pruned after `jobTtlSeconds` (default 1 hour). The job's `tenant` id is never exposed in API responses.
 
 ---
 
@@ -186,23 +237,26 @@ The server's job JSON (returned by `GET /job/:id`):
 
 ## 6. Direct HTTP API (no MCP required)
 
-Use this when you are not running through the MCP (scripts, curl, another runtime) or for the recovery flow in §2. All endpoints except `/health` require auth when the server has a key: header `x-api-key: <key>`, or `Authorization: Bearer <key>`, or `?key=<key>`.
+Use this when you are not running through the MCP (scripts, curl, another runtime) or for the recovery flow in §2. Public endpoints are `/health`, `/api/register`, `/api/limits`, and `/`. Everything else accepts a free tenant key via header `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`; when `KOE_REQUIRE_KEY=true`, a key is mandatory for those routes. The operator's `API_KEY` is an unlimited admin key.
 
-Base URL: local `http://localhost:3000`, or your Render URL.
+Base URL: local `http://localhost:3000`, or your hosted URL.
 
 | Endpoint | Method | Body / params | Returns |
 | --- | --- | --- | --- |
+| `/api/register` | POST | — (empty body) | `{ key, tenant, limits }` — a free tenant key; capped per IP/day |
+| `/api/limits` | GET | — | Public rate policy (no secrets) |
+| `/usage` | GET | — | This caller's usage vs limits (admin → `{ unlimited: true }`) |
 | `/tts` | POST | `{ text, voice?, rate?, pitch?, engine? }` (same semantics as the MCP tool) | `{ jobId, parts, wordCount }` — immediately; synthesis runs in the background |
-| `/job/:id` | GET | — | Job object (§3); 404 if unknown |
-| `/download/:id` | GET | — | ZIP of parts (`part_001.mp3`, ...); `409` if not done yet, `410` if the file is gone (server restart), `404` unknown |
-| `/jobs` | GET | — | All jobs, newest first |
-| `/job/:id` | DELETE | — | `{ deleted: "<id>" }`; removes job + zip |
-| `/tts-preview` | POST | `{ voice?, text?, rate?, pitch? }` | Streams a preview MP3 directly (`audio/mpeg`), edge only |
-| `/tts-preview-piper` | POST | `{ voice?, text? }` | Streams a preview WAV, piper only |
+| `/job/:id` | GET | — | Job object (§3); 404 if unknown/expired, 403 if another tenant's |
+| `/download/:id` | GET | — | ZIP of parts (`part_001.mp3`, ...); `409` if not done yet, `410` if audio expired, `404` unknown |
+| `/jobs` | GET | — | This tenant's 100 newest jobs |
+| `/job/:id` | DELETE | — | `{ deleted: "<id>" }`; removes job + audio |
+| `/tts-preview` | POST | `{ voice?, text?, rate?, pitch? }` (text ≤ 600 chars) | Streams a preview MP3 directly (`audio/mpeg`), edge only, metered |
+| `/tts-preview-piper` | POST | `{ voice?, text? }` | Streams a preview WAV, piper only, metered |
 | `/health` | GET | — | See §1 `studio_status`; never requires auth |
 | `/` | GET | — | The studio web UI |
 
-Status codes: `400` bad input (empty text, invalid engine), `401` missing/wrong key, `404` unknown job, `409` job not ready, `410` zip gone, `503` engine unavailable on this server (e.g. `piper` where `engines.piper` is false). Request body limit is 10 MB.
+Status codes: `400` bad input (empty text, invalid engine/voice/rate), `401` missing/wrong key, `403` another tenant's job, `404` unknown job, `409` job not ready, `410` audio expired, `413` script too long (6,000 words / 40,000 chars), `429` rate/queue limit (read `retryAfterSeconds`), `503` engine unavailable or upstream cool-down. Request body limit is 10 MB.
 
 ---
 
@@ -212,19 +266,30 @@ Status codes: `400` bad input (empty text, invalid engine), `401` missing/wrong 
 | --- | --- | --- |
 | First call takes ~60 s, then works | Render free instance was asleep | Nothing — the MCP already waits this out. Raise `timeout_seconds` for very long scripts. |
 | `Could not reach the TTS Studio at <url> (...)` | Server down, wrong URL, or instance asleep/deleted | Call `studio_status`. Verify `TTS_STUDIO_URL`. On Render, check the service is still deployed (free instances can be paused after 30 days inactive). |
-| `TTS Studio rejected the API key (401)` | `TTS_API_KEY` missing or not matching the server's `API_KEY` | Fix the key in your MCP config. |
+| `The TTS Studio rejected TTS_API_KEY (401)` | An explicit `TTS_API_KEY` is wrong, or `KOE_SECRET` was rotated | Remove `TTS_API_KEY` so the MCP auto-registers a fresh free key, or fix the key. Auto/stored keys re-register on their own. |
+| `429 — Hourly/Daily word limit reached ...` | This tenant's free quota is exhausted | Read `retryAfterSeconds`, call `get_usage`, wait for the window to reset. Requests are not refunded; failed jobs refund words. |
+| `429 — The synthesis queue is full` | The instance's 20-job queue is full | The MCP retries once if the wait is ≤45 s; otherwise retry shortly. |
+| `503 — Synthesis is cooling down after upstream errors` | Circuit breaker tripped by repeated edge-tts failures | Wait `retryAfterSeconds` (starts at 60 s, max 10 min) and retry. |
 | `503 — Engine 'piper' is not available` | The server has no piper installed | Use `engine: "edge"`. |
+| `413 — Script too long` | Over 6,000 words / 40,000 chars in one call | Split into multiple `generate_voiceover` calls (one per scene) and keep the same voice/rate. |
 | `Timed out after Ns waiting for job <id>` | Script too long / slow instance | The job continues server-side — recover it per §2, or re-run with a bigger `timeout_seconds`. |
+| `403 — this job belongs to another tenant` | You used a different key/IP than the one that created the job | Use the same key (or the admin key). Jobs are tenant-isolated. |
+| `410 — Audio expired` | The 15 min audio TTL elapsed (or the server restarted) | Regenerate. The MCP downloads immediately, so this only bites with `cleanup: false`. |
 | Occasional edge-tts network error / rate limit | Microsoft's free consumer endpoint throttling | Retry once or twice; it almost always clears. |
 | Several `*.partNN.mp3` files instead of one | Parts couldn't be merged (WAV format mismatch; MP3 always merges) | Use the parts in order — they concatenate cleanly in any editor. |
-| Job works locally, 410 on Render | Render's filesystem is ephemeral (redeploys/sleep wipe zips) | Re-generate. The MCP downloads immediately, so this only bites with `cleanup: false`. |
 
 ## 8. Limits & etiquette
 
+- **Per registered free key:** 60 requests/hour, 2,000 words/hour, 20,000 words/day.
+- **Anonymous (no key):** 20 requests/hour, 500 words/hour, 3,000 words/day.
+- **Per job:** 6,000 words / 40,000 characters. Previews: 600 characters.
+- **Per IP:** 3 free keys/day.
+- **Instance-wide:** 2 concurrent jobs, 20-job queue, 30,000 words/day.
+- **Retention:** audio 900 s, job metadata 1 hour, previews 10 min. Nothing is permanent.
 - edge synthesis timeouts: 5 min per part on the server; piper: 10 min.
 - The Render free plan is 0.1 CPU / 512 MB — serialize big jobs (one at a time); don't fan out parallel generations.
 - edge-tts is free but unofficial (Microsoft's consumer endpoint). It is fine for personal voiceovers; don't hammer it.
-- Keep `API_KEY` set on the deployed server — an open URL will get burned.
+- Keep `KOE_SECRET` stable and `API_KEY` private on the deployed server. The free tier is deliberately bounded so the instance cannot be burned.
 
 ---
 
@@ -239,8 +304,7 @@ Claude Desktop — `claude_desktop_config.json`:
       "command": "node",
       "args": ["C:/Users/User/koe/mcp/index.js"],
       "env": {
-        "TTS_STUDIO_URL": "https://your-service.onrender.com",
-        "TTS_API_KEY": "<API_KEY from the Render dashboard>"
+        "TTS_STUDIO_URL": "https://your-service.onrender.com"
       }
     }
   }
@@ -252,17 +316,22 @@ Claude Code:
 ```bash
 claude mcp add koe-tts \
   -e TTS_STUDIO_URL=https://your-service.onrender.com \
-  -e TTS_API_KEY=<API_KEY> \
   -- node C:/Users/User/koe/mcp/index.js
 ```
 
 Any other MCP client: same command + env shape. One-time `cd mcp && npm install` is required.
 
+**No API key is needed in the config.** On first use the MCP calls `POST /api/register`, saves the free tenant key in `~/.koe/credentials.json` (keyed by studio URL), and reuses it forever. Each install gets its own quota. Set `TTS_API_KEY` only to force a specific key (for example the operator's admin key); doing so disables auto-registration.
+
 | Env var | Default | Meaning |
 | --- | --- | --- |
-| `TTS_STUDIO_URL` | `http://localhost:3000` | Studio base URL (local or Render) |
-| `TTS_API_KEY` | *(none)* | API key, if the server requires one |
+| `TTS_STUDIO_URL` | `http://localhost:3000` | Studio base URL (local or hosted) |
+| `TTS_API_KEY` | *(none)* | Optional explicit key (admin or tenant); disables auto-registration |
 | `VOICEOVER_DIR` | `./voiceovers` (relative to agent cwd) | Where audio files are saved |
+| `KOE_CREDENTIALS_FILE` | `~/.koe/credentials.json` | Where auto-registered free keys are stored |
+| `KOE_DISABLE_AUTO_REGISTER` | *(unset)* | Set to `1` to never mint a free key |
+
+If the operator rotates `KOE_SECRET`, stored keys stop verifying; the MCP notices the `401`, clears the stale record, and registers a new free key automatically.
 
 Smoke-test without an agent: `cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js`
 
