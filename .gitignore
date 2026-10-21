@@ -17,3 +17,7 @@ output.mp3
 mcp/node_modules/
 mcp/.env
 voiceovers/
+
+# Local agent tooling (impeccable skills install ~21 MB of binaries per harness)
+.grok/
+.opencode/
