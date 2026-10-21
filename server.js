@@ -79,7 +79,10 @@ const wantsHtml = (req) => String(req.headers.accept || "").includes("text/html"
 app.use((req, res, next) => {
   req.ctx = { ip: String(req.ip || (req.connection && req.connection.remoteAddress) || "unknown"), tid: null, admin: false, rawKey: "" };
   if (OPEN_PATHS.has(req.path)) return next();
-  if (req.method === "GET" && req.path === "/mcp" && wantsHtml(req)) return next();
+  if (req.method === "GET" && req.path === "/mcp") return next();
+
+  // Public voice samples used by the /mcp setup page.
+  if (req.method === "GET" && req.path.startsWith("/mcp-sample-") && req.path.endsWith(".mp3")) return next();
 
   // Short-lived signed audio links (issued by the hosted MCP) skip the key.
   if (req.path.startsWith("/audio/")) {
@@ -491,6 +494,14 @@ app.post("/api/register", (req, res) => {
 
 // GET /api/limits — public policy (no secrets)
 app.get("/api/limits", (req, res) => res.json(guard.publicLimits()));
+
+// GET /mcp-sample-<voice>.mp3 — public preview clips for the setup page.
+app.get("/mcp-sample-:file", (req, res) => {
+  const match = /^(andrew|jenny|sonia)\.mp3$/.exec(String(req.params.file || ""));
+  if (!match) return res.status(404).json({ error: "Not found" });
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.sendFile(path.join(__dirname, `mcp-sample-${match[1]}.mp3`));
+});
 
 // GET /usage — this caller's usage vs limits
 app.get("/usage", (req, res) => {
@@ -972,7 +983,9 @@ function makeStudioClient(req) {
 app.get("/mcp", (req, res) => {
   if (!wantsHtml(req)) {
     res.setHeader("Allow", "POST");
-    return res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method Not Allowed — use POST for MCP" }, id: null });
+    return res.status(200).type("text/plain").send(
+      "Koe MCP endpoint. MCP clients use POST here. Open this URL in a browser for the setup page."
+    );
   }
   res.sendFile(path.join(__dirname, "mcp.html"));
 });

@@ -21,3 +21,6 @@ voiceovers/
 # Local agent tooling (impeccable skills install ~21 MB of binaries per harness)
 .grok/
 .opencode/
+
+# Impeccable run artifacts (critique snapshots)
+.impeccable/

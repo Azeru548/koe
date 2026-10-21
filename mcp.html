@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Koe MCP — free voiceovers for any agent</title>
-<meta name="description" content="Connect Claude, Cursor, or any MCP-compatible agent to Koe and generate free, rate-limited voiceovers. No install. No API bill.">
+<title>Koe MCP — a voice for any agent</title>
+<meta name="description" content="A hosted MCP server that turns text into a finished voiceover. 29 curated neural voices, no API bill, no account. Connect Claude, Cursor, or any MCP client.">
+<meta name="theme-color" content="#f0f2f8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230d1117'/%3E%3Cpath d='M6 10v4M10 7v10M14 9v6M18 11v2' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,9 +22,11 @@
   --ink-900: #0d1117;
   --ink-700: #2d3340;
   --ink-500: #5c6478;
+  --ink-450: #5f6779;
   --ink-300: #9ba3b8;
   --ink-100: #d4d9e8;
   --accent: #0d1117;
+  --voice: #a1541c;
   --success-ink: #166534;
   --success-bg: rgba(22,101,52,0.08);
   --success-border: rgba(22,101,52,0.22);
@@ -32,17 +36,20 @@
   --radius-md: 11px;
   --radius-lg: 16px;
   --shadow-sm: 0 2px 8px rgba(13,17,23,0.07), 0 1px 3px rgba(13,17,23,0.05);
-  --shadow-md: 0 4px 20px rgba(13,17,23,0.09), 0 2px 6px rgba(13,17,23,0.06);
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --shadow-md: 0 10px 34px rgba(13,17,23,0.10), 0 3px 10px rgba(13,17,23,0.06);
+  --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --display: 'Source Serif 4', Georgia, serif;
   --mono: 'DM Mono', 'Fira Mono', monospace;
 }
+
+html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font);
   background: var(--bg);
   background-image:
-    radial-gradient(ellipse 80% 55% at 12% 0%, rgba(13,17,23,0.05) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 88% 100%, rgba(56,189,248,0.07) 0%, transparent 55%);
+    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(161,84,28,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 92% 12%, rgba(56,189,248,0.06) 0%, transparent 55%);
   color: var(--ink-700);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -51,12 +58,19 @@ body {
 
 a { color: var(--ink-900); }
 code, pre { font-family: var(--mono); }
+code { overflow-wrap: anywhere; }
+
+:focus-visible {
+  outline: 2px solid var(--ink-900);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 .topbar {
   position: sticky; top: 0; z-index: 50;
-  height: 56px;
+  height: 58px;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 22px;
+  padding: 0 24px;
   background: var(--glass-strong);
   backdrop-filter: blur(18px) saturate(1.6);
   -webkit-backdrop-filter: blur(18px) saturate(1.6);
@@ -69,104 +83,301 @@ code, pre { font-family: var(--mono); }
 .nav a { color: var(--ink-500); text-decoration: none; }
 .nav a:hover { color: var(--ink-900); }
 .nav .gh { padding: 6px 12px; border: 1px solid var(--border-hi); border-radius: 999px; background: var(--glass); }
+.nav .gh:hover { background: #fff; }
 
-main { max-width: 1040px; margin: 0 auto; padding: 0 22px 90px; }
+main { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
 
-.hero { padding: 74px 0 46px; }
-.eyebrow { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500); background: var(--glass); border: 1px solid var(--border); border-radius: 999px; padding: 5px 11px; }
-.dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.14); }
-h1 { font-size: clamp(38px, 6vw, 60px); line-height: 1.03; letter-spacing: -0.045em; color: var(--ink-900); margin: 20px 0 18px; font-weight: 600; }
-h1 .muted { color: var(--ink-300); }
-.lede { font-size: 17px; color: var(--ink-500); max-width: 640px; }
+/* ── Hero ── */
+.hero {
+  display: grid;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 40px;
+  align-items: center;
+  padding: 72px 0 44px;
+}
+.hero-copy h1 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(44px, 6.6vw, 70px);
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  color: var(--ink-900);
+}
+.h1-line { display: block; }
+h1 em { font-style: normal; color: var(--voice); }
+.lede { font-size: 16.5px; line-height: 1.6; color: var(--ink-500); max-width: 600px; margin-top: 22px; }
 .lede b { color: var(--ink-700); font-weight: 500; }
+.upstream { font-size: 12.5px; color: var(--ink-450); margin-top: 14px; max-width: 600px; }
+.upstream a { color: var(--ink-700); text-decoration: underline; text-underline-offset: 2px; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
-.btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font); font-size: 13.5px; font-weight: 500; padding: 10px 18px; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; text-decoration: none; transition: transform .12s, box-shadow .2s, background .2s; }
+.trust { font-size: 12px; color: var(--ink-450); letter-spacing: 0.01em; margin-top: 18px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 500;
+  padding: 11px 18px; border-radius: var(--radius-sm);
+  border: 1px solid transparent; cursor: pointer; text-decoration: none;
+  transition: transform .12s, box-shadow .2s, background .2s;
+  background: transparent;
+}
 .btn:active { transform: translateY(1px); }
+.btn:disabled { cursor: not-allowed; opacity: .55; }
 .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 3px 14px rgba(13,17,23,0.2); }
-.btn-primary:hover { box-shadow: 0 5px 20px rgba(13,17,23,0.28); }
+.btn-primary:hover:not(:disabled) { box-shadow: 0 6px 22px rgba(13,17,23,0.28); }
 .btn-ghost { background: var(--glass); color: var(--ink-700); border-color: var(--border-hi); }
-.btn-ghost:hover { background: #fff; }
-.btn svg { width: 14px; height: 14px; }
+.btn-ghost:hover:not(:disabled) { background: #fff; }
 
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 10px 0 54px; }
-.step { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 17px; }
-.step .n { font-family: var(--mono); font-size: 11px; color: var(--ink-300); letter-spacing: 0.08em; }
-.step h3 { font-size: 14px; color: var(--ink-900); font-weight: 600; margin: 6px 0 4px; }
-.step p { font-size: 12.5px; color: var(--ink-500); }
+/* ── Sample card ── */
+.sample-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(155deg, #fff 0%, #fdf8f2 100%);
+  border: 1px solid rgba(161,84,28,0.16);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+}
+.sample-card::before {
+  content: "";
+  position: absolute; inset: -40% -30% auto auto;
+  width: 220px; height: 220px;
+  background: radial-gradient(circle, rgba(161,84,28,0.12), transparent 70%);
+  pointer-events: none;
+}
+.sample-top {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--voice);
+}
+.sample-badge { color: var(--ink-450); letter-spacing: 0.06em; }
+.sample-main { display: flex; align-items: center; gap: 16px; margin: 22px 0 18px; }
+.play-btn {
+  width: 56px; height: 56px; flex: 0 0 56px;
+  border-radius: 50%; border: none;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(13,17,23,0.28);
+  transition: transform .15s, box-shadow .2s;
+}
+.play-btn:hover { transform: scale(1.04); box-shadow: 0 8px 26px rgba(13,17,23,0.34); }
+.play-btn svg { width: 22px; height: 22px; }
+.play-btn .icon-pause { display: none; }
+.sample-card.playing .play-btn .icon-play { display: none; }
+.sample-card.playing .play-btn .icon-pause { display: block; }
+.wave { display: flex; align-items: center; gap: 3px; height: 46px; flex: 1; overflow: hidden; }
+.wave span {
+  flex: 0 0 3px;
+  height: var(--h);
+  background: var(--voice);
+  opacity: 0.28;
+  border-radius: 999px;
+  transform-origin: center;
+  transition: opacity .2s;
+}
+.sample-card.playing .wave span {
+  opacity: 0.8;
+  animation: pulse 850ms ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -55ms);
+}
+@keyframes pulse { from { transform: scaleY(0.45); } to { transform: scaleY(1.08); } }
+.sample-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.voice-name { display: block; font-size: 15px; font-weight: 600; color: var(--ink-900); }
+.voice-style { display: block; font-size: 12px; color: var(--ink-450); margin-top: 1px; }
+.voice-switch { display: flex; gap: 4px; }
+.voice-btn {
+  font-family: var(--font); font-size: 12px; font-weight: 500;
+  color: var(--ink-500); background: transparent;
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 10px; cursor: pointer;
+}
+.voice-btn:hover { color: var(--ink-900); border-color: var(--border-hi); }
+.voice-btn.on { background: var(--ink-900); color: #fff; border-color: var(--ink-900); }
 
-section { margin-top: 44px; scroll-margin-top: 74px; }
-h2 { font-size: 24px; letter-spacing: -0.03em; color: var(--ink-900); font-weight: 600; }
-.sub { font-size: 14px; color: var(--ink-500); margin-top: 6px; max-width: 680px; }
-
+/* ── Sections ── */
+section { margin-top: 56px; scroll-margin-top: 78px; }
+h2 { font-size: 27px; letter-spacing: -0.03em; color: var(--ink-900); font-weight: 600; }
+.sub { font-size: 14px; color: var(--ink-500); margin-top: 7px; max-width: 760px; }
+.section-head { margin-bottom: 18px; }
 .card { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
 
-/* key panel */
-.keypanel { padding: 22px; margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; justify-content: space-between; }
-.keypanel .left { min-width: 260px; flex: 1; }
-.keypanel h3 { font-size: 15px; color: var(--ink-900); font-weight: 600; }
-.keypanel p { font-size: 12.5px; color: var(--ink-500); margin-top: 3px; }
+/* ── Key ── */
+.keypanel { padding: 20px 22px; display: flex; gap: 24px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.keypanel-main { flex: 1; min-width: 280px; }
 .keyline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.keybox { font-family: var(--mono); font-size: 12px; background: rgba(13,17,23,0.05); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 11px; color: var(--ink-700); min-width: 250px; overflow: auto; white-space: nowrap; }
-.keybox.empty { color: var(--ink-300); }
-.keymsg { font-size: 12px; margin-top: 8px; }
+.keybox {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.5;
+  background: rgba(13,17,23,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  color: var(--ink-700);
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.keybox.empty { color: var(--ink-450); }
+.keymsg { font-size: 12.5px; margin-top: 9px; min-height: 18px; }
 .keymsg.ok { color: var(--success-ink); }
 .keymsg.err { color: var(--danger-ink); }
+.quota { display: flex; gap: 24px; flex-wrap: wrap; }
+.quota-item { min-width: 120px; }
+.quota-num { display: block; font-family: var(--mono); font-size: 16px; color: var(--ink-900); }
+.quota-label { display: block; font-size: 12px; color: var(--ink-450); margin-top: 2px; }
+.existing-key { margin-top: 14px; }
+.existing-key summary { font-size: 12.5px; color: var(--ink-500); cursor: pointer; }
+.existing-key summary:hover { color: var(--ink-900); }
+.existing-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.existing-row input {
+  flex: 1; min-width: 220px;
+  font-family: var(--mono); font-size: 12.5px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--ink-900);
+}
+.note { font-size: 12px; color: var(--ink-450); margin-top: 8px; line-height: 1.55; }
+.noscript {
+  font-size: 12.5px; color: var(--danger-ink);
+  background: var(--danger-bg);
+  border: 1px solid rgba(153,27,27,0.18);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-top: 12px;
+}
 
-/* tabs */
-.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 0; }
-.tab { font-family: var(--font); font-size: 12.5px; font-weight: 500; color: var(--ink-500); background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 7px 13px; cursor: pointer; }
+/* ── Agent prompt ── */
+.prompt-card {
+  margin-top: 18px;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(253,248,242,0.92));
+  border-color: rgba(161,84,28,0.16);
+}
+.prompt-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.prompt-head h3 { font-size: 16px; color: var(--ink-900); font-weight: 600; }
+.prompt-head p { font-size: 13px; color: var(--ink-500); margin-top: 4px; }
+.agent-prompt {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.7;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  background: rgba(13,17,23,0.045);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 15px 16px;
+  margin-top: 14px;
+  color: var(--ink-700);
+}
+.prompt-note { font-size: 12px; color: var(--ink-450); margin-top: 8px; }
+
+/* ── Tabs ── */
+.manual-head { margin: 34px 0 0; padding-top: 26px; border-top: 1px solid var(--border); }
+.manual-head h3 { font-size: 16px; color: var(--ink-900); font-weight: 600; }
+.manual-head p { font-size: 13px; color: var(--ink-500); margin-top: 4px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 5px; margin: 14px 0 0; }
+.tab {
+  font-family: var(--font); font-size: 13px; font-weight: 500;
+  color: var(--ink-500); background: transparent;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  padding: 8px 12px; cursor: pointer;
+}
 .tab:hover { color: var(--ink-900); }
-.tab.active { background: var(--ink-900); color: #fff; }
+.tab.active { background: #fff; color: var(--ink-900); border-color: var(--border-hi); box-shadow: var(--shadow-sm); }
 .pane { display: none; padding: 20px 22px 22px; margin-top: 8px; }
 .pane.active { display: block; }
-.pane h4 { font-size: 13px; color: var(--ink-900); font-weight: 600; margin-bottom: 4px; }
-.pane p { font-size: 13px; color: var(--ink-500); margin-bottom: 12px; }
-.pane ol { margin: 0 0 12px 18px; font-size: 13px; color: var(--ink-700); }
-.pane ol li { margin-bottom: 5px; }
-.pane .note { font-size: 11.5px; color: var(--ink-500); margin-top: 10px; }
-.badge-beta { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-500); border: 1px solid var(--border-hi); border-radius: 999px; padding: 1px 6px; margin-left: 6px; }
+.pane h4 { font-size: 14px; color: var(--ink-900); font-weight: 600; margin-bottom: 5px; }
+.pane p { font-size: 13.5px; color: var(--ink-500); margin-bottom: 12px; }
+.pane ol { margin: 0 0 12px 18px; font-size: 13.5px; color: var(--ink-700); }
+.pane ol li { margin-bottom: 6px; }
+.pane .note { font-size: 12px; color: var(--ink-450); margin-top: 10px; }
+.badge-beta {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ink-500);
+  border: 1px solid var(--border-hi); border-radius: 999px;
+  padding: 1px 7px; margin-left: 6px; white-space: nowrap;
+}
 
-/* code */
+/* ── Code ── */
 .code { position: relative; background: #0d1117; border-radius: var(--radius-sm); overflow: hidden; margin: 4px 0 12px; }
-.code pre { margin: 0; padding: 14px 46px 14px 15px; overflow-x: auto; font-size: 12px; line-height: 1.65; color: #e6edf3; }
-.code .copy { position: absolute; top: 8px; right: 8px; font-family: var(--font); font-size: 11px; color: #9ba3b8; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; padding: 3px 8px; cursor: pointer; }
-.code .copy:hover { color: #fff; background: rgba(255,255,255,0.15); }
-.tok-origin { color: #7dd3fc; }
-.tok-key { color: #fca5a5; }
+.code pre { margin: 0; padding: 15px 50px 15px 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.7; color: #e6edf3; }
+.code .copy {
+  position: absolute; top: 9px; right: 9px;
+  font-family: var(--font); font-size: 12px;
+  color: #c9d1d9; background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 5px; padding: 4px 9px; cursor: pointer;
+}
+.code .copy:hover { color: #fff; background: rgba(255,255,255,0.16); }
+.copy.needs-key { opacity: .6; }
+.tok-origin { color: #0b5f8a; }
+.tok-key { color: #9a3412; }
+.code .tok-origin { color: #7dd3fc; }
+.code .tok-key { color: #fca5a5; }
 .tok-cmd { color: #c4b5fd; }
-.tok-c { color: #6b7280; }
+.tok-c { color: #8b949e; }
 
-/* tables */
+/* ── Tables ── */
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--glass); }
-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
-th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-500); font-weight: 500; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-500); font-weight: 500; }
 tr:last-child td { border-bottom: none; }
-td code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 5px; border-radius: 4px; color: var(--ink-900); }
+td code { font-size: 12.5px; background: rgba(13,17,23,0.05); padding: 1px 5px; border-radius: 4px; color: var(--ink-900); }
 
-/* prompts */
+/* ── Prompt grid ── */
 .promptgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
-.prompt { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 13px 15px; font-size: 13px; color: var(--ink-700); display: flex; gap: 10px; align-items: flex-start; }
-.prompt .arrow { color: var(--ink-300); font-family: var(--mono); flex-shrink: 0; }
+.prompt {
+  background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 14px 16px; font-size: 13.5px; color: var(--ink-700);
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.prompt .arrow { color: var(--ink-500); font-family: var(--mono); flex-shrink: 0; }
 
-/* FAQ */
+/* ── FAQ ── */
 .faq { margin-top: 14px; border-top: 1px solid var(--border); }
-details { border-bottom: 1px solid var(--border); padding: 13px 2px; }
-summary { cursor: pointer; font-size: 13.5px; font-weight: 500; color: var(--ink-900); list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+details { border-bottom: 1px solid var(--border); padding: 14px 2px; }
+summary { cursor: pointer; font-size: 14px; font-weight: 500; color: var(--ink-900); list-style: none; display: flex; justify-content: space-between; gap: 12px; }
 summary::-webkit-details-marker { display: none; }
-summary::after { content: "+"; color: var(--ink-300); font-family: var(--mono); }
+summary::after { content: "+"; color: var(--ink-500); font-family: var(--mono); }
 details[open] summary::after { content: "–"; }
-details p { font-size: 13px; color: var(--ink-500); margin-top: 8px; max-width: 780px; }
-details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 5px; border-radius: 4px; }
+details p { font-size: 13.5px; color: var(--ink-500); margin-top: 9px; max-width: 800px; }
+details code { font-size: 12.5px; background: rgba(13,17,23,0.05); padding: 1px 5px; border-radius: 4px; }
 
-.footer { max-width: 1040px; margin: 0 auto; padding: 26px 22px 50px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; font-size: 12px; color: var(--ink-500); }
+/* ── Footer ── */
+.footer {
+  max-width: 1080px; margin: 0 auto; padding: 28px 24px 54px;
+  border-top: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between;
+  font-size: 12px; color: var(--ink-450);
+}
 .footer a { color: var(--ink-500); text-decoration: none; }
 .footer a:hover { color: var(--ink-900); }
 
+@media (max-width: 900px) {
+  .hero { display: flex; flex-direction: column; gap: 22px; padding-top: 52px; }
+  .hero-copy { display: contents; }
+  .hero-copy h1 { order: 1; }
+  .lede { order: 2; margin-top: 0; }
+  .sample-card { order: 3; width: 100%; max-width: 560px; }
+  .upstream { order: 4; margin-top: 0; }
+  .cta-row { order: 5; margin-top: 0; }
+  .trust { order: 6; margin-top: 0; }
+}
 @media (max-width: 760px) {
-  .steps { grid-template-columns: 1fr; }
   .promptgrid { grid-template-columns: 1fr; }
-  .hero { padding-top: 50px; }
+  .keypanel { align-items: flex-start; }
+  .quota { gap: 16px; }
+}
+@media (max-width: 520px) {
+  .nav { gap: 10px; font-size: 12.5px; }
+  .nav .gh { padding: 5px 9px; }
+  .hero { padding-top: 42px; }
+  h2 { font-size: 24px; }
+  .pane { padding: 18px; }
+  .code pre { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .sample-card.playing .wave span { animation: none; }
 }
 </style>
 </head>
@@ -179,7 +390,7 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
     </span>
     Koe
   </a>
-  <nav class="nav">
+  <nav class="nav" aria-label="Primary">
     <a href="/">Studio</a>
     <a href="#setup">Quickstart</a>
     <a href="#faq">FAQ</a>
@@ -188,63 +399,129 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
 </header>
 
 <main>
-  <section class="hero" style="margin-top:0">
-    <span class="eyebrow"><span class="dot"></span> MCP server · free</span>
-    <h1>Give your agent<br><span class="muted">a voice.</span></h1>
-    <p class="lede">
-      Koe is a <b>hosted MCP server</b> that turns text into a finished voiceover —
-      Microsoft neural voices, 30+ languages, no API bill. Point Claude, Cursor, or
-      any MCP-compatible agent at one URL and it can narrate your video, read a
-      script, or voice a character. <b>No install. No key to buy.</b>
-    </p>
-    <div class="cta-row">
-      <button class="btn btn-primary" id="hero-key-btn">Get your free key
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </button>
-      <a class="btn btn-ghost" href="#setup">Quickstart</a>
-      <a class="btn btn-ghost" href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">Self-host it</a>
-    </div>
-  </section>
-
-  <div class="steps">
-    <div class="step"><div class="n">01</div><h3>Grab a free key</h3><p>One click. No account, no card. Each key gets its own hourly and daily quota.</p></div>
-    <div class="step"><div class="n">02</div><h3>Add the MCP server</h3><p>Paste the URL into your agent and send the key as a header — or hand the setup prompt to the agent.</p></div>
-    <div class="step"><div class="n">03</div><h3>Ask for a voiceover</h3><p>The agent calls <code>generate_voiceover</code> and gets a short-lived download link plus inline audio.</p></div>
-  </div>
-
-  <section id="key">
-    <h2>1 · Your free key</h2>
-    <p class="sub">Keys are signed, stateless, and free. The studio stores no account — regenerating just means minting a new key (3 per IP per day).</p>
-    <div class="card keypanel">
-      <div class="left">
-        <h3>Free-tier key</h3>
-        <p>Use it as <code>Authorization: Bearer …</code> or <code>x-api-key: …</code>. Keep it out of public repos.</p>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <h1 id="hero-title">Give your agent <span class="h1-line"><em>a voice.</em></span></h1>
+      <p class="lede">Koe is a <b>hosted MCP server</b> that turns text into a finished voiceover: 29 curated neural voices, no API bill. Point Claude, Cursor, or any MCP client at one URL and it can narrate your video, read a script, or voice a character.</p>
+      <p class="upstream">Runs on Microsoft's free consumer endpoint, so it is occasionally throttled and has no SLA. <a href="#faq">What that means</a>.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#setup">Connect your agent</a>
+        <a class="btn btn-ghost" href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">Self-host it</a>
       </div>
-      <div>
-        <div class="keyline">
-          <code class="keybox empty" id="keybox">No key yet — mint one</code>
-          <button class="btn btn-primary" id="mint-btn">Create key</button>
-          <button class="btn btn-ghost" id="copy-key-btn" title="Copy key">Copy</button>
+      <p class="trust">No account · No card · Audio deleted after 15 minutes</p>
+    </div>
+
+    <div class="sample-card" id="sample-card" aria-labelledby="sample-title">
+      <div class="sample-top">
+        <span id="sample-title">Hear it</span>
+        <span class="sample-badge">MP3 · ~8s</span>
+      </div>
+      <div class="sample-main">
+        <button class="play-btn" id="play-btn" type="button" aria-label="Play voice sample" aria-pressed="false">
+          <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72c0 .8.87 1.3 1.56.9l11-6.86a1.05 1.05 0 0 0 0-1.8l-11-6.86A1.05 1.05 0 0 0 8 5.14Z"/></svg>
+          <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+        <div class="wave" aria-hidden="true">
+          <span style="--h:18%;--i:0"></span><span style="--h:34%;--i:1"></span><span style="--h:52%;--i:2"></span><span style="--h:28%;--i:3"></span>
+          <span style="--h:64%;--i:4"></span><span style="--h:42%;--i:5"></span><span style="--h:22%;--i:6"></span><span style="--h:58%;--i:7"></span>
+          <span style="--h:36%;--i:8"></span><span style="--h:70%;--i:9"></span><span style="--h:48%;--i:10"></span><span style="--h:26%;--i:11"></span>
+          <span style="--h:60%;--i:12"></span><span style="--h:38%;--i:13"></span><span style="--h:54%;--i:14"></span><span style="--h:24%;--i:15"></span>
+          <span style="--h:66%;--i:16"></span><span style="--h:44%;--i:17"></span><span style="--h:30%;--i:18"></span><span style="--h:56%;--i:19"></span>
+          <span style="--h:20%;--i:20"></span><span style="--h:48%;--i:21"></span><span style="--h:34%;--i:22"></span><span style="--h:62%;--i:23"></span>
         </div>
-        <div class="keymsg" id="keymsg"></div>
       </div>
+      <div class="sample-foot">
+        <div>
+          <span class="voice-name" id="voice-name">Andrew</span>
+          <span class="voice-style" id="voice-style">Warm · en-US</span>
+        </div>
+        <div class="voice-switch" role="group" aria-label="Choose a sample voice">
+          <button class="voice-btn on" type="button" data-voice="andrew" data-name="Andrew" data-style="Warm · en-US" aria-pressed="true">Andrew</button>
+          <button class="voice-btn" type="button" data-voice="jenny" data-name="Jenny" data-style="Friendly · en-US" aria-pressed="false">Jenny</button>
+          <button class="voice-btn" type="button" data-voice="sonia" data-name="Sonia" data-style="Formal · en-GB" aria-pressed="false">Sonia</button>
+        </div>
+      </div>
+      <audio id="sample-audio" preload="metadata" src="/mcp-sample-andrew.mp3"></audio>
     </div>
   </section>
 
-  <section id="setup">
-    <h2>2 · Connect your agent</h2>
-    <p class="sub">Use the streamable-HTTP endpoint below. The snippets fill in this page's origin and your key automatically.</p>
+  <section id="key" aria-labelledby="key-title">
+    <div class="section-head">
+      <h2 id="key-title">Your free key</h2>
+      <p class="sub">Created automatically in this browser. It scopes your hourly and daily quota; there is no account and no card. The key is stored only in this browser's <code>localStorage</code>.</p>
+    </div>
+    <div class="card keypanel">
+      <div class="keypanel-main">
+        <div class="keyline">
+          <code class="keybox empty" id="keybox" aria-label="Your free key">Creating your key…</code>
+          <button class="btn btn-ghost" id="copy-key-btn" type="button" disabled>Copy key</button>
+          <button class="btn btn-primary" id="mint-btn" type="button" hidden>Create key</button>
+        </div>
+        <div class="keymsg" id="keymsg" role="status" aria-live="polite"></div>
+        <details class="existing-key" id="existing-key">
+          <summary id="existing-summary">Already have a key?</summary>
+          <div class="existing-row">
+            <input id="existing-key-input" type="text" placeholder="koe_sk_..." autocomplete="off" spellcheck="false" aria-label="Paste an existing free key">
+            <button class="btn btn-ghost" id="use-key-btn" type="button">Use key</button>
+          </div>
+          <p class="note">Paste a key from another browser, or the one the stdio MCP saved in <code>~/.koe/credentials.json</code>.</p>
+        </details>
+      </div>
+      <div class="quota" id="quota" hidden>
+        <div class="quota-item"><span class="quota-num" id="quota-req">—</span><span class="quota-label">requests left this hour</span></div>
+        <div class="quota-item"><span class="quota-num" id="quota-words">—</span><span class="quota-label">words left this hour</span></div>
+      </div>
+    </div>
+    <noscript><p class="noscript">JavaScript is off, so the key and snippets cannot fill in. Create a key with <code>curl -X POST /api/register</code>, then open this page in a browser with JavaScript enabled.</p></noscript>
+  </section>
 
-    <div class="tabs" role="tablist">
-      <button class="tab active" data-tab="claude">Claude (web &amp; desktop)</button>
-      <button class="tab" data-tab="claude-code">Claude Code</button>
-      <button class="tab" data-tab="cursor">Cursor</button>
-      <button class="tab" data-tab="other">Any MCP client</button>
-      <button class="tab" data-tab="stdio">Local / self-hosted</button>
+  <section id="setup" aria-labelledby="setup-title">
+    <div class="section-head">
+      <h2 id="setup-title">Connect your agent</h2>
+      <p class="sub">The fastest path is to let your agent configure itself. Pick a manual client below only if you prefer to wire it up yourself.</p>
+    </div>
+
+    <div class="card prompt-card">
+      <div class="prompt-head">
+        <div>
+          <h3>Let your agent set it up <span class="badge-beta">easiest</span></h3>
+          <p>Copy this whole block into Claude, Cursor, or any agent with MCP support.</p>
+        </div>
+        <button class="btn btn-primary copy" type="button" data-copy-target="agent-prompt-text">Copy setup prompt</button>
+      </div>
+      <pre class="agent-prompt" id="agent-prompt-text">You have a Koe TTS MCP server available.
+
+1. Add it as a remote MCP server (Streamable HTTP):
+   URL: <span class="tok-origin"></span>/mcp
+   Header: Authorization: Bearer <span class="tok-key"></span>
+   If you cannot add custom headers, tell me and show me the exact fields to fill in my client.
+
+2. Once connected, call the `studio_status` tool and show me the result.
+
+3. Call `list_voices` and choose a warm male English voice.
+
+4. Call `generate_voiceover` with:
+   "Welcome back to the channel. Today we're building something new."
+   rate 1.05
+   Then download the audio from the returned link and tell me where you saved it.</pre>
+      <p class="prompt-note">This prompt contains your key. Treat it like a password and don't paste it into a public repo.</p>
+    </div>
+
+    <div class="manual-head">
+      <h3>Or configure it by hand</h3>
+      <p>Pick your client. The snippets fill in this page's origin and your key automatically.</p>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Connection method">
+      <button class="tab active" id="tab-claude" type="button" role="tab" aria-selected="true" aria-controls="pane-claude" tabindex="0" data-tab="claude">Claude</button>
+      <button class="tab" id="tab-claude-code" type="button" role="tab" aria-selected="false" aria-controls="pane-claude-code" tabindex="-1" data-tab="claude-code">Claude Code</button>
+      <button class="tab" id="tab-cursor" type="button" role="tab" aria-selected="false" aria-controls="pane-cursor" tabindex="-1" data-tab="cursor">Cursor</button>
+      <button class="tab" id="tab-other" type="button" role="tab" aria-selected="false" aria-controls="pane-other" tabindex="-1" data-tab="other">Any client</button>
+      <button class="tab" id="tab-stdio" type="button" role="tab" aria-selected="false" aria-controls="pane-stdio" tabindex="-1" data-tab="stdio">Local</button>
     </div>
 
     <div class="card">
-      <div class="pane active" id="pane-claude">
+      <div class="pane active" id="pane-claude" role="tabpanel" aria-labelledby="tab-claude" tabindex="0">
         <h4>Add a custom connector <span class="badge-beta">headers are beta</span></h4>
         <ol>
           <li>In Claude, open <b>Settings → Connectors → Add custom connector</b>.</li>
@@ -252,26 +529,26 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
           <li>Choose <b>No sign-in</b> (Koe is free and has no accounts), then add a request header:<br><code>Authorization: Bearer <span class="tok-key"></span></code></li>
           <li>Save, then enable the connector in a chat and ask it to call <code>studio_status</code>.</li>
         </ol>
-        <p class="note">Custom-connector request headers are a Claude beta and may be org-scoped. If your plan doesn't show them, use Claude Code or Cursor below — both take the header today.</p>
+        <p class="note">Custom-connector request headers are a Claude beta and may be org-scoped. If your plan does not show them, use Claude Code or Cursor below, which take the header today.</p>
       </div>
 
-      <div class="pane" id="pane-claude-code">
+      <div class="pane" id="pane-claude-code" role="tabpanel" aria-labelledby="tab-claude-code" tabindex="0" hidden>
         <h4>One command</h4>
-        <div class="code"><button class="copy">Copy</button><pre><span class="tok-cmd">claude</span> mcp add --transport http koe-tts <span class="tok-origin"></span>/mcp \
+        <div class="code"><button class="copy" type="button" aria-label="Copy the Claude Code command">Copy</button><pre><span class="tok-cmd">claude</span> mcp add --transport http koe-tts <span class="tok-origin"></span>/mcp \
   --header <span class="tok-c">"Authorization: Bearer </span><span class="tok-key"></span><span class="tok-c">"</span></pre></div>
         <p>Then run <code>/mcp</code> to confirm <b>koe-tts</b> is connected, and ask: <i>"Call studio_status."</i></p>
-        <p class="note">Requires Claude Code 1.x with HTTP transport support.</p>
+        <p class="note">Requires Claude Code with HTTP transport support.</p>
       </div>
 
-      <div class="pane" id="pane-cursor">
+      <div class="pane" id="pane-cursor" role="tabpanel" aria-labelledby="tab-cursor" tabindex="0" hidden>
         <h4>Global or project config</h4>
         <p>Add this to <code>~/.cursor/mcp.json</code> (or <code>.cursor/mcp.json</code> in a project), then restart Cursor.</p>
-        <div class="code"><button class="copy">Copy</button><pre>{
+        <div class="code"><button class="copy" type="button" aria-label="Copy the Cursor configuration">Copy</button><pre>{
   <span class="tok-c">"mcpServers"</span>: {
     <span class="tok-c">"koe-tts"</span>: {
-      <span class="tok-c">"url"</span>: <span class="tok-origin-wrap">"<span class="tok-origin"></span>/mcp"</span>,
+      <span class="tok-c">"url"</span>: <span class="tok-c">"</span><span class="tok-origin"></span><span class="tok-c">/mcp"</span>,
       <span class="tok-c">"headers"</span>: {
-        <span class="tok-c">"Authorization"</span>: <span class="tok-key-wrap">"Bearer <span class="tok-key"></span>"</span>
+        <span class="tok-c">"Authorization"</span>: <span class="tok-c">"Bearer </span><span class="tok-key"></span><span class="tok-c">"</span>
       }
     }
   }
@@ -279,7 +556,7 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
         <p class="note">Cursor's MCP settings UI has the same fields if you prefer clicking.</p>
       </div>
 
-      <div class="pane" id="pane-other">
+      <div class="pane" id="pane-other" role="tabpanel" aria-labelledby="tab-other" tabindex="0" hidden>
         <h4>Streamable HTTP, stateless</h4>
         <p>Any MCP client that supports remote HTTP servers can connect:</p>
         <div class="table-wrap" style="margin-bottom:12px">
@@ -295,38 +572,21 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
         <p class="note">The endpoint is stateless: every request is independent, so it works behind load balancers and serverless hosts.</p>
       </div>
 
-      <div class="pane" id="pane-stdio">
+      <div class="pane" id="pane-stdio" role="tabpanel" aria-labelledby="tab-stdio" tabindex="0" hidden>
         <h4>Run the MCP server locally</h4>
-        <p>Prefer a local process? The repo ships the same tools over stdio. It talks to this studio and saves audio to your disk.</p>
-        <div class="code"><button class="copy">Copy</button><pre><span class="tok-cmd">cd</span> mcp &amp;&amp; <span class="tok-cmd">npm</span> install
+        <p>Prefer a local process, or need a file path in your project? The repo ships the same tools over stdio. It talks to this studio and saves audio to your disk.</p>
+        <div class="code"><button class="copy" type="button" aria-label="Copy the local setup commands">Copy</button><pre><span class="tok-cmd">cd</span> mcp &amp;&amp; <span class="tok-cmd">npm</span> install
 <span class="tok-cmd">TTS_STUDIO_URL</span>=<span class="tok-origin"></span> <span class="tok-cmd">node</span> index.js</pre></div>
-        <p class="note">Add it to <code>claude_desktop_config.json</code> with <code>command: "node"</code> and <code>args: ["/path/to/mcp/index.js"]</code>. It mints and stores its own free key in <code>~/.koe/credentials.json</code>. Full reference: <a href="https://github.com/Azeru548/koe/blob/main/AGENTS.md" target="_blank" rel="noopener">AGENTS.md</a>.</p>
+        <p class="note">Add it to <code>claude_desktop_config.json</code> with <code>command: "node"</code> and <code>args: ["/path/to/mcp/index.js"]</code>. On Windows PowerShell, set the URL with <code>$env:TTS_STUDIO_URL="..."</code> or put it in the config's <code>env</code>. It mints and stores its own free key in <code>~/.koe/credentials.json</code>. Full reference: <a href="https://github.com/Azeru548/koe/blob/main/AGENTS.md" target="_blank" rel="noopener">AGENTS.md</a>.</p>
       </div>
     </div>
   </section>
 
-  <section id="agent-prompt">
-    <h2>3 · Or let your agent set it up</h2>
-    <p class="sub">Copy this whole block, paste it into your agent, and it will configure the connection itself — you never have to touch a config file.</p>
-    <div class="code" style="margin-top:14px"><button class="copy">Copy</button><pre id="agent-prompt-text">You have a Koe TTS MCP server available.
-
-1. Add it as a remote MCP server (Streamable HTTP):
-   URL: <span class="tok-origin"></span>/mcp
-   Header: Authorization: Bearer <span class="tok-key"></span>
-   If you cannot add custom headers, tell me and show me the exact fields to fill in my client.
-
-2. Once connected, call the `studio_status` tool and show me the result.
-
-3. Call `list_voices` and choose a warm male English voice.
-
-4. Call `generate_voiceover` with:
-   "Welcome back to the channel. Today we're building something new."
-   rate 1.05
-   Then download the audio from the returned link and tell me where you saved it.</pre></div>
-  </section>
-
-  <section id="try">
-    <h2>Try these prompts</h2>
+  <section id="try" aria-labelledby="try-title">
+    <div class="section-head">
+      <h2 id="try-title">Try these prompts</h2>
+      <p class="sub">Paste one into your agent after it connects.</p>
+    </div>
     <div class="promptgrid">
       <div class="prompt"><span class="arrow">→</span><span>"Call <b>studio_status</b> and tell me how many words I have left this hour."</span></div>
       <div class="prompt"><span class="arrow">→</span><span>"List the <b>en-GB</b> voices and read me a 10-second sample in the most formal one."</span></div>
@@ -335,66 +595,82 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
     </div>
   </section>
 
-  <section id="tools">
-    <h2>Tools</h2>
-    <p class="sub">Six tools. Voice generation is metered per key; the rest are free.</p>
-    <div class="table-wrap" style="margin-top:14px">
+  <section id="tools" aria-labelledby="tools-title">
+    <div class="section-head">
+      <h2 id="tools-title">Tools</h2>
+      <p class="sub">Six tools. Voice generation is metered per key; the rest are free.</p>
+    </div>
+    <div class="table-wrap">
       <table>
         <tr><th>Tool</th><th>What it does</th></tr>
         <tr><td><code>studio_status</code></td><td>Health, available engines, queue depth, and your current quota.</td></tr>
         <tr><td><code>list_voices</code></td><td>Curated neural voices with language, gender, and style; optional language filter.</td></tr>
-        <tr><td><code>generate_voiceover</code></td><td>Text → audio. Returns a short-lived signed download URL and inline audio for short clips.</td></tr>
+        <tr><td><code>generate_voiceover</code></td><td>Text to audio. Returns a short-lived signed download URL and inline audio for short clips.</td></tr>
         <tr><td><code>get_voiceover_status</code></td><td>Poll a job by id when a long script is still generating.</td></tr>
         <tr><td><code>list_recent_voiceovers</code></td><td>Your 10 newest jobs (tenant-isolated).</td></tr>
-        <tr><td><code>get_usage</code></td><td>Requests/words used this hour and today, limits, and reset times.</td></tr>
+        <tr><td><code>get_usage</code></td><td>Requests and words used this hour and today, limits, and reset times.</td></tr>
       </table>
     </div>
   </section>
 
-  <section id="limits">
-    <h2>Free, with limits that keep it free</h2>
-    <p class="sub">Koe runs on a small shared instance and uses Microsoft's free neural endpoint. Limits are per key so one person can't exhaust it for everyone.</p>
-    <div class="table-wrap" style="margin-top:14px">
+  <section id="limits" aria-labelledby="limits-title">
+    <div class="section-head">
+      <h2 id="limits-title">Free by architecture</h2>
+      <p class="sub">No accounts, no card, no permanent storage. Per-key limits, a bounded queue, and ephemeral audio are how one small instance stays free for everyone.</p>
+    </div>
+    <div class="table-wrap">
       <table id="limits-table">
         <tr><th>Limit</th><th>Per key</th><th>Anonymous</th></tr>
         <tr><td>Requests</td><td id="lim-req">60 / hour</td><td id="lim-anon-req">20 / hour</td></tr>
         <tr><td>Words</td><td id="lim-words">2,000 / hour · 20,000 / day</td><td id="lim-anon-words">500 / hour · 3,000 / day</td></tr>
         <tr><td>Single job</td><td id="lim-job" colspan="2">6,000 words / 40,000 chars</td></tr>
-        <tr><td>Audio retention</td><td id="lim-ttl" colspan="2">~15 minutes — download during the session</td></tr>
+        <tr><td>Audio retention</td><td id="lim-ttl" colspan="2">~15 minutes, then deleted</td></tr>
+        <tr><td>Voices</td><td colspan="2">29 curated across 19 locales; any official Microsoft voice name also works</td></tr>
       </table>
     </div>
-    <p class="sub" style="margin-top:10px">Need more? Self-host the same repo with your own limits — the whole thing is open source.</p>
+    <p class="sub" style="margin-top:10px">Need more? Self-host the same repo with your own limits. The whole thing is open source.</p>
   </section>
 
-  <section id="faq">
-    <h2>Troubleshooting</h2>
+  <section id="faq" aria-labelledby="faq-title">
+    <div class="section-head">
+      <h2 id="faq-title">Troubleshooting</h2>
+      <p class="sub">The errors you are most likely to hit, in the order you are most likely to hit them.</p>
+    </div>
     <div class="faq">
       <details open>
-        <summary>The first call takes ~60 seconds, then works</summary>
-        <p>The free host sleeps after ~15 minutes idle. The MCP client waits it out; subsequent calls are fast. Keep the connection configured — no action needed.</p>
-      </details>
-      <details>
-        <summary>“401 — API key required” or “Invalid API key”</summary>
-        <p>Send the key as <code>Authorization: Bearer koe_sk_…</code> or <code>x-api-key: koe_sk_…</code>. If the operator rotated <code>KOE_SECRET</code>, old keys stop verifying — mint a new one above.</p>
+        <summary>401 — API key required or invalid</summary>
+        <p>Send the key as <code>Authorization: Bearer koe_sk_…</code> or <code>x-api-key: koe_sk_…</code>. If the operator rotated <code>KOE_SECRET</code>, old keys stop verifying; create a new one above, or paste an existing key under “Already have a key?”.</p>
       </details>
       <details>
         <summary>The connector is connected but tools never run</summary>
         <p>Enable the connector for the current chat, then ask explicitly: <i>“Call the studio_status tool from Koe TTS.”</i> Some clients require per-tool approval the first time.</p>
       </details>
       <details>
-        <summary>“429 — Hourly/Daily word limit reached”</summary>
-        <p>You've used your free window. The response includes <code>retryAfterSeconds</code>; <code>get_usage</code> shows when it resets. Failed jobs refund their words.</p>
+        <summary>429 — Hourly or daily word limit reached</summary>
+        <p>You have used your free window. The response includes <code>retryAfterSeconds</code>; <code>get_usage</code> shows when it resets. Failed jobs refund their words.</p>
       </details>
       <details>
-        <summary>“410 — Audio expired”</summary>
-        <p>Generated audio is ephemeral (about 15 minutes). The download link only works while the file exists — generate again, or keep the file your agent already saved.</p>
+        <summary>410 — Audio expired</summary>
+        <p>Generated audio is ephemeral (about 15 minutes). The download link only works while the file exists; generate again, or keep the file your agent already saved.</p>
       </details>
       <details>
-        <summary>“503 — Engine 'piper' is not available”</summary>
+        <summary>The first call takes about 60 seconds</summary>
+        <p>The free host sleeps after about 15 minutes idle. The MCP client waits it out; subsequent calls are fast. No action needed.</p>
+      </details>
+      <details>
+        <summary>503 — Engine “piper” is not available</summary>
         <p>The offline engine is optional. Use <code>engine: "edge"</code>, which is always available and higher quality.</p>
       </details>
       <details>
-        <summary>Do you support OAuth / one-click directory install?</summary>
+        <summary>Is edge-tts an official Microsoft API?</summary>
+        <p>No. Koe uses Microsoft's free consumer endpoint through the open-source <code>edge-tts</code> client. It is not affiliated with Microsoft, it can be throttled, and it has no SLA. For production guarantees, use a paid speech API or self-host Piper.</p>
+      </details>
+      <details>
+        <summary>Why did opening /mcp in a terminal return text?</summary>
+        <p><code>GET /mcp</code> is a browser setup page; MCP clients use <code>POST /mcp</code>. Opening the URL in a terminal returns a short text note instead of the page. That is expected.</p>
+      </details>
+      <details>
+        <summary>Do you support OAuth or one-click directory install?</summary>
         <p>Not yet. Koe has no accounts, so a free signed key is the identity. Static-header connectors (Claude beta, Cursor, Claude Code) work today; an OAuth consent flow is on the roadmap.</p>
       </details>
     </div>
@@ -403,7 +679,7 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
 
 <footer class="footer">
   <span>Koe TTS Studio · free and open source. Be kind to the upstream endpoint.</span>
-  <span><a href="/">Studio</a> · <a href="/health">Health</a> · <a href="/api/limits">Limits JSON</a></span>
+  <span><a href="/">Studio</a> · <a href="/health">Health</a> · <a href="/api/limits">Limits JSON</a> · <a href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">GitHub</a></span>
 </footer>
 
 <script>
@@ -412,62 +688,88 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
 
   const origin = location.origin;
   const KEY_STORE = "koe.mcp.key." + origin;
-  let key = "";
-
+  const TAB_STORE = "koe.mcp.tab";
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const fmt = (n) => Number(n).toLocaleString("en-US");
 
-  function renderKey() {
-    $$(".tok-key").forEach((el) => { el.textContent = key || "YOUR_FREE_KEY"; });
-    const box = $("#keybox");
-    if (box) {
-      box.textContent = key || "No key yet — mint one";
-      box.classList.toggle("empty", !key);
-    }
+  let key = "";
+  let minting = false;
+
+  function showMsg(text, kind) {
+    const el = $("#keymsg");
+    if (!el) return;
+    el.className = "keymsg" + (kind ? " " + kind : "");
+    el.textContent = text || "";
   }
 
-  $$(".tok-origin").forEach((el) => { el.textContent = origin; });
+  function setKeybox(text, empty) {
+    const box = $("#keybox");
+    if (!box) return;
+    box.textContent = text;
+    box.classList.toggle("empty", !!empty);
+  }
 
-  try { key = localStorage.getItem(KEY_STORE) || ""; } catch { /* storage blocked */ }
-  renderKey();
+  function renderKey() {
+    const has = !!key;
+    $$(".tok-key").forEach((el) => { el.textContent = has ? key : "YOUR_FREE_KEY"; });
+    if (has) setKeybox(key, false);
+    else setKeybox("No key yet", true);
 
-  // tabs
-  $$(".tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      $$(".tab").forEach((t) => t.classList.toggle("active", t === tab));
-      $$(".pane").forEach((p) => p.classList.toggle("active", p.id === "pane-" + tab.dataset.tab));
+    const copyKey = $("#copy-key-btn");
+    if (copyKey) copyKey.disabled = !has;
+
+    const mintBtn = $("#mint-btn");
+    if (mintBtn) mintBtn.hidden = has || minting;
+
+    const summary = $("#existing-summary");
+    if (summary) summary.textContent = has ? "Use a different key" : "Already have a key?";
+
+    $$(".code .copy, .copy[data-copy-target]").forEach((btn) => {
+      btn.classList.toggle("needs-key", !has);
+      btn.title = has ? "" : "Create a key first";
     });
-  });
+  }
 
-  // copy buttons
-  $$(".code .copy").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const pre = btn.parentElement.querySelector("pre");
-      const text = pre.innerText.replace(/YOUR_FREE_KEY/g, key || "YOUR_FREE_KEY");
-      try {
-        await navigator.clipboard.writeText(text);
-        const old = btn.textContent;
-        btn.textContent = "Copied";
-        setTimeout(() => { btn.textContent = old; }, 1400);
-      } catch {
-        // clipboard blocked — select the text instead
-        const range = document.createRange();
-        range.selectNodeContents(pre);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
-    });
-  });
+  function renderQuota(data) {
+    const hour = data && data.usage && data.usage.hour;
+    if (!hour) return;
+    const req = Math.max(0, Number(hour.requestsLimit) - Number(hour.requests));
+    const words = Math.max(0, Number(hour.wordsLimit) - Number(hour.words));
+    $("#quota-req").textContent = fmt(req) + " / " + fmt(hour.requestsLimit);
+    $("#quota-words").textContent = fmt(words) + " / " + fmt(hour.wordsLimit);
+    $("#quota").hidden = false;
+  }
 
-  // mint a key
-  async function mint() {
-    const msg = $("#keymsg");
-    const btns = [$("#mint-btn"), $("#hero-key-btn")].filter(Boolean);
-    btns.forEach((b) => { b.disabled = true; });
-    msg.className = "keymsg";
-    msg.textContent = "Minting…";
+  async function refreshQuota() {
+    if (!key) return;
+    try {
+      const res = await fetch("/usage", { headers: { "x-api-key": key }, cache: "no-store" });
+      if (res.status === 401) { invalidateKey(); return; }
+      if (!res.ok) return;
+      renderQuota(await res.json());
+    } catch { /* offline is fine */ }
+  }
+
+  function invalidateKey() {
+    key = "";
+    try { localStorage.removeItem(KEY_STORE); } catch { /* storage blocked */ }
+    const quota = $("#quota");
+    if (quota) quota.hidden = true;
+    renderKey();
+    if (!minting) mint({ auto: true });
+  }
+
+  async function mint(opts) {
+    const auto = !!(opts && opts.auto);
+    if (key || minting) return;
+    minting = true;
+
+    const mintBtn = $("#mint-btn");
+    if (mintBtn) mintBtn.hidden = true;
+    setKeybox("Creating your key…", true);
+    showMsg("", "");
+
     try {
       const res = await fetch("/api/register", {
         method: "POST",
@@ -475,50 +777,241 @@ details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 
         body: "{}",
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || ("registration failed (" + res.status + ")"));
+
+      if (res.status === 429) {
+        showMsg("This IP has already created 3 free keys today. If you have one, paste it under “Already have a key?” or try again tomorrow.", "err");
+        setKeybox("No key yet", true);
+        const details = $("#existing-key");
+        if (details) details.open = true;
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "Could not create a key (" + res.status + ")");
+
       key = data.key;
       try { localStorage.setItem(KEY_STORE, key); } catch { /* storage blocked */ }
       renderKey();
+
       const lim = data.limits && data.limits.key;
-      msg.className = "keymsg ok";
-      msg.textContent = lim
-        ? "Key created · " + fmt(lim.requestsPerHour) + " requests/h · " + fmt(lim.wordsPerHour) + " words/h · " + fmt(lim.wordsPerDay) + " words/day"
-        : "Key created.";
+      showMsg(lim
+        ? "Key ready · " + fmt(lim.requestsPerHour) + " requests/h · " + fmt(lim.wordsPerHour) + " words/h · " + fmt(lim.wordsPerDay) + " words/day"
+        : "Key ready.", "ok");
+      refreshQuota();
     } catch (err) {
-      msg.className = "keymsg err";
-      msg.textContent = err.message;
+      showMsg(auto
+        ? "Could not create a key automatically. Click Create key to try again."
+        : ((err && err.message) || "Could not create a key."), "err");
+      setKeybox("No key yet", true);
     } finally {
-      btns.forEach((b) => { b.disabled = false; });
+      minting = false;
+      const b = $("#mint-btn");
+      if (b && !key) b.hidden = false;
     }
   }
-  ["#mint-btn", "#hero-key-btn"].forEach((sel) => {
-    const el = $(sel);
-    if (el) el.addEventListener("click", () => {
-      if (sel === "#hero-key-btn") $("#key").scrollIntoView({ behavior: "smooth", block: "start" });
-      mint();
+
+  async function useExistingKey() {
+    const input = $("#existing-key-input");
+    if (!input) return;
+    const candidate = (input.value || "").trim();
+    if (!candidate) return;
+
+    showMsg("Checking key…", "");
+    try {
+      const res = await fetch("/usage", { headers: { "x-api-key": candidate }, cache: "no-store" });
+      if (res.status === 401) {
+        showMsg("That key was not accepted. Check for a missing character.", "err");
+        return;
+      }
+      if (!res.ok) {
+        showMsg("Could not verify that key right now. Try again in a moment.", "err");
+        return;
+      }
+      key = candidate;
+      try { localStorage.setItem(KEY_STORE, key); } catch { /* storage blocked */ }
+      input.value = "";
+      renderKey();
+      showMsg("Key saved.", "ok");
+      renderQuota(await res.json());
+    } catch {
+      showMsg("Could not verify that key right now. Try again in a moment.", "err");
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch { /* ignore */ }
+    document.body.removeChild(ta);
+  }
+
+  async function copyText(text, btn) {
+    if (!key) {
+      showMsg("Your key is still being created. One moment, or create one above.", "err");
+      const keySection = $("#key");
+      if (keySection) keySection.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      fallbackCopy(text);
+    }
+    const old = btn.textContent;
+    btn.textContent = "Copied";
+    setTimeout(() => { btn.textContent = old; }, 1400);
+  }
+
+  /* Tabs */
+  const tabs = $$(".tab");
+  const panes = $$(".pane");
+
+  function activateTab(tab, focus) {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+    });
+    panes.forEach((p) => {
+      const on = p.id === "pane-" + tab.dataset.tab;
+      p.classList.toggle("active", on);
+      if (on) p.removeAttribute("hidden");
+      else p.setAttribute("hidden", "");
+    });
+    try { sessionStorage.setItem(TAB_STORE, tab.dataset.tab); } catch { /* storage blocked */ }
+    if (focus) tab.focus();
+  }
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener("click", () => activateTab(tab, false));
+    tab.addEventListener("keydown", (e) => {
+      let next = null;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") next = tabs[(i + 1) % tabs.length];
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = tabs[(i - 1 + tabs.length) % tabs.length];
+      else if (e.key === "Home") next = tabs[0];
+      else if (e.key === "End") next = tabs[tabs.length - 1];
+      if (next) {
+        e.preventDefault();
+        activateTab(next, true);
+      }
     });
   });
 
-  $("#copy-key-btn").addEventListener("click", async () => {
-    if (!key) return;
-    try {
-      await navigator.clipboard.writeText(key);
-      $("#copy-key-btn").textContent = "Copied";
-      setTimeout(() => { $("#copy-key-btn").textContent = "Copy"; }, 1400);
-    } catch { /* ignore */ }
+  let savedTab = null;
+  try { savedTab = sessionStorage.getItem(TAB_STORE); } catch { /* storage blocked */ }
+  const initialTab = (savedTab && tabs.find((t) => t.dataset.tab === savedTab)) || tabs[0];
+  if (initialTab) activateTab(initialTab, false);
+
+  /* Voice sample */
+  const audio = $("#sample-audio");
+  const card = $("#sample-card");
+  const playBtn = $("#play-btn");
+
+  function setPlaying(on) {
+    card.classList.toggle("playing", on);
+    playBtn.setAttribute("aria-pressed", String(on));
+    playBtn.setAttribute("aria-label", on ? "Pause voice sample" : "Play voice sample");
+  }
+
+  if (playBtn && audio && card) {
+    playBtn.addEventListener("click", async () => {
+      if (audio.paused) {
+        try {
+          await audio.play();
+          setPlaying(true);
+        } catch {
+          setPlaying(false);
+        }
+      } else {
+        audio.pause();
+        setPlaying(false);
+      }
+    });
+    audio.addEventListener("pause", () => setPlaying(false));
+    audio.addEventListener("ended", () => setPlaying(false));
+
+    $$(".voice-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const wasPlaying = !audio.paused;
+        $$(".voice-btn").forEach((b) => {
+          const on = b === btn;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-pressed", String(on));
+        });
+        audio.src = "/mcp-sample-" + btn.dataset.voice + ".mp3";
+        audio.load();
+        $("#voice-name").textContent = btn.dataset.name;
+        $("#voice-style").textContent = btn.dataset.style;
+        if (wasPlaying) {
+          audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+        }
+      });
+    });
+  }
+
+  /* Init */
+  $$(".tok-origin").forEach((el) => { el.textContent = origin; });
+
+  try { key = localStorage.getItem(KEY_STORE) || ""; } catch { /* storage blocked */ }
+  renderKey();
+  if (key) refreshQuota();
+  else mint({ auto: true });
+
+  const mintBtn = $("#mint-btn");
+  if (mintBtn) mintBtn.addEventListener("click", () => mint());
+
+  const useKeyBtn = $("#use-key-btn");
+  if (useKeyBtn) useKeyBtn.addEventListener("click", useExistingKey);
+
+  const existingInput = $("#existing-key-input");
+  if (existingInput) {
+    existingInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        useExistingKey();
+      }
+    });
+  }
+
+  const copyKeyBtn = $("#copy-key-btn");
+  if (copyKeyBtn) {
+    copyKeyBtn.addEventListener("click", () => {
+      if (key) copyText(key, copyKeyBtn);
+    });
+  }
+
+  $$(".code .copy").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const pre = btn.parentElement.querySelector("pre");
+      if (pre) copyText(pre.innerText, btn);
+    });
   });
 
-  // live limits
-  fetch("/api/limits").then((r) => r.json()).then((l) => {
-    if (!l || !l.key) return;
-    $("#lim-req").textContent = fmt(l.key.requestsPerHour) + " / hour";
-    $("#lim-words").textContent = fmt(l.key.wordsPerHour) + " / hour · " + fmt(l.key.wordsPerDay) + " / day";
-    $("#lim-anon-req").textContent = fmt(l.anon.requestsPerHour) + " / hour";
-    $("#lim-anon-words").textContent = fmt(l.anon.wordsPerHour) + " / hour · " + fmt(l.anon.wordsPerDay) + " / day";
-    $("#lim-job").textContent = fmt(l.perJob.maxWords) + " words / " + fmt(l.perJob.maxChars) + " chars";
-    const mins = Math.round((l.audio && l.audio.ttlSeconds || 900) / 60);
-    $("#lim-ttl").textContent = "~" + mins + " minutes — download during the session";
-  }).catch(() => { /* static defaults are fine */ });
+  $$(".copy[data-copy-target]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = document.getElementById(btn.dataset.copyTarget);
+      if (target) copyText(target.innerText, btn);
+    });
+  });
+
+  /* Live limits */
+  fetch("/api/limits", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((l) => {
+      if (!l || !l.key || !l.anon) return;
+      $("#lim-req").textContent = fmt(l.key.requestsPerHour) + " / hour";
+      $("#lim-words").textContent = fmt(l.key.wordsPerHour) + " / hour · " + fmt(l.key.wordsPerDay) + " / day";
+      $("#lim-anon-req").textContent = fmt(l.anon.requestsPerHour) + " / hour";
+      $("#lim-anon-words").textContent = fmt(l.anon.wordsPerHour) + " / hour · " + fmt(l.anon.wordsPerDay) + " / day";
+      $("#lim-job").textContent = fmt(l.perJob.maxWords) + " words / " + fmt(l.perJob.maxChars) + " chars";
+      const mins = Math.round(((l.audio && l.audio.ttlSeconds) || 900) / 60);
+      $("#lim-ttl").textContent = "~" + mins + " minutes, then deleted";
+    })
+    .catch(() => { /* static defaults are fine */ });
 })();
 </script>
 </body>

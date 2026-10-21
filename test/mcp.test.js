@@ -104,7 +104,30 @@ test("GET /mcp serves the public setup page to browsers", async () => {
   const res = await fetch(`${base}/mcp`, { headers: { Accept: "text/html" } });
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type") || "", /text\/html/);
-  assert.match(await res.text(), /Koe MCP/);
+  const html = await res.text();
+  assert.match(html, /Koe MCP/);
+  assert.match(html, /mcp-sample-andrew\.mp3/);
+  assert.match(html, /<audio id="sample-audio"/);
+});
+
+test("GET /mcp without HTML Accept returns a text hint, not a 405", async () => {
+  const res = await fetch(`${base}/mcp`, { headers: { Accept: "application/json" } });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") || "", /text\/plain/);
+  assert.match(await res.text(), /MCP clients use POST/);
+});
+
+test("GET /mcp-sample-andrew.mp3 serves the public voice sample", async () => {
+  const res = await fetch(`${base}/mcp-sample-andrew.mp3`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") || "", /audio\/mpeg/);
+  const bytes = Buffer.from(await res.arrayBuffer());
+  assert.ok(bytes.length > 1000, `expected an mp3 body, got ${bytes.length} bytes`);
+});
+
+test("unknown /mcp-sample-*.mp3 names are rejected", async () => {
+  const res = await fetch(`${base}/mcp-sample-nope.mp3`);
+  assert.equal(res.status, 404);
 });
 
 test("POST /mcp requires a free key", async () => {

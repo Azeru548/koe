@@ -25,7 +25,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY server.js guard.js index.html mcp.html voices.js audio.js hosted-mcp.js ./
+COPY server.js guard.js index.html mcp.html voices.js audio.js hosted-mcp.js mcp-sample-*.mp3 ./
 
 ENV NODE_ENV=production
 ENV TTS_BACKEND=native
