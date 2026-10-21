@@ -162,6 +162,19 @@ function anonSubject(ip) {
   return `anon:${h}`;
 }
 
+// Short-lived, key-less links to a finished job's audio. The hosted MCP hands
+// these to agents so they can fetch the file without embedding an API key.
+// Signed with the same secret; still bounded by the job's audio TTL.
+function signDownload(jobId) {
+  return crypto.createHmac("sha256", `${SECRET}:koe.dl.v1`).update(String(jobId)).digest("base64url").slice(0, 32);
+}
+
+function verifyDownload(jobId, token) {
+  const a = Buffer.from(String(token || ""));
+  const b = Buffer.from(signDownload(jobId));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 // ── registration (per-IP cap) ───────────────────────────────
 
 function registerFromIp(ip, now = Date.now()) {
@@ -324,6 +337,8 @@ module.exports = {
   mintKey,
   verifyKey,
   anonSubject,
+  signDownload,
+  verifyDownload,
   registerFromIp,
   charge,
   refund,

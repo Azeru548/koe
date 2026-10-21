@@ -15,6 +15,18 @@ agent / browser ──free tenant key──> TTS Studio ──> edge-tts ──>
 - **Ephemeral audio** — generated zips are deleted after 15 minutes; job metadata after 1 hour; a restart wipes all audio. Nothing depends on permanent storage.
 - **Zero database** — keys are stateless HMACs; usage counters live in memory with a best-effort snapshot. `KOE_SECRET` is the only piece that must be stable.
 
+## Use it from any agent (hosted MCP)
+
+The studio is also a **hosted MCP server** at `https://<your-host>/mcp`. Agents connect by URL — no install, no local Node, no config file. The same URL serves a human setup page in a browser.
+
+1. Open `https://<your-host>/mcp` and click **Create key**.
+2. Point your client at `https://<your-host>/mcp` with `Authorization: Bearer <key>` (or `x-api-key: <key>`).
+3. Ask the agent to call `studio_status`, then `generate_voiceover`.
+
+Works with Claude custom connectors (static request header, currently beta), Claude Code (`--transport http`), Cursor, or any streamable-HTTP MCP client. The endpoint is **stateless** and returns JSON (no SSE required), which suits Render's load balancer and free plan.
+
+Because the audio lives on the server rather than the caller's disk, hosted `generate_voiceover` returns a **short-lived signed download URL** (`/audio/:id?dl=…`, no API key needed) plus inline audio for short clips. The local stdio server below is still available for developers and saves files directly.
+
 > **Building an agent?** [AGENTS.md](AGENTS.md) is the full agent-facing reference: exact MCP tool schemas, response shapes, recipes, error handling and the raw HTTP API.
 
 ---
@@ -71,6 +83,9 @@ Local usage: `npm install && node server.js` → <http://localhost:3000>. The UI
 | `GET /job/:id` | key / same tenant | Job status |
 | `GET /jobs` | key / same tenant | Up to 100 recent jobs for this tenant |
 | `GET /download/:id` | key / same tenant | ZIP of parts; `409` not ready, `410` expired |
+| `GET /audio/:id` | key / same tenant, or signed `?dl=` | Single merged MP3/WAV; `409` not ready, `410` expired |
+| `POST /mcp` | key | Hosted MCP server (streamable HTTP, stateless, JSON responses) |
+| `GET /mcp` | public (HTML) | Human setup page for the MCP server |
 | `DELETE /job/:id` | key / same tenant | Delete job + audio |
 | `POST /tts-preview` | key (metered) | Stream an edge voice MP3 |
 | `POST /tts-preview-piper` | key (metered) | Stream a Piper WAV |
@@ -106,9 +121,15 @@ Free-plan realities: 0.1 CPU / 512 MB, sleeps after ~15 min idle (first request 
 
 ---
 
-## MCP server (`mcp/`)
+## MCP server
 
-Lets any MCP-capable agent (Claude Desktop, Claude Code, etc.) generate voiceovers and get a **local file path** back.
+### Hosted (recommended)
+
+Already running at `POST /mcp` on your deployment — see [Use it from any agent](#use-it-from-any-agent-hosted-mcp) above. There is nothing to install and no environment variables to set; the caller's free key scopes every tool call. `GET /mcp` is the human setup page.
+
+### Local stdio (`mcp/`)
+
+Runs the same tools as a local process. It talks to a studio (local or hosted) and saves generated audio to a **local file path**, which is handy for video pipelines.
 
 ```bash
 cd mcp
@@ -149,7 +170,7 @@ No key is required in the config. On first use the MCP calls `POST /api/register
 | --- | --- |
 | `studio_status` | Pings `/health` and shows backend, engines, queue, limits, and your usage. Call first if something fails. |
 | `list_voices` | Voices by engine (`edge`/`piper`) and optional language filter (`en`, `fr`, …). |
-| `generate_voiceover` | Narrates `text`, polls the job, downloads and **merges parts into one MP3/WAV**, saves it locally, and returns the path. Retries briefly on queue-full/cool-down. |
+| `generate_voiceover` | Narrates `text`, polls the job, then either saves and **merges parts into one MP3/WAV** locally (stdio) or returns a **signed download URL + inline audio** (hosted). Retries briefly on queue-full/cool-down. |
 | `get_voiceover_status` | Job status by id (e.g. after a timeout). |
 | `list_recent_voiceovers` | Your last 10 jobs (tenant-isolated). |
 | `get_usage` | Requests/words this hour and today, limits, and reset times. |
@@ -202,9 +223,12 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `KOE_STATE_FILE` | `.koe-state.json` | Best-effort state snapshot |
 | `KOE_OUTPUT_DIR` | `./output` | Runtime audio/work/job directory |
 | `KOE_JOBS_FILE` | `output/jobs.json` | Job metadata file |
+| `KOE_PUBLIC_URL` | request origin | Absolute base used in hosted-MCP download links (set it if you run behind a proxy) |
+| `KOE_MCP_INLINE_AUDIO_MAX` | `3145728` | Max bytes of audio to inline in an MCP response; `0` returns only the link |
+| `KOE_MCP_POLL_MS` | `2000` | How often hosted `generate_voiceover` polls a job |
 
 ## Notes
 
 - edge-tts is free but unofficial (Microsoft's consumer endpoint); occasional throttling is expected. The circuit breaker pauses new work briefly instead of hammering it.
 - Very long scripts are split into ~3000-char parts by the studio; the MCP merges them back into a single file (MP3s concatenated, WAVs re-muxed properly).
-- Tests: `npm test` (guard limits, key auth, tenant isolation, validation).
+- Tests: `npm test` (22 tests: guard limits, key auth, tenant isolation, validation, ephemeral cleanup, hosted MCP handshake and signed audio links).

@@ -25,6 +25,30 @@ you (agent) ──MCP tools──> mcp/index.js ──HTTPS──> TTS Studio �
 
 ---
 
+## 0. Hosted endpoint — no install (recommended for end users)
+
+The studio serves the same tools over **Streamable HTTP** at `POST /mcp`, so an
+agent can connect by URL instead of running `mcp/index.js`:
+
+```
+POST https://your-service.onrender.com/mcp
+Authorization: Bearer koe_sk_...        (or: x-api-key: koe_sk_...)
+```
+
+- **Stateless**, JSON responses (no SSE), safe behind Render's load balancer.
+- `GET /mcp` with `Accept: text/html` is the human setup page (tabs for Claude,
+  Claude Code, Cursor, and a copy-paste "set this up for me" agent prompt).
+- The caller's free key is re-used for every tool call, so per-key limits and
+  tenant isolation apply exactly as in the HTTP API.
+- `generate_voiceover` returns a **short-lived signed `downloadUrl`**
+  (`GET /audio/:id?dl=...`, no key needed) plus inline base64 audio for short
+  clips — it cannot write to the caller's disk.
+- `POST /mcp` without a key returns `401` when `KOE_REQUIRE_KEY=true`.
+
+Use the stdio server below when the agent can save files locally.
+
+---
+
 ## 1. MCP tools
 
 Transport: stdio. Server name: `koe-tts-studio`. All tool results are `content: [{ type: "text", text: <JSON string> }]`. On failure the result carries `isError: true` and the text starts with `Error: `.

@@ -31,6 +31,8 @@ const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
 const { z } = require("zod");
 const AdmZip = require("adm-zip");
+const { EDGE_VOICES, PIPER_VOICES } = require("../voices");
+const { mergeAudioParts } = require("../audio");
 
 const BASE_URL = (process.env.TTS_STUDIO_URL || "http://localhost:3000").replace(/\/+$/, "");
 const OUT_DIR = process.env.VOICEOVER_DIR || path.join(process.cwd(), "voiceovers");
@@ -225,83 +227,10 @@ async function submitTts(body) {
   }
 }
 
-// Voices curated in the studio UI (index.html)
-const EDGE_VOICES = [
-  { id: "en-US-GuyNeural",       name: "Guy",       lang: "en-US", gender: "Male",   style: "News" },
-  { id: "en-US-JennyNeural",     name: "Jenny",     lang: "en-US", gender: "Female", style: "Friendly" },
-  { id: "en-US-AriaNeural",      name: "Aria",      lang: "en-US", gender: "Female", style: "Natural" },
-  { id: "en-US-DavisNeural",     name: "Davis",     lang: "en-US", gender: "Male",   style: "Chat" },
-  { id: "en-US-AndrewNeural",    name: "Andrew",    lang: "en-US", gender: "Male",   style: "Warm" },
-  { id: "en-US-EmmaNeural",      name: "Emma",      lang: "en-US", gender: "Female", style: "Conversational" },
-  { id: "en-GB-RyanNeural",      name: "Ryan",      lang: "en-GB", gender: "Male",   style: "Chat" },
-  { id: "en-GB-SoniaNeural",     name: "Sonia",     lang: "en-GB", gender: "Female", style: "Formal" },
-  { id: "en-GB-LibbyNeural",     name: "Libby",     lang: "en-GB", gender: "Female", style: "Conversational" },
-  { id: "en-AU-NatashaNeural",   name: "Natasha",   lang: "en-AU", gender: "Female", style: "Natural" },
-  { id: "en-AU-WilliamNeural",   name: "William",   lang: "en-AU", gender: "Male",   style: "Natural" },
-  { id: "en-CA-ClaraNeural",     name: "Clara",     lang: "en-CA", gender: "Female", style: "Natural" },
-  { id: "en-IN-NeerjaNeural",    name: "Neerja",    lang: "en-IN", gender: "Female", style: "Friendly" },
-  { id: "es-ES-ElviraNeural",    name: "Elvira",    lang: "es-ES", gender: "Female", style: "Warm" },
-  { id: "es-MX-DaliaNeural",     name: "Dalia",     lang: "es-MX", gender: "Female", style: "Friendly" },
-  { id: "es-US-PalomaNeural",    name: "Paloma",    lang: "es-US", gender: "Female", style: "Casual" },
-  { id: "fr-FR-DeniseNeural",    name: "Denise",    lang: "fr-FR", gender: "Female", style: "Elegant" },
-  { id: "fr-CA-SylvieNeural",    name: "Sylvie",    lang: "fr-CA", gender: "Female", style: "Friendly" },
-  { id: "de-DE-KatjaNeural",     name: "Katja",     lang: "de-DE", gender: "Female", style: "Professional" },
-  { id: "de-DE-ConradNeural",    name: "Conrad",    lang: "de-DE", gender: "Male",   style: "Professional" },
-  { id: "it-IT-ElsaNeural",      name: "Elsa",      lang: "it-IT", gender: "Female", style: "Warm" },
-  { id: "pt-BR-FranciscaNeural", name: "Francisca", lang: "pt-BR", gender: "Female", style: "Calm" },
-  { id: "pt-PT-RaquelNeural",    name: "Raquel",    lang: "pt-PT", gender: "Female", style: "Warm" },
-  { id: "zh-CN-XiaoxiaoNeural",  name: "Xiaoxiao",  lang: "zh-CN", gender: "Female", style: "Warm" },
-  { id: "zh-CN-YunxiNeural",     name: "Yunxi",     lang: "zh-CN", gender: "Male",   style: "Lively" },
-  { id: "ja-JP-NanamiNeural",    name: "Nanami",    lang: "ja-JP", gender: "Female", style: "Polite" },
-  { id: "ko-KR-SunHiNeural",     name: "Sun-Hi",    lang: "ko-KR", gender: "Female", style: "Bright" },
-  { id: "ar-SA-ZariyahNeural",   name: "Zariyah",   lang: "ar-SA", gender: "Female", style: "Natural" },
-  { id: "hi-IN-SwaraNeural",     name: "Swara",     lang: "hi-IN", gender: "Female", style: "Friendly" },
-];
-
-const PIPER_VOICES = [
-  { id: "en_US-lessac-medium", name: "Lessac", lang: "en-US", gender: "Male", style: "Natural" },
-];
+// Voices come from the shared catalog (../voices.js) so the hosted MCP and the
+// studio UI stay in sync.
 
 // ── Audio merging ────────────────────────────────────────────
-
-function parseWav(buf) {
-  if (buf.length < 44 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") {
-    throw new Error("not a RIFF/WAVE buffer");
-  }
-  let offset = 12;
-  let fmt = null;
-  let data = null;
-  while (offset + 8 <= buf.length) {
-    const id = buf.toString("ascii", offset, offset + 4);
-    const size = buf.readUInt32LE(offset + 4);
-    const body = offset + 8;
-    if (id === "fmt ") fmt = { size, raw: buf.subarray(body, body + size) };
-    if (id === "data") data = { size: Math.min(size, buf.length - body), start: body };
-    offset = body + size + (size % 2);
-  }
-  if (!fmt || !data) throw new Error("missing fmt/data chunk");
-  return { fmt, pcm: buf.subarray(data.start, data.start + data.size) };
-}
-
-function concatWav(buffers) {
-  const parsed = buffers.map(parseWav);
-  const first = parsed[0];
-  if (first.fmt.size !== 16) throw new Error("unexpected fmt chunk size");
-  for (const p of parsed.slice(1)) {
-    if (p.fmt.size !== first.fmt.size || !p.fmt.raw.equals(first.fmt.raw)) {
-      throw new Error("WAV parts have different formats");
-    }
-  }
-  const pcm = Buffer.concat(parsed.map((p) => p.pcm));
-  const header = Buffer.alloc(44);
-  header.write("RIFF", 0);
-  header.writeUInt32LE(36 + pcm.length, 4);
-  header.write("WAVE", 8);
-  first.fmt.raw.copy(header, 12);
-  header.write("data", 36);
-  header.writeUInt32LE(pcm.length, 40);
-  return Buffer.concat([header, pcm]);
-}
 
 function safeFileName(name) {
   return name.replace(/[\\/:*?"<>|]/g, "_").replace(/\.+$/, "").slice(0, 120) || "voiceover";
@@ -309,7 +238,7 @@ function safeFileName(name) {
 
 // ── MCP server ───────────────────────────────────────────────
 
-const server = new McpServer({ name: "koe-tts-studio", version: "1.2.0" });
+const server = new McpServer({ name: "koe-tts-studio", version: "1.3.0" });
 
 server.tool(
   "studio_status",
@@ -420,7 +349,7 @@ server.tool(
         savedPaths = [outPath];
       } else {
         try {
-          const merged = ext === "wav" ? concatWav(buffers) : Buffer.concat(buffers);
+          const merged = mergeAudioParts(buffers, ext);
           fs.writeFileSync(outPath, merged);
           savedPaths = [outPath];
         } catch (e) {

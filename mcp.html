@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Koe MCP — free voiceovers for any agent</title>
+<meta name="description" content="Connect Claude, Cursor, or any MCP-compatible agent to Koe and generate free, rate-limited voiceovers. No install. No API bill.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f0f2f8;
+  --glass: rgba(255,255,255,0.72);
+  --glass-strong: rgba(255,255,255,0.9);
+  --border: rgba(13,17,23,0.09);
+  --border-hi: rgba(13,17,23,0.16);
+  --ink-900: #0d1117;
+  --ink-700: #2d3340;
+  --ink-500: #5c6478;
+  --ink-300: #9ba3b8;
+  --ink-100: #d4d9e8;
+  --accent: #0d1117;
+  --success-ink: #166534;
+  --success-bg: rgba(22,101,52,0.08);
+  --success-border: rgba(22,101,52,0.22);
+  --danger-ink: #991b1b;
+  --danger-bg: rgba(153,27,27,0.07);
+  --radius-sm: 7px;
+  --radius-md: 11px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 2px 8px rgba(13,17,23,0.07), 0 1px 3px rgba(13,17,23,0.05);
+  --shadow-md: 0 4px 20px rgba(13,17,23,0.09), 0 2px 6px rgba(13,17,23,0.06);
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'DM Mono', 'Fira Mono', monospace;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 55% at 12% 0%, rgba(13,17,23,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 88% 100%, rgba(56,189,248,0.07) 0%, transparent 55%);
+  color: var(--ink-700);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+
+a { color: var(--ink-900); }
+code, pre { font-family: var(--mono); }
+
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px;
+  background: var(--glass-strong);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border-bottom: 1px solid var(--border);
+}
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; letter-spacing: -0.02em; color: var(--ink-900); text-decoration: none; }
+.logo-mark { width: 30px; height: 30px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(13,17,23,0.22); }
+.logo-mark svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; }
+.nav { display: flex; align-items: center; gap: 18px; font-size: 13px; }
+.nav a { color: var(--ink-500); text-decoration: none; }
+.nav a:hover { color: var(--ink-900); }
+.nav .gh { padding: 6px 12px; border: 1px solid var(--border-hi); border-radius: 999px; background: var(--glass); }
+
+main { max-width: 1040px; margin: 0 auto; padding: 0 22px 90px; }
+
+.hero { padding: 74px 0 46px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500); background: var(--glass); border: 1px solid var(--border); border-radius: 999px; padding: 5px 11px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.14); }
+h1 { font-size: clamp(38px, 6vw, 60px); line-height: 1.03; letter-spacing: -0.045em; color: var(--ink-900); margin: 20px 0 18px; font-weight: 600; }
+h1 .muted { color: var(--ink-300); }
+.lede { font-size: 17px; color: var(--ink-500); max-width: 640px; }
+.lede b { color: var(--ink-700); font-weight: 500; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font); font-size: 13.5px; font-weight: 500; padding: 10px 18px; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; text-decoration: none; transition: transform .12s, box-shadow .2s, background .2s; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 3px 14px rgba(13,17,23,0.2); }
+.btn-primary:hover { box-shadow: 0 5px 20px rgba(13,17,23,0.28); }
+.btn-ghost { background: var(--glass); color: var(--ink-700); border-color: var(--border-hi); }
+.btn-ghost:hover { background: #fff; }
+.btn svg { width: 14px; height: 14px; }
+
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 10px 0 54px; }
+.step { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 17px; }
+.step .n { font-family: var(--mono); font-size: 11px; color: var(--ink-300); letter-spacing: 0.08em; }
+.step h3 { font-size: 14px; color: var(--ink-900); font-weight: 600; margin: 6px 0 4px; }
+.step p { font-size: 12.5px; color: var(--ink-500); }
+
+section { margin-top: 44px; scroll-margin-top: 74px; }
+h2 { font-size: 24px; letter-spacing: -0.03em; color: var(--ink-900); font-weight: 600; }
+.sub { font-size: 14px; color: var(--ink-500); margin-top: 6px; max-width: 680px; }
+
+.card { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+
+/* key panel */
+.keypanel { padding: 22px; margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; justify-content: space-between; }
+.keypanel .left { min-width: 260px; flex: 1; }
+.keypanel h3 { font-size: 15px; color: var(--ink-900); font-weight: 600; }
+.keypanel p { font-size: 12.5px; color: var(--ink-500); margin-top: 3px; }
+.keyline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.keybox { font-family: var(--mono); font-size: 12px; background: rgba(13,17,23,0.05); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 11px; color: var(--ink-700); min-width: 250px; overflow: auto; white-space: nowrap; }
+.keybox.empty { color: var(--ink-300); }
+.keymsg { font-size: 12px; margin-top: 8px; }
+.keymsg.ok { color: var(--success-ink); }
+.keymsg.err { color: var(--danger-ink); }
+
+/* tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 0; }
+.tab { font-family: var(--font); font-size: 12.5px; font-weight: 500; color: var(--ink-500); background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 7px 13px; cursor: pointer; }
+.tab:hover { color: var(--ink-900); }
+.tab.active { background: var(--ink-900); color: #fff; }
+.pane { display: none; padding: 20px 22px 22px; margin-top: 8px; }
+.pane.active { display: block; }
+.pane h4 { font-size: 13px; color: var(--ink-900); font-weight: 600; margin-bottom: 4px; }
+.pane p { font-size: 13px; color: var(--ink-500); margin-bottom: 12px; }
+.pane ol { margin: 0 0 12px 18px; font-size: 13px; color: var(--ink-700); }
+.pane ol li { margin-bottom: 5px; }
+.pane .note { font-size: 11.5px; color: var(--ink-500); margin-top: 10px; }
+.badge-beta { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-500); border: 1px solid var(--border-hi); border-radius: 999px; padding: 1px 6px; margin-left: 6px; }
+
+/* code */
+.code { position: relative; background: #0d1117; border-radius: var(--radius-sm); overflow: hidden; margin: 4px 0 12px; }
+.code pre { margin: 0; padding: 14px 46px 14px 15px; overflow-x: auto; font-size: 12px; line-height: 1.65; color: #e6edf3; }
+.code .copy { position: absolute; top: 8px; right: 8px; font-family: var(--font); font-size: 11px; color: #9ba3b8; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; padding: 3px 8px; cursor: pointer; }
+.code .copy:hover { color: #fff; background: rgba(255,255,255,0.15); }
+.tok-origin { color: #7dd3fc; }
+.tok-key { color: #fca5a5; }
+.tok-cmd { color: #c4b5fd; }
+.tok-c { color: #6b7280; }
+
+/* tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--glass); }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-500); font-weight: 500; }
+tr:last-child td { border-bottom: none; }
+td code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 5px; border-radius: 4px; color: var(--ink-900); }
+
+/* prompts */
+.promptgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.prompt { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 13px 15px; font-size: 13px; color: var(--ink-700); display: flex; gap: 10px; align-items: flex-start; }
+.prompt .arrow { color: var(--ink-300); font-family: var(--mono); flex-shrink: 0; }
+
+/* FAQ */
+.faq { margin-top: 14px; border-top: 1px solid var(--border); }
+details { border-bottom: 1px solid var(--border); padding: 13px 2px; }
+summary { cursor: pointer; font-size: 13.5px; font-weight: 500; color: var(--ink-900); list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; color: var(--ink-300); font-family: var(--mono); }
+details[open] summary::after { content: "–"; }
+details p { font-size: 13px; color: var(--ink-500); margin-top: 8px; max-width: 780px; }
+details code { font-size: 11.5px; background: rgba(13,17,23,0.05); padding: 1px 5px; border-radius: 4px; }
+
+.footer { max-width: 1040px; margin: 0 auto; padding: 26px 22px 50px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; font-size: 12px; color: var(--ink-500); }
+.footer a { color: var(--ink-500); text-decoration: none; }
+.footer a:hover { color: var(--ink-900); }
+
+@media (max-width: 760px) {
+  .steps { grid-template-columns: 1fr; }
+  .promptgrid { grid-template-columns: 1fr; }
+  .hero { padding-top: 50px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="/">
+    <span class="logo-mark">
+      <svg viewBox="0 0 24 24"><path d="M4 9v6M9 5v14M14 8v8M19 11v2"/></svg>
+    </span>
+    Koe
+  </a>
+  <nav class="nav">
+    <a href="/">Studio</a>
+    <a href="#setup">Quickstart</a>
+    <a href="#faq">FAQ</a>
+    <a class="gh" href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">GitHub ↗</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero" style="margin-top:0">
+    <span class="eyebrow"><span class="dot"></span> MCP server · free</span>
+    <h1>Give your agent<br><span class="muted">a voice.</span></h1>
+    <p class="lede">
+      Koe is a <b>hosted MCP server</b> that turns text into a finished voiceover —
+      Microsoft neural voices, 30+ languages, no API bill. Point Claude, Cursor, or
+      any MCP-compatible agent at one URL and it can narrate your video, read a
+      script, or voice a character. <b>No install. No key to buy.</b>
+    </p>
+    <div class="cta-row">
+      <button class="btn btn-primary" id="hero-key-btn">Get your free key
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+      <a class="btn btn-ghost" href="#setup">Quickstart</a>
+      <a class="btn btn-ghost" href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">Self-host it</a>
+    </div>
+  </section>
+
+  <div class="steps">
+    <div class="step"><div class="n">01</div><h3>Grab a free key</h3><p>One click. No account, no card. Each key gets its own hourly and daily quota.</p></div>
+    <div class="step"><div class="n">02</div><h3>Add the MCP server</h3><p>Paste the URL into your agent and send the key as a header — or hand the setup prompt to the agent.</p></div>
+    <div class="step"><div class="n">03</div><h3>Ask for a voiceover</h3><p>The agent calls <code>generate_voiceover</code> and gets a short-lived download link plus inline audio.</p></div>
+  </div>
+
+  <section id="key">
+    <h2>1 · Your free key</h2>
+    <p class="sub">Keys are signed, stateless, and free. The studio stores no account — regenerating just means minting a new key (3 per IP per day).</p>
+    <div class="card keypanel">
+      <div class="left">
+        <h3>Free-tier key</h3>
+        <p>Use it as <code>Authorization: Bearer …</code> or <code>x-api-key: …</code>. Keep it out of public repos.</p>
+      </div>
+      <div>
+        <div class="keyline">
+          <code class="keybox empty" id="keybox">No key yet — mint one</code>
+          <button class="btn btn-primary" id="mint-btn">Create key</button>
+          <button class="btn btn-ghost" id="copy-key-btn" title="Copy key">Copy</button>
+        </div>
+        <div class="keymsg" id="keymsg"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="setup">
+    <h2>2 · Connect your agent</h2>
+    <p class="sub">Use the streamable-HTTP endpoint below. The snippets fill in this page's origin and your key automatically.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="claude">Claude (web &amp; desktop)</button>
+      <button class="tab" data-tab="claude-code">Claude Code</button>
+      <button class="tab" data-tab="cursor">Cursor</button>
+      <button class="tab" data-tab="other">Any MCP client</button>
+      <button class="tab" data-tab="stdio">Local / self-hosted</button>
+    </div>
+
+    <div class="card">
+      <div class="pane active" id="pane-claude">
+        <h4>Add a custom connector <span class="badge-beta">headers are beta</span></h4>
+        <ol>
+          <li>In Claude, open <b>Settings → Connectors → Add custom connector</b>.</li>
+          <li>Name it <b>Koe TTS</b> and set the URL to <code><span class="tok-origin"></span>/mcp</code>.</li>
+          <li>Choose <b>No sign-in</b> (Koe is free and has no accounts), then add a request header:<br><code>Authorization: Bearer <span class="tok-key"></span></code></li>
+          <li>Save, then enable the connector in a chat and ask it to call <code>studio_status</code>.</li>
+        </ol>
+        <p class="note">Custom-connector request headers are a Claude beta and may be org-scoped. If your plan doesn't show them, use Claude Code or Cursor below — both take the header today.</p>
+      </div>
+
+      <div class="pane" id="pane-claude-code">
+        <h4>One command</h4>
+        <div class="code"><button class="copy">Copy</button><pre><span class="tok-cmd">claude</span> mcp add --transport http koe-tts <span class="tok-origin"></span>/mcp \
+  --header <span class="tok-c">"Authorization: Bearer </span><span class="tok-key"></span><span class="tok-c">"</span></pre></div>
+        <p>Then run <code>/mcp</code> to confirm <b>koe-tts</b> is connected, and ask: <i>"Call studio_status."</i></p>
+        <p class="note">Requires Claude Code 1.x with HTTP transport support.</p>
+      </div>
+
+      <div class="pane" id="pane-cursor">
+        <h4>Global or project config</h4>
+        <p>Add this to <code>~/.cursor/mcp.json</code> (or <code>.cursor/mcp.json</code> in a project), then restart Cursor.</p>
+        <div class="code"><button class="copy">Copy</button><pre>{
+  <span class="tok-c">"mcpServers"</span>: {
+    <span class="tok-c">"koe-tts"</span>: {
+      <span class="tok-c">"url"</span>: <span class="tok-origin-wrap">"<span class="tok-origin"></span>/mcp"</span>,
+      <span class="tok-c">"headers"</span>: {
+        <span class="tok-c">"Authorization"</span>: <span class="tok-key-wrap">"Bearer <span class="tok-key"></span>"</span>
+      }
+    }
+  }
+}</pre></div>
+        <p class="note">Cursor's MCP settings UI has the same fields if you prefer clicking.</p>
+      </div>
+
+      <div class="pane" id="pane-other">
+        <h4>Streamable HTTP, stateless</h4>
+        <p>Any MCP client that supports remote HTTP servers can connect:</p>
+        <div class="table-wrap" style="margin-bottom:12px">
+          <table>
+            <tr><th>Field</th><th>Value</th></tr>
+            <tr><td>Transport</td><td><code>streamable-http</code></td></tr>
+            <tr><td>URL</td><td><code><span class="tok-origin"></span>/mcp</code></td></tr>
+            <tr><td>Header</td><td><code>Authorization: Bearer <span class="tok-key"></span></code></td></tr>
+            <tr><td>Alt header</td><td><code>x-api-key: <span class="tok-key"></span></code></td></tr>
+            <tr><td>Responses</td><td>JSON (no SSE required)</td></tr>
+          </table>
+        </div>
+        <p class="note">The endpoint is stateless: every request is independent, so it works behind load balancers and serverless hosts.</p>
+      </div>
+
+      <div class="pane" id="pane-stdio">
+        <h4>Run the MCP server locally</h4>
+        <p>Prefer a local process? The repo ships the same tools over stdio. It talks to this studio and saves audio to your disk.</p>
+        <div class="code"><button class="copy">Copy</button><pre><span class="tok-cmd">cd</span> mcp &amp;&amp; <span class="tok-cmd">npm</span> install
+<span class="tok-cmd">TTS_STUDIO_URL</span>=<span class="tok-origin"></span> <span class="tok-cmd">node</span> index.js</pre></div>
+        <p class="note">Add it to <code>claude_desktop_config.json</code> with <code>command: "node"</code> and <code>args: ["/path/to/mcp/index.js"]</code>. It mints and stores its own free key in <code>~/.koe/credentials.json</code>. Full reference: <a href="https://github.com/Azeru548/koe/blob/main/AGENTS.md" target="_blank" rel="noopener">AGENTS.md</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="agent-prompt">
+    <h2>3 · Or let your agent set it up</h2>
+    <p class="sub">Copy this whole block, paste it into your agent, and it will configure the connection itself — you never have to touch a config file.</p>
+    <div class="code" style="margin-top:14px"><button class="copy">Copy</button><pre id="agent-prompt-text">You have a Koe TTS MCP server available.
+
+1. Add it as a remote MCP server (Streamable HTTP):
+   URL: <span class="tok-origin"></span>/mcp
+   Header: Authorization: Bearer <span class="tok-key"></span>
+   If you cannot add custom headers, tell me and show me the exact fields to fill in my client.
+
+2. Once connected, call the `studio_status` tool and show me the result.
+
+3. Call `list_voices` and choose a warm male English voice.
+
+4. Call `generate_voiceover` with:
+   "Welcome back to the channel. Today we're building something new."
+   rate 1.05
+   Then download the audio from the returned link and tell me where you saved it.</pre></div>
+  </section>
+
+  <section id="try">
+    <h2>Try these prompts</h2>
+    <div class="promptgrid">
+      <div class="prompt"><span class="arrow">→</span><span>"Call <b>studio_status</b> and tell me how many words I have left this hour."</span></div>
+      <div class="prompt"><span class="arrow">→</span><span>"List the <b>en-GB</b> voices and read me a 10-second sample in the most formal one."</span></div>
+      <div class="prompt"><span class="arrow">→</span><span>"Narrate this 30-second product intro at rate 1.1 with a warm female voice."</span></div>
+      <div class="prompt"><span class="arrow">→</span><span>"Generate one voiceover per scene for these five paragraphs, then list the files."</span></div>
+    </div>
+  </section>
+
+  <section id="tools">
+    <h2>Tools</h2>
+    <p class="sub">Six tools. Voice generation is metered per key; the rest are free.</p>
+    <div class="table-wrap" style="margin-top:14px">
+      <table>
+        <tr><th>Tool</th><th>What it does</th></tr>
+        <tr><td><code>studio_status</code></td><td>Health, available engines, queue depth, and your current quota.</td></tr>
+        <tr><td><code>list_voices</code></td><td>Curated neural voices with language, gender, and style; optional language filter.</td></tr>
+        <tr><td><code>generate_voiceover</code></td><td>Text → audio. Returns a short-lived signed download URL and inline audio for short clips.</td></tr>
+        <tr><td><code>get_voiceover_status</code></td><td>Poll a job by id when a long script is still generating.</td></tr>
+        <tr><td><code>list_recent_voiceovers</code></td><td>Your 10 newest jobs (tenant-isolated).</td></tr>
+        <tr><td><code>get_usage</code></td><td>Requests/words used this hour and today, limits, and reset times.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="limits">
+    <h2>Free, with limits that keep it free</h2>
+    <p class="sub">Koe runs on a small shared instance and uses Microsoft's free neural endpoint. Limits are per key so one person can't exhaust it for everyone.</p>
+    <div class="table-wrap" style="margin-top:14px">
+      <table id="limits-table">
+        <tr><th>Limit</th><th>Per key</th><th>Anonymous</th></tr>
+        <tr><td>Requests</td><td id="lim-req">60 / hour</td><td id="lim-anon-req">20 / hour</td></tr>
+        <tr><td>Words</td><td id="lim-words">2,000 / hour · 20,000 / day</td><td id="lim-anon-words">500 / hour · 3,000 / day</td></tr>
+        <tr><td>Single job</td><td id="lim-job" colspan="2">6,000 words / 40,000 chars</td></tr>
+        <tr><td>Audio retention</td><td id="lim-ttl" colspan="2">~15 minutes — download during the session</td></tr>
+      </table>
+    </div>
+    <p class="sub" style="margin-top:10px">Need more? Self-host the same repo with your own limits — the whole thing is open source.</p>
+  </section>
+
+  <section id="faq">
+    <h2>Troubleshooting</h2>
+    <div class="faq">
+      <details open>
+        <summary>The first call takes ~60 seconds, then works</summary>
+        <p>The free host sleeps after ~15 minutes idle. The MCP client waits it out; subsequent calls are fast. Keep the connection configured — no action needed.</p>
+      </details>
+      <details>
+        <summary>“401 — API key required” or “Invalid API key”</summary>
+        <p>Send the key as <code>Authorization: Bearer koe_sk_…</code> or <code>x-api-key: koe_sk_…</code>. If the operator rotated <code>KOE_SECRET</code>, old keys stop verifying — mint a new one above.</p>
+      </details>
+      <details>
+        <summary>The connector is connected but tools never run</summary>
+        <p>Enable the connector for the current chat, then ask explicitly: <i>“Call the studio_status tool from Koe TTS.”</i> Some clients require per-tool approval the first time.</p>
+      </details>
+      <details>
+        <summary>“429 — Hourly/Daily word limit reached”</summary>
+        <p>You've used your free window. The response includes <code>retryAfterSeconds</code>; <code>get_usage</code> shows when it resets. Failed jobs refund their words.</p>
+      </details>
+      <details>
+        <summary>“410 — Audio expired”</summary>
+        <p>Generated audio is ephemeral (about 15 minutes). The download link only works while the file exists — generate again, or keep the file your agent already saved.</p>
+      </details>
+      <details>
+        <summary>“503 — Engine 'piper' is not available”</summary>
+        <p>The offline engine is optional. Use <code>engine: "edge"</code>, which is always available and higher quality.</p>
+      </details>
+      <details>
+        <summary>Do you support OAuth / one-click directory install?</summary>
+        <p>Not yet. Koe has no accounts, so a free signed key is the identity. Static-header connectors (Claude beta, Cursor, Claude Code) work today; an OAuth consent flow is on the roadmap.</p>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span>Koe TTS Studio · free and open source. Be kind to the upstream endpoint.</span>
+  <span><a href="/">Studio</a> · <a href="/health">Health</a> · <a href="/api/limits">Limits JSON</a></span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  const origin = location.origin;
+  const KEY_STORE = "koe.mcp.key." + origin;
+  let key = "";
+
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const fmt = (n) => Number(n).toLocaleString("en-US");
+
+  function renderKey() {
+    $$(".tok-key").forEach((el) => { el.textContent = key || "YOUR_FREE_KEY"; });
+    const box = $("#keybox");
+    if (box) {
+      box.textContent = key || "No key yet — mint one";
+      box.classList.toggle("empty", !key);
+    }
+  }
+
+  $$(".tok-origin").forEach((el) => { el.textContent = origin; });
+
+  try { key = localStorage.getItem(KEY_STORE) || ""; } catch { /* storage blocked */ }
+  renderKey();
+
+  // tabs
+  $$(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      $$(".tab").forEach((t) => t.classList.toggle("active", t === tab));
+      $$(".pane").forEach((p) => p.classList.toggle("active", p.id === "pane-" + tab.dataset.tab));
+    });
+  });
+
+  // copy buttons
+  $$(".code .copy").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const pre = btn.parentElement.querySelector("pre");
+      const text = pre.innerText.replace(/YOUR_FREE_KEY/g, key || "YOUR_FREE_KEY");
+      try {
+        await navigator.clipboard.writeText(text);
+        const old = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(() => { btn.textContent = old; }, 1400);
+      } catch {
+        // clipboard blocked — select the text instead
+        const range = document.createRange();
+        range.selectNodeContents(pre);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    });
+  });
+
+  // mint a key
+  async function mint() {
+    const msg = $("#keymsg");
+    const btns = [$("#mint-btn"), $("#hero-key-btn")].filter(Boolean);
+    btns.forEach((b) => { b.disabled = true; });
+    msg.className = "keymsg";
+    msg.textContent = "Minting…";
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || ("registration failed (" + res.status + ")"));
+      key = data.key;
+      try { localStorage.setItem(KEY_STORE, key); } catch { /* storage blocked */ }
+      renderKey();
+      const lim = data.limits && data.limits.key;
+      msg.className = "keymsg ok";
+      msg.textContent = lim
+        ? "Key created · " + fmt(lim.requestsPerHour) + " requests/h · " + fmt(lim.wordsPerHour) + " words/h · " + fmt(lim.wordsPerDay) + " words/day"
+        : "Key created.";
+    } catch (err) {
+      msg.className = "keymsg err";
+      msg.textContent = err.message;
+    } finally {
+      btns.forEach((b) => { b.disabled = false; });
+    }
+  }
+  ["#mint-btn", "#hero-key-btn"].forEach((sel) => {
+    const el = $(sel);
+    if (el) el.addEventListener("click", () => {
+      if (sel === "#hero-key-btn") $("#key").scrollIntoView({ behavior: "smooth", block: "start" });
+      mint();
+    });
+  });
+
+  $("#copy-key-btn").addEventListener("click", async () => {
+    if (!key) return;
+    try {
+      await navigator.clipboard.writeText(key);
+      $("#copy-key-btn").textContent = "Copied";
+      setTimeout(() => { $("#copy-key-btn").textContent = "Copy"; }, 1400);
+    } catch { /* ignore */ }
+  });
+
+  // live limits
+  fetch("/api/limits").then((r) => r.json()).then((l) => {
+    if (!l || !l.key) return;
+    $("#lim-req").textContent = fmt(l.key.requestsPerHour) + " / hour";
+    $("#lim-words").textContent = fmt(l.key.wordsPerHour) + " / hour · " + fmt(l.key.wordsPerDay) + " / day";
+    $("#lim-anon-req").textContent = fmt(l.anon.requestsPerHour) + " / hour";
+    $("#lim-anon-words").textContent = fmt(l.anon.wordsPerHour) + " / hour · " + fmt(l.anon.wordsPerDay) + " / day";
+    $("#lim-job").textContent = fmt(l.perJob.maxWords) + " words / " + fmt(l.perJob.maxChars) + " chars";
+    const mins = Math.round((l.audio && l.audio.ttlSeconds || 900) / 60);
+    $("#lim-ttl").textContent = "~" + mins + " minutes — download during the session";
+  }).catch(() => { /* static defaults are fine */ });
+})();
+</script>
+</body>
+</html>

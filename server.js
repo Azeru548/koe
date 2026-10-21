@@ -5,7 +5,11 @@ const fs = require("fs");
 const path = require("path");
 const { execFile, execSync } = require("child_process");
 const archiver = require("archiver");
+const AdmZip = require("adm-zip");
 const guard = require("./guard");
+const { mergeAudioParts } = require("./audio");
+const { createHostedMcp } = require("./hosted-mcp");
+const { StreamableHTTPServerTransport } = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
 const PIPER_IMAGE = "piper-tts";
 const PIPER_MODEL = "en_US-lessac-medium.onnx";
 const PIPER_ROOT = process.env.PIPER_ROOT || path.join(process.env.HOME || process.env.USERPROFILE || __dirname, "piper-docker");
@@ -68,15 +72,27 @@ function keyMatches(candidate) {
 //   anon   → no key                     (smaller per-IP limits; powers the UI demo)
 const OPEN_PATHS = new Set(["/health", "/api/register", "/api/limits", "/"]);
 
+// GET /mcp serves the human setup page when a browser asks for HTML; MCP
+// clients hit POST /mcp instead and must authenticate.
+const wantsHtml = (req) => String(req.headers.accept || "").includes("text/html");
+
 app.use((req, res, next) => {
-  req.ctx = { ip: String(req.ip || (req.connection && req.connection.remoteAddress) || "unknown"), tid: null, admin: false };
+  req.ctx = { ip: String(req.ip || (req.connection && req.connection.remoteAddress) || "unknown"), tid: null, admin: false, rawKey: "" };
   if (OPEN_PATHS.has(req.path)) return next();
+  if (req.method === "GET" && req.path === "/mcp" && wantsHtml(req)) return next();
+
+  // Short-lived signed audio links (issued by the hosted MCP) skip the key.
+  if (req.path.startsWith("/audio/")) {
+    const id = req.path.slice("/audio/".length);
+    if (id && typeof req.query.dl === "string" && guard.verifyDownload(id, req.query.dl)) return next();
+  }
+
   const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   const provided = req.headers["x-api-key"] || bearer || req.query.key || "";
   if (provided) {
-    if (API_KEY && keyMatches(provided)) { req.ctx.admin = true; return next(); }
+    if (API_KEY && keyMatches(provided)) { req.ctx.admin = true; req.ctx.rawKey = provided; return next(); }
     const tid = guard.verifyKey(provided);
-    if (tid) { req.ctx.tid = tid; return next(); }
+    if (tid) { req.ctx.tid = tid; req.ctx.rawKey = provided; return next(); }
     return res.status(401).json({
       error: "Invalid API key — get a free one via POST /api/register",
       hint: "Keys are signed with KOE_SECRET; if the operator rotated it, old keys stopped working.",
@@ -704,6 +720,44 @@ app.get("/download/:id", (req, res) => {
   res.download(filePath, `tts-${req.params.id}.zip`);
 });
 
+// GET /audio/:id — single merged audio file (mp3/wav), no zip.
+// Access: an owning key, or the short-lived signed ?dl= token the hosted MCP
+// hands to agents so they can fetch the file without an API key.
+app.get("/audio/:id", (req, res) => {
+  const job = getJob(req.params.id);
+  const token = req.query.dl;
+  const viaToken = typeof token === "string" && token && guard.verifyDownload(req.params.id, token);
+
+  if (!job) return res.status(404).json({ error: "Job not found" });
+  if (!viaToken && !canAccessJob(req, job)) return res.status(403).json({ error: "Forbidden — this job belongs to another tenant" });
+  if (job.status !== "done") return res.status(409).json({ error: "Job not ready", status: job.status });
+  if (!job.file) return res.status(410).json({ error: "Audio expired — generated audio is ephemeral. Generate it again." });
+
+  const zipPath = path.join(AUDIO_DIR, `${req.params.id}.zip`);
+  if (!fs.existsSync(zipPath)) {
+    return res.status(410).json({ error: "Audio expired — generated audio is ephemeral. Generate it again." });
+  }
+
+  const ext = job.engine === "piper" ? "wav" : "mp3";
+  let merged;
+  try {
+    const entries = new AdmZip(zipPath)
+      .getEntries()
+      .filter((e) => !e.isDirectory)
+      .sort((a, b) => a.entryName.localeCompare(b.entryName));
+    if (!entries.length) return res.status(500).json({ error: "Job contained no audio parts" });
+    merged = mergeAudioParts(entries.map((e) => e.getData()), ext);
+  } catch (err) {
+    return res.status(500).json({ error: "Could not assemble audio", detail: String(err.message || err).slice(0, 200) });
+  }
+
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Content-Type", ext === "wav" ? "audio/wav" : "audio/mpeg");
+  res.setHeader("Content-Disposition", `inline; filename="voiceover-${req.params.id}.${ext}"`);
+  res.setHeader("Content-Length", String(merged.length));
+  res.end(merged);
+});
+
 // DELETE /job/:id
 app.delete("/job/:id", (req, res) => {
   const jobs    = loadJobs();
@@ -857,6 +911,95 @@ app.post("/tts-preview-piper", (req, res) => {
   });
 });
 
+// ── HOSTED MCP (Streamable HTTP) ──────────────────────────
+// A per-request studio client that talks to our own guarded API on loopback.
+// Re-passing the caller's key means every MCP tool call goes through exactly
+// the same rate limits, queueing and tenant isolation as the REST API.
+
+function makeStudioClient(req) {
+  const key = req.ctx.rawKey || "";
+  const loopback = `http://127.0.0.1:${PORT}`;
+  const publicBase = (process.env.KOE_PUBLIC_URL || `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
+
+  async function call(method, pathname, body) {
+    const headers = {};
+    if (body) headers["Content-Type"] = "application/json";
+    if (key) headers["x-api-key"] = key;
+    return fetch(`${loopback}${pathname}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  async function json(method, pathname, body) {
+    const res = await call(method, pathname, body);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { raw: text.slice(0, 300) }; }
+    if (!res.ok) {
+      const err = new Error(`${res.status} — ${data.error || data.detail || `${pathname} failed`}`);
+      err.status = res.status;
+      err.retryAfterSeconds = Number(data.retryAfterSeconds) || null;
+      throw err;
+    }
+    return data;
+  }
+
+  return {
+    studioUrl: publicBase,
+    keyMode: req.ctx.admin ? "admin" : req.ctx.tid ? "key" : "anon",
+    health: () => json("GET", "/health"),
+    usage: () => json("GET", "/usage"),
+    submit: (body) => json("POST", "/tts", body),
+    job: (id) => json("GET", `/job/${encodeURIComponent(id)}`),
+    listJobs: () => json("GET", "/jobs"),
+    async download(id) {
+      const res = await call("GET", `/download/${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const err = new Error(`${res.status} — ${data.error || "download failed"}`);
+        err.status = res.status;
+        throw err;
+      }
+      return Buffer.from(await res.arrayBuffer());
+    },
+    signAudioUrl: (id) => `${publicBase}/audio/${encodeURIComponent(id)}?dl=${guard.signDownload(id)}`,
+  };
+}
+
+// GET /mcp → human setup page (browsers); MCP clients use POST /mcp.
+app.get("/mcp", (req, res) => {
+  if (!wantsHtml(req)) {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method Not Allowed — use POST for MCP" }, id: null });
+  }
+  res.sendFile(path.join(__dirname, "mcp.html"));
+});
+
+// POST /mcp → stateless Streamable HTTP MCP. A fresh server + transport per
+// request keeps it safe behind Render's load balancer and ephemeral disk.
+app.post("/mcp", async (req, res) => {
+  const server = createHostedMcp({ client: makeStudioClient(req) });
+  const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });
+  res.on("close", () => { transport.close().catch(() => {}); server.close().catch(() => {}); });
+
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    console.error("[MCP] request failed:", String((err && err.message) || err).slice(0, 300));
+    if (!res.headersSent) {
+      res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: "Internal error" }, id: null });
+    }
+  }
+});
+
+app.delete("/mcp", (req, res) => {
+  res.setHeader("Allow", "POST");
+  res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method Not Allowed" }, id: null });
+});
+
 // GET /health
 app.get("/health", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -871,6 +1014,7 @@ app.get("/health", (req, res) => {
     adminKeyConfigured: Boolean(API_KEY),
     keyRequired:  guard.cfg.requireKey,
     freeKeys:     true,
+    mcp:          { endpoint: "/mcp", transport: "streamable-http", stateless: true, setup: "/mcp" },
     queue:        guard.slotStats(),
     ephemeral:    { audioTtlSeconds: guard.cfg.audioTtlSec, jobTtlSeconds: guard.cfg.jobTtlSec },
     limits:       guard.publicLimits(),

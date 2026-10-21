@@ -122,6 +122,8 @@ body {
 .pill.online  { border-color: var(--success-border); color: var(--success-ink); background: var(--success-bg); }
 .pill.offline { border-color: var(--danger-border);  color: var(--danger-ink);  background: var(--danger-bg); }
 .pill.engine  { border-color: rgba(13,17,23,0.18);  color: var(--accent);       background: var(--accent-softer); }
+a.pill { text-decoration: none; cursor: pointer; }
+a.pill:hover { border-color: rgba(13,17,23,0.28); color: var(--ink-900); background: #fff; }
 
 /* ─── Workspace ─── */
 .workspace {
@@ -710,6 +712,7 @@ input[type="range"]::-moz-range-thumb {
     Koe
   </div>
   <div class="topbar-pills">
+    <a class="pill" href="/mcp" target="_self" title="Connect an agent to Koe over MCP — free">MCP for agents ↗</a>
     <span class="pill engine" id="enginePill">Microsoft Neural</span>
     <span class="pill" id="serverPill">Checking…</span>
     <span class="pill" id="quotaPill" title="Free-tier usage">Free tier</span>
