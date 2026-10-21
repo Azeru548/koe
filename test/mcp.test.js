@@ -108,6 +108,32 @@ test("GET /mcp serves the public setup page to browsers", async () => {
   assert.match(html, /Koe MCP/);
   assert.match(html, /mcp-sample-andrew\.mp3/);
   assert.match(html, /<audio id="sample-audio"/);
+  assert.match(html, /logo-mark\.png/);
+  assert.match(html, /favicon-32\.png/);
+});
+
+test("GET / redirects to the MCP landing page", async () => {
+  const res = await fetch(`${base}/`, { redirect: "manual" });
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), "/mcp");
+});
+
+test("GET /studio serves the studio page", async () => {
+  const res = await fetch(`${base}/studio`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") || "", /text\/html/);
+  const html = await res.text();
+  assert.match(html, /Koe Studio/);
+  assert.match(html, /id="scriptText"/);
+  assert.match(html, /logo-mark\.png/);
+});
+
+test("brand assets are served publicly", async () => {
+  for (const route of ["/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png"]) {
+    const res = await fetch(`${base}${route}`);
+    assert.equal(res.status, 200, route);
+    assert.match(res.headers.get("content-type") || "", /image\/png/, route);
+  }
 });
 
 test("GET /mcp without HTML Accept returns a text hint, not a 405", async () => {

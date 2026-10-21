@@ -261,7 +261,7 @@ After the audio TTL, `file` becomes `null`, `audioDeletedAt` is set, and `GET /d
 
 ## 6. Direct HTTP API (no MCP required)
 
-Use this when you are not running through the MCP (scripts, curl, another runtime) or for the recovery flow in §2. Public endpoints are `/health`, `/api/register`, `/api/limits`, and `/`. Everything else accepts a free tenant key via header `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`; when `KOE_REQUIRE_KEY=true`, a key is mandatory for those routes. The operator's `API_KEY` is an unlimited admin key.
+Use this when you are not running through the MCP (scripts, curl, another runtime) or for the recovery flow in §2. Public endpoints are `/health`, `/api/register`, `/api/limits`, `/`, and `/studio`. Everything else accepts a free tenant key via header `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`; when `KOE_REQUIRE_KEY=true`, a key is mandatory for those routes. The operator's `API_KEY` is an unlimited admin key.
 
 Base URL: local `http://localhost:3000`, or your hosted URL.
 
@@ -278,7 +278,8 @@ Base URL: local `http://localhost:3000`, or your hosted URL.
 | `/tts-preview` | POST | `{ voice?, text?, rate?, pitch? }` (text ≤ 600 chars) | Streams a preview MP3 directly (`audio/mpeg`), edge only, metered |
 | `/tts-preview-piper` | POST | `{ voice?, text? }` | Streams a preview WAV, piper only, metered |
 | `/health` | GET | — | See §1 `studio_status`; never requires auth |
-| `/` | GET | — | The studio web UI |
+| `/` | GET | — | Redirects to `/mcp` |
+| `/studio` | GET | — | The studio web UI |
 
 Status codes: `400` bad input (empty text, invalid engine/voice/rate), `401` missing/wrong key, `403` another tenant's job, `404` unknown job, `409` job not ready, `410` audio expired, `413` script too long (6,000 words / 40,000 chars), `429` rate/queue limit (read `retryAfterSeconds`), `503` engine unavailable or upstream cool-down. Request body limit is 10 MB.
 

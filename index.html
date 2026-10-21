@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Koe</title>
+<title>Koe Studio — voiceover workspace</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -93,18 +95,11 @@ body {
 }
 
 .logo-mark {
-  width: 30px;
-  height: 30px;
-  background: var(--accent);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(13,17,23,0.22);
-  transition: box-shadow 0.2s;
+  height: 28px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
 }
-.logo-mark:hover { box-shadow: 0 4px 14px rgba(13,17,23,0.32); }
-.logo-mark svg { width: 15px; height: 15px; fill: none; stroke: white; stroke-width: 2.2; stroke-linecap: round; }
 
 .topbar-pills { display: flex; align-items: center; gap: 7px; }
 
@@ -706,9 +701,7 @@ input[type="range"]::-moz-range-thumb {
 
 <div class="topbar">
   <div class="logo">
-    <div class="logo-mark">
-      <svg viewBox="0 0 16 16"><path d="M3 5.5v5M6 3v10M9 5v6M12 4v8"/></svg>
-    </div>
+    <img class="logo-mark" src="/logo-mark.png" alt="" width="21" height="28">
     Koe
   </div>
   <div class="topbar-pills">

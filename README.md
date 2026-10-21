@@ -73,7 +73,7 @@ curl -H "x-api-key: koe_sk_..." -H "Content-Type: application/json" \
 
 ## TTS Studio server (`server.js`)
 
-Local usage: `npm install && node server.js` → <http://localhost:3000>. The UI is served at `/`; it talks to the same origin (or `http://localhost:3000` when opened as a file).
+Local usage: `npm install && node server.js` → <http://localhost:3000>. `/` redirects to the MCP setup page at `/mcp`; the studio UI is served at `/studio`. It talks to the same origin (or `http://localhost:3000` when opened as a file).
 
 ### Endpoints
 
@@ -93,7 +93,8 @@ Local usage: `npm install && node server.js` → <http://localhost:3000>. The UI
 | `GET /api/limits` | public | Public limit policy (no secrets) |
 | `GET /usage` | key | This caller's usage vs limits |
 | `GET /health` | public | Backend, engines, queue, limits, TTLs |
-| `GET /` | public | Studio UI |
+| `GET /` | public | Redirects to `/mcp` |
+| `GET /studio` | public | Studio UI |
 
 Auth accepts `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`. Status codes: `400` validation, `401` missing/invalid key, `403` another tenant's job, `404` unknown, `409` not ready, `410` audio expired, `413` script too large, `429` rate/queue limit, `503` engine unavailable or upstream cool-down.
 

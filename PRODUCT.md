@@ -30,7 +30,7 @@ A neighboring paid TTS vendor cannot copy that honestly: their economics need re
 
 - **Hosted MCP** at `POST /mcp` on the Render deployment — stateless, JSON (no SSE), safe behind the load balancer. `GET /mcp` is the human setup page with tabs for Claude, Claude Code, and Cursor, plus a copy-paste "set this up for me" agent prompt.
 - **Local stdio MCP** (`mcp/index.js`) for developers: same tools, but it saves audio to a local path and merges multi-part jobs into one file — the shape a video pipeline needs.
-- **Studio UI** (`index.html`) at `/`: script entry, voice catalog, preview, job list, usage.
+- **Studio UI** (`index.html`) at `/studio` (the root `/` redirects to `/mcp`): script entry, voice catalog, preview, job list, usage.
 - **Raw HTTP API** (`/tts`, `/job/:id`, `/download/:id`, `/audio/:id`, `/jobs`, `/usage`, `/api/register`, `/health`) for scripts and curl.
 - Deployed on Render's free plan: 0.1 CPU, 512 MB, sleeps after ~15 minutes idle (first request wakes it in ~60 s), 750 instance-hours/month, ephemeral filesystem. Local dev runs `node server.js` on port 3000, with a Docker backend when Docker is present.
 - `AGENTS.md` is the agent-facing contract (tool schemas, response shapes, error recipes); `README.md` is the human/operator reference.

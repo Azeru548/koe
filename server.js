@@ -70,7 +70,10 @@ function keyMatches(candidate) {
 //   admin  → matches API_KEY            (unlimited)
 //   tenant → a valid signed key         (per-key limits; free keys via POST /api/register)
 //   anon   → no key                     (smaller per-IP limits; powers the UI demo)
-const OPEN_PATHS = new Set(["/health", "/api/register", "/api/limits", "/"]);
+const OPEN_PATHS = new Set([
+  "/health", "/api/register", "/api/limits", "/",
+  "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
+]);
 
 // GET /mcp serves the human setup page when a browser asks for HTML; MCP
 // clients hit POST /mcp instead and must authenticate.
@@ -114,8 +117,19 @@ function callerSubject(req) {
   return { id: guard.anonSubject(req.ctx.ip), kind: "anon" };
 }
 
-// Serve the studio UI from the same origin (used on Render)
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+// The public entry point is the MCP setup page; the studio lives at /studio.
+app.get("/", (req, res) => res.redirect(302, "/mcp"));
+app.get("/studio", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+
+// Brand assets are public and cacheable — no key needed.
+const PUBLIC_ASSETS = {
+  "/logo-mark.png": "logo-mark.png",
+  "/favicon-32.png": "favicon-32.png",
+  "/apple-touch-icon.png": "apple-touch-icon.png",
+};
+for (const [route, file] of Object.entries(PUBLIC_ASSETS)) {
+  app.get(route, (req, res) => res.sendFile(path.join(__dirname, "assets", file), { maxAge: "7d" }));
+}
 
 // ─────────────────────────────────────────────
 //  STORAGE
