@@ -7,6 +7,7 @@ const { execFile, execSync } = require("child_process");
 const archiver = require("archiver");
 const AdmZip = require("adm-zip");
 const guard = require("./guard");
+const stats = require("./stats");
 const { mergeAudioParts } = require("./audio");
 const { createHostedMcp } = require("./hosted-mcp");
 const { StreamableHTTPServerTransport } = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
@@ -109,6 +110,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Global traffic counter — every request is observed (after req.ctx exists).
+app.use((req, res, next) => { stats.observe(req); next(); });
 
 // Which limits apply to this caller (null = admin, unlimited)
 function callerSubject(req) {
@@ -524,6 +528,33 @@ app.get("/usage", (req, res) => {
   res.json({ subject: subject.kind, usage: guard.usageSnapshot(subject.id, subject.kind) });
 });
 
+// GET /stats — operator-only live dashboard (HTML), admins authenticate with
+// the API key (?key=... or x-api-key). TTS cost accounting happens through
+// stats.markWords from /tts and /tts-preview.
+app.get("/stats", (req, res) => {
+  if (!req.ctx.admin) {
+    return res.status(403).json({ error: "Operator stats require the admin API key (x-api-key or ?key=)" });
+  }
+  const now = Date.now();
+  const jobs = loadJobs();
+  const byStatus = {};
+  for (const j of jobs) byStatus[j.status] = (byStatus[j.status] || 0) + 1;
+  const today = new Date(now).toISOString().slice(0, 10);
+  const jobsToday = jobs.filter((j) => String(j.createdAt || "").startsWith(today));
+  const jobs24h = jobs.filter((j) => Date.parse(j.createdAt || "0") > now - 864e5);
+  const wordsToday = jobsToday.reduce((sum, j) => sum + (j.wordCount || 0), 0);
+  res.set("Cache-Control", "no-store");
+  res.send(stats.renderPage({
+    jobsTotal: jobs.length,
+    jobsToday: jobsToday.length,
+    jobs24h: jobs24h.length,
+    wordsToday,
+    byStatus,
+    slots: guard.slotStats(),
+    uptimeSec: Math.floor(process.uptime()),
+  }));
+});
+
 // POST /tts
 app.post("/tts", async (req, res) => {
   const {
@@ -583,6 +614,7 @@ app.post("/tts", async (req, res) => {
     if (!verdict.ok) {
       return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds });
     }
+    stats.markWords({ subject, words });
   }
   const slot = guard.tryAcquireSlot();
   if (!slot) {
@@ -859,6 +891,7 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     if (!verdict.ok) {
       return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds });
     }
+    stats.markWords({ subject, words });
   }
 
   const slot = guard.tryAcquireSlot();
