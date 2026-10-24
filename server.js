@@ -650,7 +650,6 @@ app.post("/tts", async (req, res) => {
     if (!verdict.ok) {
       return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds });
     }
-    stats.markWords({ subject, words });
   }
   const slot = guard.tryAcquireSlot();
   if (!slot) {
@@ -658,6 +657,10 @@ app.post("/tts", async (req, res) => {
     if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
+  // Count the words against the same subject that observe() counted the request
+  // for — including the admin caller, whose charge is skipped but whose work
+  // still belongs on the dashboard.
+  stats.markWords({ subject, words });
 
   const jobId      = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const jobDir     = path.join(WORK_DIR, jobId);
@@ -927,7 +930,6 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     if (!verdict.ok) {
       return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds });
     }
-    stats.markWords({ subject, words });
   }
 
   const slot = guard.tryAcquireSlot();
@@ -935,6 +937,7 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
+  stats.markWords({ subject, words });
 
   let released = false;
   const release = () => {
