@@ -17,17 +17,17 @@ agent / browser ──free tenant key──> TTS Studio ──> edge-tts ──>
 
 ## Use it from any agent (hosted MCP)
 
-The studio is also a **hosted MCP server** at `https://<your-host>/mcp`. Agents connect by URL — no install, no local Node, no config file. The same URL serves a human setup page in a browser.
+The public instance runs at **<https://koe.kennedyazeru.space>**. The **hosted MCP server** is at `https://koe.kennedyazeru.space/mcp`. Agents connect by URL — no install, no local Node, no config file. The same URL serves a human setup page in a browser.
 
-1. Open `https://<your-host>/mcp` and click **Create key**.
-2. Point your client at `https://<your-host>/mcp` with `Authorization: Bearer <key>` (or `x-api-key: <key>`).
+1. Open <https://koe.kennedyazeru.space/mcp> and click **Create key**.
+2. Point your client at `https://koe.kennedyazeru.space/mcp` with `Authorization: Bearer <key>` (or `x-api-key: <key>`).
 3. Ask the agent to call `studio_status`, then `generate_voiceover`.
 
-Works with Claude custom connectors (static request header, currently beta), Claude Code (`--transport http`), Cursor, or any streamable-HTTP MCP client. The endpoint is **stateless** and returns JSON (no SSE required), which suits Render's load balancer and free plan.
+Works with Claude custom connectors (static request header, currently beta), Claude Code (`--transport http`), Cursor, or any streamable-HTTP MCP client. The endpoint is **stateless** and returns JSON (no SSE required), which keeps it compatible with a reverse proxy and ephemeral container disk.
 
 Because the audio lives on the server rather than the caller's disk, hosted `generate_voiceover` returns a **short-lived signed download URL** (`/audio/:id?dl=…`, no API key needed) plus inline audio for short clips. The local stdio server below is still available for developers and saves files directly.
 
-> **Building an agent?** [AGENTS.md](AGENTS.md) is the full agent-facing reference: exact MCP tool schemas, response shapes, recipes, error handling and the raw HTTP API.
+> **Building an agent?** [AGENTS.md](AGENTS.md) is the full agent-facing reference: exact MCP tool schemas, response shapes, recipes, error handling and the raw HTTP API. [DESIGN.md](DESIGN.md) records the visual system and the analytics measurement language.
 
 ---
 
@@ -48,16 +48,16 @@ All of these are environment variables (see below).
 
 ```bash
 # Mint a free key (no payment, no account)
-curl -X POST https://your-service.onrender.com/api/register
+curl -X POST https://koe.kennedyazeru.space/api/register
 # → { "key": "koe_sk_ab12cd34ef56_...", "tenant": "ab12cd34ef56", "limits": {...} }
 
 # Use it
 curl -H "x-api-key: koe_sk_..." -H "Content-Type: application/json" \
      -d '{"text":"Hello from Koe","voice":"en-US-AndrewNeural"}' \
-     https://your-service.onrender.com/tts
+     https://koe.kennedyazeru.space/tts
 ```
 
-- Keys are signed with `KOE_SECRET` and contain no server-side state, so registration works even on a wiped Render disk. Rotating `KOE_SECRET` invalidates old keys; the MCP and UI re-register automatically.
+- Keys are signed with `KOE_SECRET` and contain no server-side state, so registration works even on a wiped container disk. Rotating `KOE_SECRET` invalidates old keys; the MCP and UI re-register automatically.
 - `KOE_REQUIRE_KEY=true` rejects anonymous calls. The bundled MCP server and studio UI register a key automatically, so end users never see this step.
 - `API_KEY` is an operator/admin key. It bypasses all limits and can see every tenant's jobs. Keep it private.
 
@@ -95,30 +95,43 @@ Local usage: `npm install && node server.js` → <http://localhost:3000>. `/` re
 | `GET /health` | public | Backend, engines, queue, limits, TTLs |
 | `GET /` | public | Redirects to `/mcp` |
 | `GET /studio` | public | Studio UI |
+| `GET /stats.html` | public shell | Operator analytics dashboard; data needs the admin key |
+| `GET /stats.json` | admin | Machine-readable counters used by the dashboard |
+| `GET /stats` | admin | Server-rendered operator report (`?key=` works) |
 
 Auth accepts `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`. Status codes: `400` validation, `401` missing/invalid key, `403` another tenant's job, `404` unknown, `409` not ready, `410` audio expired, `413` script too large, `429` rate/queue limit, `503` engine unavailable or upstream cool-down.
 
 ### Two backends
 
-- `TTS_BACKEND=native` — runs the `edge-tts` / `piper` CLIs directly (Render/Docker image). Default when Docker is unavailable.
+- `TTS_BACKEND=native` — runs the `edge-tts` / `piper` CLIs directly (the production Docker image). Default when Docker is unavailable.
 - `TTS_BACKEND=docker` — shells out to the `edge-tts` / `piper-tts` Docker images (local dev). Auto-selected when the `docker` CLI exists.
 
 Docker invocations use `execFile` (no shell), so script text and voice ids are never interpreted as shell commands.
 
 ---
 
-## Deploy on Render (free tier)
+## Deploy on AWS (EC2 + Docker + Caddy)
 
-`render.yaml` is a ready blueprint; the `Dockerfile` installs Node 20 + `edge-tts` and best-effort Piper.
+Production is a single EC2 instance running the `koe` container behind Caddy, with a Let's Encrypt certificate and two systemd timers (watchdog and disk guard). The complete runbook is in **[DEPLOY.md](DEPLOY.md)**; the reusable scripts and unit files are in **[ops/](ops/)**.
 
-1. Push the repo to GitHub.
-2. Render → **New → Web Service** → connect the repo; the blueprint sets Docker, the health check, and the env vars.
-3. **Keep the generated `KOE_SECRET` stable** — it signs every free key. (`API_KEY` is the optional admin key.)
-4. Health check: `/health`.
+**Short version**
 
-The blueprint sets `KOE_REQUIRE_KEY=true`, `KOE_SECRET`, a 2/20 global queue, a 30k/day global budget, and the 15 min / 1 h TTLs.
+```bash
+# on the instance
+sudo dnf install -y docker git
+sudo systemctl enable --now docker
 
-Free-plan realities: 0.1 CPU / 512 MB, sleeps after ~15 min idle (first request wakes it in ~60 s), 750 instance-hours/month, and an ephemeral filesystem. That is compatible with this design by construction: audio was already ephemeral, and keys are stateless.
+mkdir -p ~/koe-ops
+# copy ops/koe.env.example to ~/koe-ops/koe.env and fill in secrets
+# copy ops/rebuild.sh, ops/watchdog.sh, ops/disk-guard.sh to ~/koe-ops/
+bash ~/koe-ops/rebuild.sh
+```
+
+`rebuild.sh` clones/pulls the repo, builds the image, recreates `koe` on `127.0.0.1:8080`, and starts Caddy. `KOE_SECRET` must stay stable — it signs every free key. `API_KEY` is the operator key used by `/stats`, `/stats.json`, and the analytics dashboard.
+
+The Docker image installs Node 20 + `edge-tts` and best-effort Piper. It keeps runtime data (`jobs.json`, `state.json`, `stats.json`) on a mounted volume so a container recreate does not wipe counters or job metadata.
+
+> `render.yaml` remains in the repo as a legacy blueprint. It is not the production target.
 
 ---
 
@@ -148,7 +161,7 @@ Claude Desktop (`claude_desktop_config.json`):
       "command": "node",
       "args": ["C:/Users/User/koe/mcp/index.js"],
       "env": {
-        "TTS_STUDIO_URL": "https://koe-tts-studio.onrender.com"
+        "TTS_STUDIO_URL": "https://koe.kennedyazeru.space"
       }
     }
   }
@@ -159,7 +172,7 @@ Claude Code:
 
 ```bash
 claude mcp add koe-tts \
-  -e TTS_STUDIO_URL=https://koe-tts-studio.onrender.com \
+  -e TTS_STUDIO_URL=https://koe.kennedyazeru.space \
   -- node C:/Users/User/koe/mcp/index.js
 ```
 
@@ -224,12 +237,27 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `KOE_STATE_FILE` | `.koe-state.json` | Best-effort state snapshot |
 | `KOE_OUTPUT_DIR` | `./output` | Runtime audio/work/job directory |
 | `KOE_JOBS_FILE` | `output/jobs.json` | Job metadata file |
+| `KOE_STATS_FILE` | `.koe-stats.json` | Persisted traffic/voiceover counters used by `/stats` |
 | `KOE_PUBLIC_URL` | request origin | Absolute base used in hosted-MCP download links (set it if you run behind a proxy) |
 | `KOE_MCP_INLINE_AUDIO_MAX` | `3145728` | Max bytes of audio to inline in an MCP response; `0` returns only the link |
 | `KOE_MCP_POLL_MS` | `2000` | How often hosted `generate_voiceover` polls a job |
+
+## Operator analytics
+
+`/stats.html` is a public shell; its numbers come from the admin-only `/stats.json`. Open the page, paste `API_KEY`, and it reads:
+
+- **Traffic** — all HTTP hits, voiceover jobs, MCP calls, previews, downloads, and new keys, all-time and today.
+- **Product users** — unique subjects with a real product action (voiceover, MCP call, preview, download, or registration) in the last 5 minutes / hour / 24 hours.
+- **Visitors** — all unique subjects, including crawlers and page loads. The dashboard shows these separately so bot traffic cannot inflate the user count.
+- **Request sources** — top subjects by HTTP requests; **Voiceover users** — top subjects by words generated.
+- **Daily ledger** — 14 days of counters.
+
+Counters persist to `KOE_STATS_FILE` (default `.koe-stats.json`; `/data/stats.json` in the production container). Anonymous visitor ids are keyed HMACs from `guard.anonSubject()`, never raw IPs. Older raw-IP records are migrated on load. Job and audio data remain ephemeral.
+
+---
 
 ## Notes
 
 - edge-tts is free but unofficial (Microsoft's consumer endpoint); occasional throttling is expected. The circuit breaker pauses new work briefly instead of hammering it.
 - Very long scripts are split into ~3000-char parts by the studio; the MCP merges them back into a single file (MP3s concatenated, WAVs re-muxed properly).
-- Tests: `npm test` (22 tests: guard limits, key auth, tenant isolation, validation, ephemeral cleanup, hosted MCP handshake and signed audio links).
+- Tests: `npm test` (34 tests: guard limits, key auth, tenant isolation, validation, ephemeral cleanup, analytics privacy/accounting, hosted MCP handshake and signed audio links).

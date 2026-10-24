@@ -1,0 +1,8 @@
+[Unit]
+Description=koe disk guard
+After=docker.service
+
+[Service]
+User=ec2-user
+Type=oneshot
+ExecStart=/bin/bash /home/ec2-user/koe-ops/disk-guard.sh

@@ -22,22 +22,22 @@ Success looks like: an agent connects to the hosted MCP URL, calls `generate_voi
 
 ## Positioning
 
-The free tier *is* the product, and it is bound by construction rather than by trust. Every install mints its own signed tenant key automatically (no signup, no payment), quotas are enforced per tenant, and generated audio is ephemeral — zips deleted after 15 minutes, jobs after an hour, everything wiped on restart. Keys are stateless HMACs with no database behind them, so the whole thing survives a wiped Render disk and a 512 MB free instance.
+The free tier *is* the product, and it is bound by construction rather than by trust. Every install mints its own signed tenant key automatically (no signup, no payment), quotas are enforced per tenant, and generated audio is ephemeral — zips deleted after 15 minutes, jobs after an hour, audio wiped on restart. Keys are stateless HMACs with no database behind them; counters and job metadata persist on a small mounted volume, so the app survives a container recreate without turning into a stateful service.
 
 A neighboring paid TTS vendor cannot copy that honestly: their economics need retained output and metered accounts. Koe's limits (per key, per IP, per job, plus a global queue and daily word budget) exist to keep a free public instance from being burned, not to upsell.
 
 ## Operating Context
 
-- **Hosted MCP** at `POST /mcp` on the Render deployment — stateless, JSON (no SSE), safe behind the load balancer. `GET /mcp` is the human setup page with tabs for Claude, Claude Code, and Cursor, plus a copy-paste "set this up for me" agent prompt.
+- **Hosted MCP** at `POST /mcp` on the AWS deployment — stateless, JSON (no SSE), safe behind the Caddy reverse proxy. `GET /mcp` is the human setup page with tabs for Claude, Claude Code, and Cursor, plus a copy-paste "set this up for me" agent prompt.
 - **Local stdio MCP** (`mcp/index.js`) for developers: same tools, but it saves audio to a local path and merges multi-part jobs into one file — the shape a video pipeline needs.
 - **Studio UI** (`index.html`) at `/studio` (the root `/` redirects to `/mcp`): script entry, voice catalog, preview, job list, usage.
 - **Raw HTTP API** (`/tts`, `/job/:id`, `/download/:id`, `/audio/:id`, `/jobs`, `/usage`, `/api/register`, `/health`) for scripts and curl.
-- Deployed on Render's free plan: 0.1 CPU, 512 MB, sleeps after ~15 minutes idle (first request wakes it in ~60 s), 750 instance-hours/month, ephemeral filesystem. Local dev runs `node server.js` on port 3000, with a Docker backend when Docker is present.
+- Deployed on a single EC2 instance: Docker container behind Caddy with a Let's Encrypt certificate, persisted counters/job metadata on a mounted volume, and ephemeral audio. Local dev runs `node server.js` on port 3000, with a Docker backend when Docker is present. See `DEPLOY.md` and `ops/`.
 - `AGENTS.md` is the agent-facing contract (tool schemas, response shapes, error recipes); `README.md` is the human/operator reference.
 
 ## Capabilities and Constraints
 
-**Confirmed capabilities:** multi-tenant free keys with per-key and per-IP quotas; per-job splitting into ~3000-character parts that the MCP merges back into one file; edge (MP3, rate/pitch, many languages) and Piper (WAV, offline, no rate/pitch) engines; previews metered at 600 characters; a bounded global queue with a circuit breaker for upstream failures; signed short-lived download links for hosted audio; admin key that bypasses limits; 22 automated tests.
+**Confirmed capabilities:** multi-tenant free keys with per-key and per-IP quotas; per-job splitting into ~3000-character parts that the MCP merges back into one file; edge (MP3, rate/pitch, many languages) and Piper (WAV, offline, no rate/pitch) engines; previews metered at 600 characters; a bounded global queue with a circuit breaker for upstream failures; signed short-lived download links for hosted audio; admin key that bypasses limits; operator analytics with hashed visitor ids and bot-separated user counts; 34 automated tests.
 
 **Hard constraints future work must respect:**
 
@@ -52,7 +52,7 @@ A neighboring paid TTS vendor cannot copy that honestly: their economics need re
 
 ## Brand Commitments
 
-- Name: **Koe**. One hosted public instance at `koe-tts-studio.onrender.com`.
+- Name: **Koe**. One hosted public instance at `koe.kennedyazeru.space`.
 - Promise to preserve: free, no signup, no card, no ElevenLabs.
 - Voice of the product so far: plain, technical, honest about limits — it names its own constraints (ephemeral audio, sleeping instance, unofficial upstream, rate limits) instead of hiding them. No growth-hack tone, no fake social proof.
 - Growth posture: it should read as a real product people recommend to each other, not a demo or a private script.
@@ -68,6 +68,6 @@ A neighboring paid TTS vendor cannot copy that honestly: their economics need re
 
 1. **Free must stay free.** Every design or product decision has to keep the public instance inside its budget; convenience for one user never comes at the cost of the operators' queue.
 2. **The agent path is the product.** A creator's first success is a tool call returning a file, so setup friction, tool output shape, and error messages outrank browser-side flourish.
-3. **Honesty about limits builds trust.** Ephemeral audio, sleeping instances, upstream throttling, and quotas are stated up front and in the same plain voice everywhere.
+3. **Honesty about limits builds trust.** Ephemeral audio, small-instance limits, upstream throttling, and quotas are stated up front and in the same plain voice everywhere.
 4. **Nothing permanent on the server.** Ephemerality is the architecture, not a policy toggle; the local file or signed download is the artifact.
 5. **Self-hosting must not rot.** Anything added has to keep working with stateless keys, no database, and a wiped disk on boot.

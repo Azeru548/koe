@@ -19,7 +19,7 @@ const PIPER_MODELS_DIR = path.join(PIPER_ROOT, "models");
 // ─────────────────────────────────────────────
 //  TTS BACKEND
 //  "docker" → shells out to docker (local dev, as before)
-//  "native" → runs `edge-tts` / `piper` CLIs directly (Render: no Docker daemon)
+//  "native" → runs `edge-tts` / `piper` CLIs directly (Docker image: no daemon)
 //  Auto-detects when TTS_BACKEND is unset: docker if the CLI exists, else native.
 // ─────────────────────────────────────────────
 
@@ -50,7 +50,7 @@ const CAPABILITIES = TTS_BACKEND === "native"
 
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", 1); // behind Render's LB — req.ip must come from X-Forwarded-For
+app.set("trust proxy", 1); // behind Caddy/reverse proxy - req.ip comes from X-Forwarded-For
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use((req, res, next) => { res.setHeader("X-Content-Type-Options", "nosniff"); next(); });
@@ -74,6 +74,7 @@ function keyMatches(candidate) {
 const OPEN_PATHS = new Set([
   "/health", "/api/register", "/api/limits", "/",
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
+  "/stats.html", // the dashboard SHELL is public; its data comes from admin-only /stats.json
 ]);
 
 // GET /mcp serves the human setup page when a browser asks for HTML; MCP
@@ -553,6 +554,41 @@ app.get("/stats", (req, res) => {
     slots: guard.slotStats(),
     uptimeSec: Math.floor(process.uptime()),
   }));
+});
+
+// The standalone dashboard page — loads without a key (the HTML itself is not
+// secret); the numbers it renders come from /stats.json, which IS admin-only.
+app.get("/stats.html", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(__dirname, "stats.html"));
+});
+
+// GET /stats.json — the same numbers as /stats, machine-friendly (admin-only)
+app.get("/stats.json", (req, res) => {
+  if (!req.ctx.admin) {
+    return res.status(403).json({ error: "Operator stats require the admin API key (x-api-key)" });
+  }
+  const now = Date.now();
+  const q = stats.query();
+  const jobs = loadJobs();
+  const byStatus = {};
+  for (const j of jobs) byStatus[j.status] = (byStatus[j.status] || 0) + 1;
+  const today = new Date(now).toISOString().slice(0, 10);
+  const jobsToday = jobs.filter((j) => String(j.createdAt || "").startsWith(today));
+  const wordsToday = jobsToday.reduce((sum, j) => sum + (j.wordCount || 0), 0);
+  res.set("Cache-Control", "no-store");
+  res.json({
+    now: new Date(now).toISOString(),
+    allTime: q.allTime,
+    today: q.today,
+    windows: q.windows,
+    days: stats.recentDays(14),
+    top: stats.topSubjects(10, "words").map((s) => ({ id: s.id, requests: s.requests, words: s.words, last: s.last, actions: s.actions || 0 })),
+    topRequests: stats.topSubjects(10, "requests").map((s) => ({ id: s.id, requests: s.requests, words: s.words, last: s.last, actions: s.actions || 0 })),
+    jobs: { total: jobs.length, today: jobsToday.length, wordsToday, byStatus },
+    slots: guard.slotStats(),
+    uptimeSec: Math.floor(process.uptime()),
+  });
 });
 
 // POST /tts
@@ -1038,7 +1074,7 @@ app.get("/mcp", (req, res) => {
 });
 
 // POST /mcp → stateless Streamable HTTP MCP. A fresh server + transport per
-// request keeps it safe behind Render's load balancer and ephemeral disk.
+// request keeps it safe behind a reverse proxy and ephemeral disk.
 app.post("/mcp", async (req, res) => {
   const server = createHostedMcp({ client: makeStudioClient(req) });
   const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });

@@ -71,6 +71,7 @@ test.before(async () => {
       KOE_STATE_FILE: path.join(TMP, "state.json"),
       KOE_OUTPUT_DIR: path.join(TMP, "output"),
       KOE_JOBS_FILE: JOBS_FILE,
+      KOE_STATS_FILE: path.join(TMP, "stats.json"),
       KOE_SWEEP_INTERVAL_SEC: "15",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -139,6 +140,25 @@ test("protected routes reject missing and invalid keys", async () => {
 
   const badKey = await json("GET", "/usage", { key: "koe_sk_deadbeefdeadbeef_aaaaaaaaaaaaaaaaaaaaaaaa" });
   assert.equal(badKey.status, 401);
+});
+
+test("stats shell is public and stats data is admin-only", async () => {
+  const shell = await fetch(`${base}/stats.html`);
+  assert.equal(shell.status, 200);
+  assert.match(await shell.text(), /Operator analytics/);
+
+  const anon = await json("GET", "/stats.json");
+  assert.equal(anon.status, 401);
+
+  const free = await json("GET", "/stats.json", { key: keys[0] });
+  assert.equal(free.status, 403);
+
+  const admin = await json("GET", "/stats.json", { key: ADMIN_KEY });
+  assert.equal(admin.status, 200);
+  assert.ok(admin.data.allTime);
+  assert.ok(admin.data.windows["24h"]);
+  assert.ok(Array.isArray(admin.data.top));
+  assert.ok(Array.isArray(admin.data.topRequests));
 });
 
 test("each tenant key sees its own usage", async () => {

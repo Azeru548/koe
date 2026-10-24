@@ -39,7 +39,8 @@ const OUT_DIR = process.env.VOICEOVER_DIR || path.join(process.cwd(), "voiceover
 const CRED_FILE = process.env.KOE_CREDENTIALS_FILE || path.join(os.homedir(), ".koe", "credentials.json");
 const AUTO_REGISTER = !["0", "false", "no", "off"].includes(String(process.env.KOE_DISABLE_AUTO_REGISTER || "").toLowerCase());
 
-// Render free instances cold-start in ~60s, so requests get a generous timeout.
+// A container restart or a busy small instance can take a while to answer,
+// so requests get a generous timeout.
 const REQUEST_TIMEOUT_MS = 120000;
 const POLL_INTERVAL_MS = 2000;
 
@@ -162,9 +163,7 @@ async function fetchOnce(method, pathname, body, key) {
     const cause = err.cause && err.cause.code ? err.cause.code : err.message;
     throw new Error(
       `Could not reach the TTS Studio at ${BASE_URL} (${cause}). ` +
-      (BASE_URL.includes("onrender.com")
-        ? "The Render free instance may be asleep or deleted — check the service URL."
-        : "Is the studio running? Set TTS_STUDIO_URL if it lives elsewhere.")
+      "Is the instance running? Check the URL and the service health; set TTS_STUDIO_URL if it lives elsewhere."
     );
   }
 }
@@ -242,7 +241,7 @@ const server = new McpServer({ name: "koe-tts-studio", version: "1.3.0" });
 
 server.tool(
   "studio_status",
-  `Check that the Koe TTS Studio is reachable, which engines it has, and your free-tier usage. Call this first if a generate call fails; on the Render free plan the first request may take ~60s while the instance wakes up.`,
+  `Check that the Koe TTS Studio is reachable, which engines it has, and your free-tier usage. Call this first if a generate call fails; the first request after a restart may take longer while the container warms up.`,
   {},
   async () => {
     try {

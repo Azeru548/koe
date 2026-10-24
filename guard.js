@@ -9,8 +9,9 @@
 //      (edge-tts has no documented quota — we serialize upstream work)
 //    • circuit breaker: repeated upstream synthesis failures open a cool-down
 //    • best-effort JSON state snapshot (secret + registrations + counters)
-//      — on Render's free plan the disk is wiped on sleep/deploy, so nothing
-//        here may be load-bearing except KOE_SECRET, which is an env var.
+//      - on the AWS instance this file lives on the EBS volume, but the app
+//        must still boot correctly if it is missing or corrupt. KOE_SECRET is
+//        always an env var, never state.
 //
 //  All limits are env-tunable (see CONFIG below).
 // ─────────────────────────────────────────────────────────────

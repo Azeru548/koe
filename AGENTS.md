@@ -31,11 +31,11 @@ The studio serves the same tools over **Streamable HTTP** at `POST /mcp`, so an
 agent can connect by URL instead of running `mcp/index.js`:
 
 ```
-POST https://your-service.onrender.com/mcp
+POST https://koe.kennedyazeru.space/mcp
 Authorization: Bearer koe_sk_...        (or: x-api-key: koe_sk_...)
 ```
 
-- **Stateless**, JSON responses (no SSE), safe behind Render's load balancer.
+- **Stateless**, JSON responses (no SSE), safe behind the Caddy reverse proxy.
 - `GET /mcp` with `Accept: text/html` is the human setup page (tabs for Claude,
   Claude Code, Cursor, and a copy-paste "set this up for me" agent prompt).
 - The caller's free key is re-used for every tool call, so per-key limits and
@@ -75,7 +75,7 @@ Pings the studio's `/health`. **Call this first whenever a generate call fails.*
   "queue": { "active": 0, "queued": 0, "concurrency": 2, "queueMax": 20 },
   "ephemeral": { "audioTtlSeconds": 900, "jobTtlSeconds": 3600 },
   "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 6000, "maxChars": 40000, "maxPreviewChars": 600 }, "global": { "concurrency": 2, "queueMax": 20, "wordsPerDay": 30000 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
-  "studioUrl": "https://your-service.onrender.com",
+  "studioUrl": "https://koe.kennedyazeru.space",
   "client": {
     "keyMode": "auto",
     "credentialsFile": "C:/Users/You/.koe/credentials.json",
@@ -85,7 +85,7 @@ Pings the studio's `/health`. **Call this first whenever a generate call fails.*
 ```
 
 Reading it:
-- `backend: "native"` = the server runs the `edge-tts`/`piper` CLIs directly (Render). `"docker"` = local Docker images.
+- `backend: "native"` = the server runs the `edge-tts`/`piper` CLIs directly (the production Docker image). `"docker"` = local Docker images.
 - `engines.edge` / `engines.piper` = which engines are actually usable. If `engines.piper` is `false`, requests with `engine: "piper"` will 503.
 - `keyRequired: true` = the server requires a free key. The MCP registers one automatically; `client.keyMode` is `env` (explicit `TTS_API_KEY`), `stored`, `auto`, or `none`.
 - `queue` / `limits` = current queue depth and the public rate policy. `ephemeral` = how long audio and jobs live.
@@ -143,7 +143,7 @@ Success result:
 
 **Rate limits/errors:** the MCP retries once automatically when the queue is full or the upstream is cooling down (`429`/`503` with a short `retryAfterSeconds`). A persistent `429` means the tenant's hourly/daily words or requests are exhausted — wait for the reset or check `get_usage`. A `413` means the script exceeds 6,000 words / 40,000 chars per job.
 
-Timing reality check: a short sentence takes ~2–5 s on a warm server. On the Render free plan the instance sleeps after ~15 min idle; the first call then takes up to ~60 s (the MCP's 120 s HTTP timeout covers this). A multi-thousand-word script can take minutes — raise `timeout_seconds`.
+Timing reality check: a short sentence takes ~2–5 s on a warm server. The public instance is a small EC2 box with a 2-job concurrency limit; if the container was just restarted, allow the first call a little longer. A multi-thousand-word script can take minutes — raise `timeout_seconds`.
 
 ### `get_voiceover_status`
 
@@ -270,6 +270,8 @@ Base URL: local `http://localhost:3000`, or your hosted URL.
 | `/api/register` | POST | — (empty body) | `{ key, tenant, limits }` — a free tenant key; capped per IP/day |
 | `/api/limits` | GET | — | Public rate policy (no secrets) |
 | `/usage` | GET | — | This caller's usage vs limits (admin → `{ unlimited: true }`) |
+| `/stats.html` | GET | — | Operator dashboard page (loads without a key; its data needs the admin key) |
+| `/stats.json` | GET | — | The same numbers as JSON — admin key required |
 | `/tts` | POST | `{ text, voice?, rate?, pitch?, engine? }` (same semantics as the MCP tool) | `{ jobId, parts, wordCount }` — immediately; synthesis runs in the background |
 | `/job/:id` | GET | — | Job object (§3); 404 if unknown/expired, 403 if another tenant's |
 | `/download/:id` | GET | — | ZIP of parts (`part_001.mp3`, ...); `409` if not done yet, `410` if audio expired, `404` unknown |
@@ -289,8 +291,8 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate), `401` mis
 
 | Symptom | Cause | What to do |
 | --- | --- | --- |
-| First call takes ~60 s, then works | Render free instance was asleep | Nothing — the MCP already waits this out. Raise `timeout_seconds` for very long scripts. |
-| `Could not reach the TTS Studio at <url> (...)` | Server down, wrong URL, or instance asleep/deleted | Call `studio_status`. Verify `TTS_STUDIO_URL`. On Render, check the service is still deployed (free instances can be paused after 30 days inactive). |
+| First call after a restart takes longer, then works | the container was warming up | Nothing — the MCP already waits this out. Raise `timeout_seconds` for very long scripts. |
+| `Could not reach the TTS Studio at <url> (...)` | Server down, wrong URL, or instance asleep/deleted | Call `studio_status`. Verify `TTS_STUDIO_URL`. Check the EC2 instance and Caddy container; see [DEPLOY.md](DEPLOY.md). |
 | `The TTS Studio rejected TTS_API_KEY (401)` | An explicit `TTS_API_KEY` is wrong, or `KOE_SECRET` was rotated | Remove `TTS_API_KEY` so the MCP auto-registers a fresh free key, or fix the key. Auto/stored keys re-register on their own. |
 | `429 — Hourly/Daily word limit reached ...` | This tenant's free quota is exhausted | Read `retryAfterSeconds`, call `get_usage`, wait for the window to reset. Requests are not refunded; failed jobs refund words. |
 | `429 — The synthesis queue is full` | The instance's 20-job queue is full | The MCP retries once if the wait is ≤45 s; otherwise retry shortly. |
@@ -312,7 +314,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate), `401` mis
 - **Instance-wide:** 2 concurrent jobs, 20-job queue, 30,000 words/day.
 - **Retention:** audio 900 s, job metadata 1 hour, previews 10 min. Nothing is permanent.
 - edge synthesis timeouts: 5 min per part on the server; piper: 10 min.
-- The Render free plan is 0.1 CPU / 512 MB — serialize big jobs (one at a time); don't fan out parallel generations.
+- The public instance is a small EC2 box — serialize big jobs (one at a time); don't fan out parallel generations.
 - edge-tts is free but unofficial (Microsoft's consumer endpoint). It is fine for personal voiceovers; don't hammer it.
 - Keep `KOE_SECRET` stable and `API_KEY` private on the deployed server. The free tier is deliberately bounded so the instance cannot be burned.
 
@@ -329,7 +331,7 @@ Claude Desktop — `claude_desktop_config.json`:
       "command": "node",
       "args": ["C:/Users/User/koe/mcp/index.js"],
       "env": {
-        "TTS_STUDIO_URL": "https://your-service.onrender.com"
+        "TTS_STUDIO_URL": "https://koe.kennedyazeru.space"
       }
     }
   }
@@ -340,7 +342,7 @@ Claude Code:
 
 ```bash
 claude mcp add koe-tts \
-  -e TTS_STUDIO_URL=https://your-service.onrender.com \
+  -e TTS_STUDIO_URL=https://koe.kennedyazeru.space \
   -- node C:/Users/User/koe/mcp/index.js
 ```
 

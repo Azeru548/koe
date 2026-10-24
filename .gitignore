@@ -4,6 +4,8 @@ output/
 .freebuff/
 .koe-state.json
 .koe-state.json.tmp
+.koe-stats.json
+.koe-stats.json.tmp
 jobs.json
 preview-*.mp3
 preview-*.wav
@@ -24,3 +26,11 @@ voiceovers/
 
 # Impeccable run artifacts (critique snapshots)
 .impeccable/
+
+# Private/local artifacts — never commit these
+/fix-ec2-launch-credential-request-failure.json
+/WhatsApp Image*.jpeg
+/koe logo.jpg
+/logo image.png
+/screenshots/
+ops/koe.env
