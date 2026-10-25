@@ -159,6 +159,32 @@ The older server-rendered `/stats?key=...` report remains available as a fallbac
 
 ## 8. Operations
 
+### Kokoro sidecar (optional)
+
+The third engine runs in its **own container**. The app is fully functional without it — edge and piper are unaffected, and only `engine: "kokoro"` requests answer `503 {"error":"tts_unavailable","engine":"kokoro"}` (within 10s, before any quota is charged).
+
+```bash
+cd ~/koe                     # the checkout that holds docker-compose.yml
+docker compose up -d          # start the sidecar
+docker compose logs -f        # first boot downloads the model + warms up
+docker compose ps             # health: healthy / starting
+docker compose down           # stop it
+docker compose pull && docker compose up -d   # after bumping tag + digest
+```
+
+The image is pinned by **digest** (`msgflux/fastkokoro:0.7-cpu@sha256:35b4…`, never `:latest`), bound to `127.0.0.1:8880` only, and capped at `cpus: "2.0"` / `mem_limit: 2g` so it can never starve the app container. The healthcheck probes `GET /health` inside the container with a 180s start period for the first-boot model download.
+
+Verify from the app's side:
+
+```bash
+curl -s localhost:3000/healthz | jq '.engines'
+# → { "edge": true, "piper": true, "kokoro": true }
+```
+
+`kokoro: false` means the sidecar is down or still warming up — a normal state, not a fault. `GET /healthz` stays `200` either way, because a missing optional engine must never fail the watchdog.
+
+If the sidecar lives on another host, set `KOKORO_BASE_URL` for the app container (default `http://127.0.0.1:8880`).
+
 Logs:
 
 ```bash

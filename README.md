@@ -1,6 +1,6 @@
 # Koe TTS Studio + MCP
 
-A self-hosted text-to-speech studio (Microsoft neural voices via edge-tts, plus optional offline Piper) and an **MCP server** so agents can generate voiceovers on demand — free, no ElevenLabs.
+A self-hosted text-to-speech studio (Microsoft neural voices via edge-tts, optional offline Piper, and optional local Kokoro) and an **MCP server** so agents can generate voiceovers on demand — free, no ElevenLabs.
 
 It is built to be a **free public product**:
 
@@ -111,6 +111,7 @@ Local usage: `npm install && node server.js` → <http://localhost:3000>. `/` re
 | `POST /api/register` | public (gated) | Thin alias of `POST /keys` (same gate, same body) |
 | `GET /api/limits` | public | Public limit policy (no secrets) |
 | `GET /usage` | key | This caller's usage vs limits |
+| `GET /voices` | public | Voice catalog per engine: `?engine=edge\|piper\|kokoro&lang=en` |
 | `GET /healthz` | public | Backend, engines, queue, limits, TTLs, and DB reachability |
 | `GET /health` | public | Alias of `/healthz` |
 | `GET /` | public | Redirects to `/mcp` |
@@ -129,6 +130,48 @@ Rejections carry a `reason` (`hourly_requests`, `hourly_words`, `daily_words`, `
 - `TTS_BACKEND=docker` — shells out to the `edge-tts` / `piper-tts` Docker images (local dev). Auto-selected when the `docker` CLI exists.
 
 Docker invocations use `execFile` (no shell), so script text and voice ids are never interpreted as shell commands.
+
+### Three engines
+
+All three sit behind one registry (`engines/index.js`) and one interface — `synthesize() -> { bytes, contentType }`, `listVoices()`, `healthy()`.
+
+| Engine | Where it runs | Output | Rate / pitch | Selected with |
+| --- | --- | --- | --- | --- |
+| **`edge`** *(default)* | `edge-tts` CLI (Microsoft neural, cloud) | MP3 | rate **and** pitch | `engine: "edge"` |
+| `piper` | `piper` CLI (offline on the host) | WAV | neither | `engine: "piper"` |
+| `kokoro` | **separate sidecar container** (Kokoro-82M, ONNX) | MP3 | rate only (clamped to 1.0–2.0), **pitch ignored** | `engine: "kokoro"` |
+
+`edge` is the default and behaves exactly as it always has; `KOE_DEFAULT_ENGINE` can override the default but is intentionally left unset.
+
+**The Kokoro sidecar is optional.** Start it with:
+
+```bash
+docker compose up -d     # starts the sidecar on 127.0.0.1:8880
+docker compose down       # stops it
+docker compose logs -f    # watch it warm up (first boot downloads the model)
+```
+
+The app works fine without it — edge and piper are untouched, and only `engine: "kokoro"` requests are rejected with `503 {"error":"tts_unavailable","engine":"kokoro"}` (returned within 10s, before any quota is charged). `GET /healthz` stays `200` either way and reports `engines.kokoro: false` while it is down.
+
+Point the studio at a sidecar on another host with `KOKORO_BASE_URL` (default `http://127.0.0.1:8880`).
+
+Note the sidecar ignores pitch entirely, and rates below `1.0` are clamped up to `1.0` (it accepts `speed` only in `1.0–2.0`) — a warning is logged once if either happens.
+
+#### Kokoro voices
+
+Kokoro voice ids are **not** shared with edge/piper: passing an edge voice to `engine: "kokoro"` is a `400` listing the first 20 valid kokoro ids (and the reverse). The live list comes from the sidecar (`GET /v1/audio/voices`); if it is unreachable the built-in catalog below is served instead.
+
+- **en-US** (20): `af_heart` `af_alloy` `af_aoede` `af_bella` `af_jessica` `af_kore` `af_nicole` `af_nova` `af_river` `af_sarah` `af_sky` `am_adam` `am_echo` `am_eric` `am_fenrir` `am_liam` `am_michael` `am_onyx` `am_puck` `am_santa`
+- **en-GB** (8): `bf_alice` `bf_emma` `bf_isabella` `bf_lily` `bm_daniel` `bm_fable` `bm_george` `bm_lewis`
+- **ja-JP** (5): `jf_alpha` `jf_gongitsune` `jf_nezumi` `jf_tebukuro` `jm_kumo`
+- **zh-CN** (8): `zf_xiaobei` `zf_xiaoni` `zf_xiaoxiao` `zf_xiaoyi` `zm_yunjian` `zm_yunxi` `zm_yunxia` `zm_yunyang`
+- **es-ES** (3): `ef_dora` `em_alex` `em_santa`
+- **fr-FR** (1): `ff_siwis`
+- **hi-IN** (4): `hf_alpha` `hf_beta` `hm_omega` `hm_psi`
+- **it-IT** (2): `if_sara` `im_nicola`
+- **pt-BR** (3): `pf_dora` `pm_alex` `pm_santa`
+
+The id prefix is `locale + gender` (`a`=American, `b`=British, `f`/`m`=female/male), so `bm_george` is a British male voice.
 
 ---
 
@@ -205,7 +248,7 @@ No key is required in the config. On first use the MCP asks `GET /keys/challenge
 | Tool | What it does |
 | --- | --- |
 | `studio_status` | Pings `/health` and shows backend, engines, queue, limits, and your usage. Call first if something fails. |
-| `list_voices` | Voices by engine (`edge`/`piper`) and optional language filter (`en`, `fr`, …). |
+| `list_voices` | Voices by engine (`edge`/`piper`/`kokoro`) and optional language filter (`en`, `fr`, …). |
 | `generate_voiceover` | Narrates `text`, polls the job, then either saves and **merges parts into one MP3/WAV** locally (stdio) or returns a **signed download URL + inline audio** (hosted). Retries briefly on queue-full/cool-down. |
 | `get_voiceover_status` | Job status by id (e.g. after a timeout). |
 | `list_recent_voiceovers` | Your last 10 jobs (tenant-isolated). |
@@ -235,6 +278,7 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
 | `TTS_BACKEND` | auto | `native` or `docker` |
+| `KOKORO_BASE_URL` | `http://127.0.0.1:8880` | Where the optional Kokoro sidecar lives; the engine is unavailable when it does not answer |
 | `KOE_SECRET` | generated | **Set this in production.** Signs download links, hashed anon subjects and key ids (keys themselves are DB rows) |
 | `KOE_DB_PATH` | `./koe.db` | SQLite file holding issued keys and every counter (`keys`, `usage`, `mint_ips`, `global_usage`). One connection per process; restarts resume from it |
 | `API_KEY` | *(none)* | Admin key: unlimited, sees all jobs |
@@ -266,6 +310,7 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `KOE_PUBLIC_URL` | request origin | Absolute base used in hosted-MCP download links (set it if you run behind a proxy) |
 | `KOE_MCP_INLINE_AUDIO_MAX` | `3145728` | Max bytes of audio to inline in an MCP response; `0` returns only the link |
 | `KOE_MCP_POLL_MS` | `2000` | How often hosted `generate_voiceover` polls a job |
+| `KOE_DEFAULT_ENGINE` | `edge` | Default for callers that omit `engine`. Left unset in this deployment — edge stays the default |
 
 ## Operator analytics
 

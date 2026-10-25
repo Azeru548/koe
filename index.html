@@ -535,6 +535,7 @@ input[type="range"]:disabled { opacity: .4; cursor: not-allowed; }
           <select id="engineSelect" onchange="onEngineChange()">
             <option value="edge">Microsoft Neural</option>
             <option value="piper">Piper Offline</option>
+            <option value="kokoro">Kokoro Offline</option>
           </select>
         </label>
         <label class="slider-field" id="rateCtrl" for="rateSlider">
@@ -646,6 +647,28 @@ const EDGE_VOICES = [
 const PIPER_VOICES = [
   { id:"en_US-lessac-medium", name:"Lessac", lang:"en-US", region:"English (US)", gender:"Male", style:"Natural", color:"#5b21b6" }
 ];
+
+// Kokoro's catalog is NOT hardcoded: the studio asks the server, which asks
+// the sidecar and falls back to a built-in list when the sidecar is down.
+const KOKORO_REGIONS = {
+  "en-US":"English (US)", "en-GB":"English (GB)", "ja-JP":"Japanese", "zh-CN":"Chinese (CN)",
+  "es-ES":"Spanish (ES)", "fr-FR":"French (FR)", "hi-IN":"Hindi (IN)", "it-IT":"Italian (IT)",
+  "pt-BR":"Portuguese (BR)"
+};
+let KOKORO_VOICES = [];
+let kokoroVoicesLoaded = false;
+async function loadKokoroVoices() {
+  if (kokoroVoicesLoaded) return;
+  kokoroVoicesLoaded = true;
+  try {
+    const res = await fetch(`${SERVER}/voices?engine=kokoro`, { headers: authHeaders(), signal: AbortSignal.timeout(8000) });
+    const data = await res.json().catch(() => ({}));
+    KOKORO_VOICES = (data.voices || []).map(v => ({
+      id: v.id, name: v.name || v.id, lang: v.lang,
+      region: KOKORO_REGIONS[v.lang] || "Other", gender: v.gender || "", style: "Kokoro", color: "#0f766e"
+    }));
+  } catch { /* offline list stays empty; the engine option remains visible */ }
+}
 
 const SERVER = location.protocol === "file:" ? "http://localhost:3000" : "";
 let API_KEY = new URLSearchParams(location.search).get("key") || localStorage.getItem("ttsApiKey") || "";
@@ -809,6 +832,7 @@ let waveInterval  = null;
 let pollIntervals = {};
 
 function getVoices() {
+  if (currentEngine === "kokoro") return KOKORO_VOICES;
   return currentEngine === "piper" ? PIPER_VOICES : EDGE_VOICES;
 }
 
@@ -819,6 +843,7 @@ window.addEventListener("DOMContentLoaded", () => {
   checkServer();
   loadStoredJobs();
   ensureApiKey().then(refreshUsage);
+  loadKokoroVoices(); // warm the catalog so switching engines is instant
   setInterval(checkServer, 30000);
   setInterval(refreshUsage, 60000);
   onEngineChange();
@@ -831,6 +856,8 @@ function onEngineChange() {
   const enginePill = document.getElementById("enginePill");
   const piperNotice = document.getElementById("piperNotice");
   const voicePanelTitle = document.getElementById("voicePanelTitle");
+  const rateSlider = document.getElementById("rateSlider");
+  rateSlider.min = "0.5";
 
   if (currentEngine === "piper") {
     enginePill.textContent = "Piper Offline";
@@ -839,8 +866,33 @@ function onEngineChange() {
     voicePanelTitle.textContent = "Piper voice";
     document.getElementById("rateCtrl").classList.add("ctrl-disabled");
     document.getElementById("pitchCtrl").classList.add("ctrl-disabled");
-    document.getElementById("rateSlider").disabled = true;
+    rateSlider.disabled = true;
     document.getElementById("pitchSlider").disabled = true;
+  } else if (currentEngine === "kokoro") {
+    enginePill.textContent = "Kokoro Offline";
+    enginePill.className = "status engine";
+    piperNotice.classList.remove("show");
+    voicePanelTitle.textContent = "Kokoro voice";
+    // Kokoro has no pitch control at all, and its sidecar only accepts
+    // speed 1.0–2.0 — so pitch is disabled and rate cannot go below 1.0
+    // rather than being silently clamped server-side.
+    document.getElementById("rateCtrl").classList.remove("ctrl-disabled");
+    document.getElementById("pitchCtrl").classList.add("ctrl-disabled");
+    document.getElementById("pitchSlider").disabled = true;
+    rateSlider.disabled = false;
+    rateSlider.min = "1.0";
+    if (parseFloat(rateSlider.value) < 1) {
+      rateSlider.value = "1.0";
+      document.getElementById("rateVal").textContent = "1.0×";
+    }
+    loadKokoroVoices().then(() => {
+      if (currentEngine !== "kokoro") return;
+      selectedVoice = KOKORO_VOICES.find(v => v.id === selectedByEngine.kokoro) || KOKORO_VOICES[0] || null;
+      if (selectedVoice) selectedByEngine.kokoro = selectedVoice.id;
+      buildLangFilter();
+      renderVoices();
+      updateSelectedBar();
+    });
   } else {
     enginePill.textContent = "Microsoft Neural";
     enginePill.className = "status engine";
@@ -848,7 +900,7 @@ function onEngineChange() {
     voicePanelTitle.textContent = "Voices";
     document.getElementById("rateCtrl").classList.remove("ctrl-disabled");
     document.getElementById("pitchCtrl").classList.remove("ctrl-disabled");
-    document.getElementById("rateSlider").disabled = false;
+    rateSlider.disabled = false;
     document.getElementById("pitchSlider").disabled = false;
   }
 
@@ -948,7 +1000,7 @@ function initials(name) {
 // Jobs store the raw voice id after a server poll; map it back to the catalog name.
 function voiceName(value) {
   if (!value) return "";
-  const match = [...EDGE_VOICES, ...PIPER_VOICES].find(v => v.id === value || v.name === value);
+  const match = [...EDGE_VOICES, ...PIPER_VOICES, ...KOKORO_VOICES].find(v => v.id === value || v.name === value);
   return match ? match.name : value;
 }
 
@@ -1037,6 +1089,9 @@ function updateStats() {
 }
 
 async function quickPreview(voiceId) {
+  // There is no /tts-preview-kokoro route — previewing with an edge voice
+  // endpoint would silently use the wrong engine, so say so instead.
+  if (currentEngine === "kokoro") { toast("Kokoro previews aren't available yet — generate a job to hear it.", "info"); return; }
   const voices = getVoices();
   const v = voices.find(x => x.id === voiceId);
   if (!v) return;
@@ -1086,6 +1141,7 @@ async function quickPreview(voiceId) {
 
 async function previewVoice() {
   if (!selectedVoice) { toast("Pick a voice first.", "error"); return; }
+  if (currentEngine === "kokoro") { toast("Kokoro previews aren't available yet — generate a job to hear it.", "info"); return; }
 
   const rate  = parseFloat(document.getElementById("rateSlider").value);
   const pitch = parseInt(document.getElementById("pitchSlider").value, 10);
@@ -1304,7 +1360,7 @@ function renderJobs() {
     const isDone   = j.status === "done";
     const isFailed = j.status === "failed";
     const inProg   = !isDone && !isFailed;
-    const engineLabel = j.engine === "piper" ? "Piper" : "Edge";
+    const engineLabel = j.engine === "piper" ? "Piper" : j.engine === "kokoro" ? "Kokoro" : "Edge";
     return `
     <div class="job-card" id="jc_${j.id}">
       <div class="job-card-top">

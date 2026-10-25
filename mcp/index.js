@@ -302,15 +302,28 @@ server.tool(
 );
 
 server.tool(
-  "list_voices",
-  "List the available voices of the Koe TTS Studio. 'edge' voices are Microsoft neural voices (cloud, many languages); 'piper' voices run offline on the studio host.",
+  "list_voices",    "List the available voices of the Koe TTS Studio for one engine. 'edge' = Microsoft neural voices (cloud, many languages); 'piper' = offline on the studio host; 'kokoro' = the studio's local Kokoro sidecar (offline, MP3). Voice ids are never shared between engines — always list the engine you intend to use.",
   {
-    engine: z.enum(["edge", "piper"]).default("edge").describe("Which engine's voices to list"),
+    engine: z.enum(["edge", "piper", "kokoro"]).default("edge").describe("Which engine's voices to list"),
     lang: z.string().optional().describe("Optional language prefix filter, e.g. 'en', 'en-GB', 'fr'"),
   },
   async ({ engine, lang }) => {
-    let voices = engine === "piper" ? PIPER_VOICES : EDGE_VOICES;
-    if (lang) voices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase()));
+    let voices;
+    if (engine === "kokoro") {
+      // Kokoro's catalog is served by the studio: it asks the sidecar and
+      // falls back to a built-in list when the sidecar is down. edge/piper
+      // keep using the static catalog below, exactly as before.
+      try {
+        const q = lang ? `&lang=${encodeURIComponent(lang)}` : "";
+        const data = await apiJson("GET", `/voices?engine=kokoro${q}`);
+        voices = data.voices || [];
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: could not list kokoro voices — ${err.message}` }], isError: true };
+      }
+    } else {
+      voices = engine === "piper" ? PIPER_VOICES : EDGE_VOICES;
+      if (lang) voices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase()));
+    }
     if (!voices.length) {
       return { content: [{ type: "text", text: `No ${engine} voices match '${lang}'. Use list_voices without a filter to see all.` }], isError: true };
     }
@@ -324,7 +337,7 @@ server.tool(
   {
     text: z.string().min(1).max(40000).describe("The script to narrate. Paragraph breaks are allowed; very long scripts are split into parts automatically."),
     voice: z.string().default("en-US-GuyNeural").describe("Voice id from list_voices, e.g. 'en-US-AndrewNeural'"),
-    engine: z.enum(["edge", "piper"]).default("edge").describe("'edge' = Microsoft neural voices (cloud, supports rate/pitch), 'piper' = offline"),
+    engine: z.enum(["edge", "piper", "kokoro"]).default("edge").describe("'edge' = Microsoft neural voices (cloud, supports rate/pitch), 'piper' = offline WAV, 'kokoro' = offline Kokoro MP3 (rate is clamped to 1.0-2.0, pitch ignored)"),
     rate: z.number().min(0.5).max(2).default(1).describe("Speaking speed multiplier (1 = normal)"),
     pitch: z.number().int().min(-100).max(100).default(0).describe("Pitch shift in Hz (0 = normal)"),
     file_name: z.string().optional().describe("Output file name without folder, e.g. 'intro-narration.mp3'. Defaults to voiceover-<jobId>"),

@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/guard.test.js test/pow.test.js test/keys.test.js test/stats.test.js test/server.test.js test/ephemeral.test.js test/mcp.test.js"
+    "test": "node --test test/guard.test.js test/pow.test.js test/keys.test.js test/stats.test.js test/server.test.js test/ephemeral.test.js test/mcp.test.js test/kokoro.test.js test/kokoro-server.test.js test/kokoro-up.test.js"
   },
   "keywords": [],
   "author": "",

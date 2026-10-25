@@ -44,8 +44,78 @@ const PIPER_VOICES = [
   { id: "en_US-lessac-medium", name: "Lessac", lang: "en-US", gender: "Male", style: "Natural" },
 ];
 
+// ── Kokoro ─────────────────────────────────────────────────────
+// Kokoro ids look like `af_heart`: first letter is the locale, second is the
+// gender. These are the ids fastkokoro serves from GET /v1/audio/voices; the
+// list below is only the FALLBACK used when the sidecar cannot be reached.
+const KOKORO_LOCALES = {
+  a: "en-US", // American English
+  b: "en-GB", // British English
+  j: "ja-JP",
+  z: "zh-CN",
+  e: "es-ES",
+  f: "fr-FR",
+  h: "hi-IN",
+  i: "it-IT",
+  p: "pt-BR",
+};
+
+// Built-in fallback catalog (fastkokoro 0.7 README). Used only when the
+// sidecar's /v1/audio/voices cannot be fetched — see engines/kokoro.js.
+const KOKORO_FALLBACK_VOICES = [
+  // American English (en-us)
+  "af_heart", "af_alloy", "af_aoede", "af_bella", "af_jessica", "af_kore", "af_nicole", "af_nova",
+  "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam",
+  "am_michael", "am_onyx", "am_puck", "am_santa",
+  // British English (en-gb)
+  "bf_alice", "bf_emma", "bf_isabella", "bf_lily", "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
+  // Japanese (ja-jp)
+  "jf_alpha", "jf_gongitsune", "jf_nezumi", "jf_tebukuro", "jm_kumo",
+  // Mandarin Chinese (zh-cn)
+  "zf_xiaobei", "zf_xiaoni", "zf_xiaoxiao", "zf_xiaoyi", "zm_yunjian", "zm_yunxi", "zm_yunxia", "zm_yunyang",
+  // Spanish (es-es)
+  "ef_dora", "em_alex", "em_santa",
+  // French (fr-fr)
+  "ff_siwis",
+  // Hindi (hi-in)
+  "hf_alpha", "hf_beta", "hm_omega", "hm_psi",
+  // Italian (it-it)
+  "if_sara", "im_nicola",
+  // Brazilian Portuguese (pt-br)
+  "pf_dora", "pm_alex", "pm_santa",
+].map((id) => ({ id, name: id, lang: KOKORO_LOCALES[id[0]] || "und", gender: id[1] === "f" ? "Female" : id[1] === "m" ? "Male" : undefined }));
+
+// Turn a raw sidecar voice id into the same shape as the other catalogs.
+// Unknown shapes are passed through untouched — never renamed or aliased.
+function describeKokoroVoice(id) {
+  const s = String(id || "");
+  return {
+    id: s,
+    name: s,
+    lang: KOKORO_LOCALES[s[0]] || "und",
+    gender: s[1] === "f" ? "Female" : s[1] === "m" ? "Male" : undefined,
+  };
+}
+
+// True when `voice` belongs to this engine's catalog. Used to reject a voice
+// id from a DIFFERENT engine rather than silently aliasing it across.
+function isKokoroVoice(voice, knownIds) {
+  const list = knownIds || KOKORO_FALLBACK_VOICES.map((v) => v.id);
+  return list.includes(String(voice || ""));
+}
+
 function voicesFor(engine) {
+  // NOTE: unknown engines fall through to EDGE_VOICES — pre-existing
+  // behaviour, kept deliberately so nothing changes for edge callers.
   return engine === "piper" ? PIPER_VOICES : EDGE_VOICES;
 }
 
-module.exports = { EDGE_VOICES, PIPER_VOICES, voicesFor };
+module.exports = {
+  EDGE_VOICES,
+  PIPER_VOICES,
+  KOKORO_FALLBACK_VOICES,
+  KOKORO_LOCALES,
+  voicesFor,
+  describeKokoroVoice,
+  isKokoroVoice,
+};

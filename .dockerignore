@@ -12,5 +12,6 @@ mcp
 .git
 Dockerfile
 .dockerignore
+docker-compose.yml
 render.yaml
 README.md

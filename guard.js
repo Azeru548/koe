@@ -338,9 +338,11 @@ function logReject(reason, rawKey, ip, detail = "") {
   console.log(`[guard] reject reason=${reason} key=${keyPrefix(rawKey)} ip=${ip || "-"}${extra}`);
 }
 
-function logGeneration({ rawKey, subject, words, durationMs, jobId }) {
+// engine + voice are informational; the key is still only its 11-char
+// prefix (the v3 logging rule — a full key never reaches stdout).
+function logGeneration({ rawKey, subject, engine, voice, words, durationMs, jobId }) {
   console.log(
-    `[gen] key=${keyPrefix(rawKey)} subject=${subject || "-"} words=${words} ` +
+    `[gen] key=${keyPrefix(rawKey)} subject=${subject || "-"} engine=${engine || "-"} voice=${voice || "-"} words=${words} ` +
     `duration=${Math.round(durationMs)}ms job=${jobId || "-"}`
   );
 }

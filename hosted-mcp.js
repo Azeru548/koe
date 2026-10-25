@@ -22,7 +22,7 @@
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { z } = require("zod");
 const AdmZip = require("adm-zip");
-const { voicesFor } = require("./voices");
+const engines = require("./engines");
 const { mergeAudioParts } = require("./audio");
 
 const VERSION = "1.0.0";
@@ -82,14 +82,18 @@ function createHostedMcp({ client }) {
 
   server.tool(
     "list_voices",
-    "List the available voices. 'edge' voices are Microsoft neural voices (cloud, many languages); 'piper' voices run offline on the studio host. Pass an id to generate_voiceover.",
+    "List the available voices for an engine. 'edge' = Microsoft neural voices (cloud, many languages); 'piper' = offline on the studio host; 'kokoro' = the local Kokoro sidecar (offline, MP3). Voice ids are never shared between engines — always list the engine you intend to use. Pass an id to generate_voiceover.",
     {
-      engine: z.enum(["edge", "piper"]).default("edge").describe("Which engine's voices to list"),
+      engine: z.enum(["edge", "piper", "kokoro"]).default("edge").describe("Which engine's voices to list"),
       lang: z.string().optional().describe("Optional language prefix filter, e.g. 'en', 'en-GB', 'fr'"),
     },
     async ({ engine, lang }) => {
-      let voices = voicesFor(engine);
-      if (lang) voices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase()));
+      let voices;
+      try {
+        voices = await engines.getEngine(engine).listVoices({ lang });
+      } catch (err) {
+        return errorResult(String((err && err.message) || err));
+      }
       if (!voices.length) {
         return errorResult(`No ${engine} voices match '${lang}'. Call list_voices without a filter to see all.`);
       }
@@ -103,7 +107,7 @@ function createHostedMcp({ client }) {
     {
       text: z.string().min(1).max(40000).describe("The script to narrate. Paragraph breaks are allowed; long scripts are split into parts automatically."),
       voice: z.string().default("en-US-GuyNeural").describe("Voice id from list_voices, e.g. 'en-US-AndrewNeural'"),
-      engine: z.enum(["edge", "piper"]).default("edge").describe("'edge' = Microsoft neural voices (cloud, supports rate/pitch), 'piper' = offline"),
+      engine: z.enum(["edge", "piper", "kokoro"]).default("edge").describe("'edge' = Microsoft neural voices (cloud, supports rate/pitch), 'piper' = offline WAV, 'kokoro' = offline Kokoro MP3 (rate is clamped to 1.0-2.0, pitch ignored)"),
       rate: z.number().min(0.5).max(2).default(1).describe("Speaking speed multiplier (1 = normal)"),
       pitch: z.number().int().min(-100).max(100).default(0).describe("Pitch shift in Hz (0 = normal)"),
       timeout_seconds: z.number().int().min(30).max(900).default(300).describe("How long to wait for the job before giving up"),

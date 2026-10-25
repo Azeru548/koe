@@ -3,7 +3,6 @@ const cors = require("cors");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { execFile, execSync } = require("child_process");
 const archiver = require("archiver");
 const AdmZip = require("adm-zip");
 const guard = require("./guard");
@@ -11,42 +10,28 @@ const stats = require("./stats");
 const { mergeAudioParts } = require("./audio");
 const { createHostedMcp } = require("./hosted-mcp");
 const { StreamableHTTPServerTransport } = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
-const PIPER_IMAGE = "piper-tts";
-const PIPER_MODEL = "en_US-lessac-medium.onnx";
-const PIPER_ROOT = process.env.PIPER_ROOT || path.join(process.env.HOME || process.env.USERPROFILE || __dirname, "piper-docker");
-const PIPER_MODELS_DIR = path.join(PIPER_ROOT, "models");
+const engines = require("./engines");
+const { TTS_BACKEND } = require("./engines/backend");
 
 // ─────────────────────────────────────────────
-//  TTS BACKEND
-//  "docker" → shells out to docker (local dev, as before)
-//  "native" → runs `edge-tts` / `piper` CLIs directly (Docker image: no daemon)
-//  Auto-detects when TTS_BACKEND is unset: docker if the CLI exists, else native.
+//  ENGINES
+//  edge | piper | kokoro all live behind engines/index.js — one registry,
+//  one interface. Backend detection (docker vs native CLI) is engines/backend.js.
+//  edge remains the default; the sidecar for kokoro is optional, and when it
+//  is down only engine:"kokoro" requests are rejected.
 // ─────────────────────────────────────────────
 
-function detectBackend() {
-  const pref = (process.env.TTS_BACKEND || "").toLowerCase();
-  if (pref === "docker" || pref === "native") return pref;
+// Live availability, refreshed on every request: edge/piper are their boot
+// probes, kokoro is a cached health call to the sidecar (never throws).
+async function engineAvailable(name) {
+  const engine = engines.getEngine(name);
+  if (!engine) return false;
   try {
-    execSync("docker --version", { stdio: "ignore", timeout: 5000 });
-    return "docker";
-  } catch {
-    return "native";
-  }
-}
-const TTS_BACKEND = detectBackend();
-
-function cmdAvailable(cmd) {
-  try {
-    execSync(`"${cmd}" --help`, { stdio: "ignore", timeout: 10000 });
-    return true;
+    return Boolean(await engine.healthy());
   } catch {
     return false;
   }
 }
-
-const CAPABILITIES = TTS_BACKEND === "native"
-  ? { edge: cmdAvailable("edge-tts"), piper: cmdAvailable("piper") }
-  : { edge: true, piper: true };
 
 const app = express();
 app.disable("x-powered-by");
@@ -74,6 +59,7 @@ function keyMatches(candidate) {
 const OPEN_PATHS = new Set([
   "/health", "/healthz", "/api/register", "/api/limits", "/",
   "/keys", "/keys/challenge", // public: key issuance + anti-abuse challenge
+  "/voices", // public voice catalog — already public in the studio UI
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
   "/stats.html", // the dashboard SHELL is public; its data comes from admin-only /stats.json
 ]);
@@ -373,139 +359,10 @@ function splitText(text) {
 
 // ─────────────────────────────────────────────
 //  TTS ENGINES
+//  Moved into engines/ — edge.js, piper.js and kokoro.js each expose
+//  synthesize() -> { bytes, contentType }, listVoices() and healthy().
+//  server.js no longer knows how any particular engine produces audio.
 // ─────────────────────────────────────────────
-
-function formatRate(rate) {
-  const pct = Math.round((parseFloat(rate) - 1) * 100);
-  return pct >= 0 ? `+${pct}%` : `${pct}%`;
-}
-
-function formatPitch(pitch) {
-  const hz = parseInt(pitch, 10);
-  return hz >= 0 ? `+${hz}Hz` : `${hz}Hz`;
-}
-
-const EDGE_TIMEOUT_MS = 5 * 60 * 1000;
-const PIPER_TIMEOUT_MS = 10 * 60 * 1000;
-const MAX_BUFFER = 1024 * 1024 * 10;
-
-function runDockerEdgeTTS({ text, voice, rate, pitch, hostDir, containerDir, fileName }) {
-  return new Promise((resolve, reject) => {
-    // execFile (not exec) — user-supplied text/voice never touch a shell.
-    const args = [
-      "run", "--rm",
-      "-v", `${hostDir}:${containerDir}`,
-      "edge-tts",
-      "--voice", voice,
-      "--rate", formatRate(rate),
-      "--pitch", formatPitch(pitch),
-      "--text", text,
-      "--write-media", `${containerDir}/${fileName}`,
-    ];
-
-    execFile("docker", args, { maxBuffer: MAX_BUFFER, timeout: EDGE_TIMEOUT_MS }, (err, stdout, stderr) => {
-      if (err) {
-        console.error(`[TTS ERROR docker] voice=${voice}\n${stderr}`);
-        return reject(new Error(stderr || err.message));
-      }
-      resolve();
-    });
-  });
-}
-
-function runNativeEdgeTTS({ text, voice, rate, pitch, outPath }) {
-  return new Promise((resolve, reject) => {
-    const args = [
-      "--voice", voice,
-      "--rate", formatRate(rate),
-      "--pitch", formatPitch(pitch),
-      "--text", text,
-      "--write-media", outPath,
-    ];
-
-    execFile("edge-tts", args, { maxBuffer: MAX_BUFFER, timeout: EDGE_TIMEOUT_MS }, (err, stdout, stderr) => {
-      if (err) {
-        console.error(`[TTS ERROR native] voice=${voice}\n${stderr || err.message}`);
-        if (err.code === "ENOENT") {
-          return reject(new Error("edge-tts CLI not found on this host (pip install edge-tts)"));
-        }
-        return reject(new Error(stderr || err.message));
-      }
-      resolve();
-    });
-  });
-}
-
-function runDockerPiperTTS({ text, hostDir, containerDir, fileName }) {
-  return new Promise((resolve, reject) => {
-    const args = [
-      "run", "--rm", "-i",
-      "-v", `${PIPER_MODELS_DIR}:/models`,
-      "-v", `${hostDir}:${containerDir}`,
-      PIPER_IMAGE,
-      "--model", `/models/${PIPER_MODEL}`,
-      "--output_file", `${containerDir}/${fileName}`,
-    ];
-
-    const child = execFile("docker", args, { maxBuffer: MAX_BUFFER, timeout: PIPER_TIMEOUT_MS }, (err, stdout, stderr) => {
-      if (err) {
-        console.error("[PIPER ERROR docker]", stderr);
-        return reject(new Error(stderr || err.message));
-      }
-      resolve();
-    });
-
-    child.stdin.write(text);
-    child.stdin.end();
-  });
-}
-
-function runNativePiperTTS({ text, outPath }) {
-  return new Promise((resolve, reject) => {
-    const modelPath = path.join(PIPER_MODELS_DIR, PIPER_MODEL);
-    if (!fs.existsSync(modelPath)) {
-      return reject(new Error(`Piper model not found at ${modelPath}`));
-    }
-
-    const child = execFile(
-      "piper",
-      ["--model", modelPath, "--output_file", outPath],
-      { maxBuffer: MAX_BUFFER, timeout: PIPER_TIMEOUT_MS },
-      (err, stdout, stderr) => {
-        if (err) {
-          console.error("[PIPER ERROR native]", stderr || err.message);
-          if (err.code === "ENOENT") {
-            return reject(new Error("piper CLI not found on this host (pip install piper-tts)"));
-          }
-          return reject(new Error(stderr || err.message));
-        }
-        resolve();
-      }
-    );
-
-    child.stdin.write(text);
-    child.stdin.end();
-  });
-}
-
-// Unified entry: picks engine + backend. hostDir is the host folder mounted for
-// docker runs (also the native output folder); containerDir is where that folder
-// appears inside the container.
-async function runTTS({ engine, text, voice, rate, pitch, hostDir, containerDir, fileName }) {
-  if (engine === "edge") {
-    if (TTS_BACKEND === "docker") {
-      return runDockerEdgeTTS({ text, voice, rate, pitch, hostDir, containerDir, fileName });
-    }
-    return runNativeEdgeTTS({ text, voice, rate, pitch, outPath: path.join(hostDir, fileName) });
-  }
-  if (engine === "piper") {
-    if (TTS_BACKEND === "docker") {
-      return runDockerPiperTTS({ text, hostDir, containerDir, fileName });
-    }
-    return runNativePiperTTS({ text, outPath: path.join(hostDir, fileName) });
-  }
-  throw new Error("Invalid engine");
-}
 
 // ─────────────────────────────────────────────
 //  ZIP HELPER
@@ -647,6 +504,25 @@ app.get("/mcp-sample-:file", (req, res) => {
   res.sendFile(path.join(__dirname, `mcp-sample-${match[1]}.mp3`));
 });
 
+// GET /voices?engine=<name>&lang=<prefix> — the per-engine voice catalog.
+// edge/piper come from the static catalog in voices.js (unchanged); kokoro is
+// fetched from the sidecar and cached, falling back to the built-in list when
+// the sidecar is down. Never aliases a voice id across engines.
+app.get("/voices", async (req, res) => {
+  const engine = String(req.query.engine || engines.DEFAULT_ENGINE);
+  if (!engines.isRegistered(engine)) {
+    return res.status(400).json({ error: `Invalid engine — use one of: ${engines.ENGINE_NAMES.join(", ")}` });
+  }
+  const lang = req.query.lang ? String(req.query.lang) : undefined;
+  try {
+    const voices = await engines.getEngine(engine).listVoices({ lang });
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ engine, count: voices.length, voices });
+  } catch (err) {
+    return res.status(500).json({ error: "Could not list voices", detail: String((err && err.message) || err).slice(0, 200) });
+  }
+});
+
 // GET /usage — this caller's usage vs limits
 app.get("/usage", (req, res) => {
   const subject = callerSubject(req);
@@ -730,8 +606,8 @@ app.post("/tts", async (req, res) => {
     return res.status(400).json({ error: "No text provided" });
   }
 
-  if (engine !== "edge" && engine !== "piper") {
-    return res.status(400).json({ error: "Invalid engine — use 'edge' or 'piper'" });
+  if (!engines.isRegistered(engine)) {
+    return res.status(400).json({ error: `Invalid engine — use one of: ${engines.ENGINE_NAMES.join(", ")}` });
   }
 
   const rateNum = Number(rate);
@@ -746,10 +622,33 @@ app.post("/tts", async (req, res) => {
     return res.status(400).json({ error: "Invalid voice id." });
   }
 
-  if (!CAPABILITIES[engine]) {
+  // Availability is checked BEFORE guard.charge(), exactly where the old
+  // CAPABILITIES check sat: an unavailable engine never consumes quota, so
+  // there is nothing to refund. Kokoro's 503 has its own documented shape.
+  if (!(await engineAvailable(engine))) {
+    guard.logReject("engine_unavailable", req.ctx.rawKey, req.ctx.ip, `engine=${engine}`);
+    if (engine === "kokoro") {
+      return res.status(503).json({ error: "tts_unavailable", engine: "kokoro" });
+    }
     return res.status(503).json({
       error: `Engine '${engine}' is not available on this server (backend: ${TTS_BACKEND})`,
     });
+  }
+
+  // Kokoro validates voice ids against its own catalog. An edge/piper id is
+  // a 400 carrying the first 20 valid kokoro ids — never aliased across
+  // engines. edge and piper deliberately keep accepting any well-formed id
+  // (documented behaviour: any official Microsoft voice name works).
+  if (engine === "kokoro") {
+    const catalog = await engines.getEngine("kokoro").listVoices();
+    if (!catalog.some((v) => v.id === String(voice))) {
+      return res.status(400).json({
+        error: `Invalid voice '${voice}' for engine 'kokoro'.`,
+        engine: "kokoro",
+        validVoices: catalog.slice(0, 20).map((v) => v.id),
+        validVoiceCount: catalog.length,
+      });
+    }
   }
 
   const words = text.trim().split(/\s+/).length;
@@ -800,6 +699,10 @@ app.post("/tts", async (req, res) => {
   const parts      = splitText(text);
   const wordCount  = words;
 
+  // Resolved once from the registry: one interface for every engine.
+  const activeEngine = engines.getEngine(engine);
+  const engineExt    = engines.extFor(engine);
+
   const job = {
     id:         jobId,
     status:     "queued",
@@ -842,26 +745,14 @@ app.post("/tts", async (req, res) => {
       for (let i = 0; i < parts.length; i++) {
         const base = `part_${String(i + 1).padStart(3, "0")}`;
 
-        if (engine === "edge") {
-          await runTTS({
-            engine: "edge",
-            text: parts[i],
-            voice,
-            rate: rateNum,
-            pitch: pitchNum,
-            hostDir: jobDir,
-            containerDir: "/app/output",
-            fileName: `${base}.mp3`,
-          });
-        } else {
-          await runTTS({
-            engine: "piper",
-            text: parts[i],
-            hostDir: jobDir,
-            containerDir: "/output",
-            fileName: `${base}.wav`,
-          });
-        }
+        const { bytes } = await activeEngine.synthesize({
+          text: parts[i],
+          voice,
+          rate: rateNum,
+          pitch: pitchNum,
+          scratchDir: jobDir,
+        });
+        await fs.promises.writeFile(path.join(jobDir, `${base}.${engineExt}`), bytes);
 
         job.status = `generating (${i + 1}/${parts.length})`;
         job.progress = Math.round(((i + 1) / parts.length) * 100);
@@ -877,17 +768,20 @@ app.post("/tts", async (req, res) => {
       job.audioExpiresAt = new Date(Date.now() + guard.cfg.audioTtlSec * 1000).toISOString();
       job.progress       = 100;
       saveJob(job);
-      guard.recordUpstreamSuccess();
-      guard.logGeneration({ rawKey: req.ctx.rawKey, subject: subject ? subject.id : "admin", words, durationMs: Date.now() - submittedAt, jobId });
+      // Kokoro has its own failure domain: it never touches the shared
+      // circuit breaker, so a dead sidecar cannot cool down edge or piper.
+      if (engine !== "kokoro") guard.recordUpstreamSuccess();
+      guard.logGeneration({ rawKey: req.ctx.rawKey, subject: subject ? subject.id : "admin", engine, voice, words, durationMs: Date.now() - submittedAt, jobId });
 
     } catch (err) {
       const message = String((err && err.message) || err).slice(0, 500);
-      console.error(`[JOB ${jobId}] failed:`, message);
+      // One failure line per synthesis: engine + reason, key never included.
+      console.error(`[JOB ${jobId}] engine=${engine} voice=${voice} failed:`, message);
       job.status = "failed";
       job.error  = message;
       saveJob(job);
       if (subject) guard.refund({ subjectId: subject.id, words });
-      guard.recordUpstreamFailure(err);
+      if (engine !== "kokoro") guard.recordUpstreamFailure(err);
       deleteJobArtifacts(jobId);
     } finally {
       if (deletedJobs.delete(jobId)) deleteJobArtifacts(jobId);
@@ -967,7 +861,7 @@ app.get("/audio/:id", (req, res) => {
     return res.status(410).json({ error: "Audio expired — generated audio is ephemeral. Generate it again." });
   }
 
-  const ext = job.engine === "piper" ? "wav" : "mp3";
+  const ext = engines.extFor(job.engine);
   let merged;
   try {
     const entries = new AdmZip(zipPath)
@@ -1029,7 +923,7 @@ function streamPreview(res, filePath, contentType, downloadName) {
 async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate = 1, pitch = 0 }) {
   const { voice = defaultVoice, text = defaultText } = req.body || {};
 
-  if (!CAPABILITIES[engine]) {
+  if (!(await engineAvailable(engine))) {
     return res.status(503).json({ error: `Engine '${engine}' is not available on this server (backend: ${TTS_BACKEND})` });
   }
   if (typeof text !== "string" || !text.trim()) {
@@ -1083,7 +977,7 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     guard.releaseSlot();
   };
 
-  const ext = engine === "piper" ? "wav" : "mp3";
+  const ext = engines.extFor(engine);
   const prefix = engine === "piper" ? "preview-piper" : "preview";
   const fileName = `${prefix}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}.${ext}`;
   const previewPath = path.join(PREVIEW_DIR, fileName);
@@ -1091,16 +985,14 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
   try {
     await slot;
     try {
-      await runTTS({
-        engine,
+      const { bytes } = await engines.getEngine(engine).synthesize({
         text,
         voice,
         rate: rateNum,
         pitch: pitchNum,
-        hostDir: PREVIEW_DIR,
-        containerDir: engine === "piper" ? "/output" : "/app/output",
-        fileName,
+        scratchDir: PREVIEW_DIR,
       });
+      await fs.promises.writeFile(previewPath, bytes);
     } finally {
       release();
     }
@@ -1111,8 +1003,8 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     }
 
     guard.recordUpstreamSuccess();
-    guard.logGeneration({ rawKey: req.ctx.rawKey, subject: subject ? subject.id : "admin", words, durationMs: Date.now() - submittedAt, jobId: `preview:${fileName}` });
-    streamPreview(res, previewPath, ext === "wav" ? "audio/wav" : "audio/mpeg", `preview.${ext}`);
+    guard.logGeneration({ rawKey: req.ctx.rawKey, subject: subject ? subject.id : "admin", engine, voice, words, durationMs: Date.now() - submittedAt, jobId: `preview:${fileName}` });
+    streamPreview(res, previewPath, engines.contentTypeFor(engine), `preview.${ext}`);
   } catch (err) {
     release();
     if (subject) guard.refund({ subjectId: subject.id, words });
@@ -1240,8 +1132,11 @@ app.delete("/mcp", (req, res) => {
 // GET /healthz — liveness + "can I actually touch the database".
 // GET /health is the same handler kept as an alias (existing probes, docs,
 // AGENTS.md and the watchdog all point at it).
-function healthHandler(req, res) {
+async function healthHandler(req, res) {
   const dbInfo = guard.db.health();
+  // Engine availability is informational only: a missing sidecar must never
+  // turn this endpoint into a 503, or the watchdog would kill a healthy app.
+  const engineState = await engines.healthSnapshot();
   res.setHeader("Cache-Control", "no-store");
   res.status(dbInfo.ok ? 200 : 503).json({
     status:       dbInfo.ok ? "ok" : "degraded",
@@ -1249,7 +1144,7 @@ function healthHandler(req, res) {
     jobs:         loadJobs().length,
     time:         new Date().toISOString(),
     backend:      TTS_BACKEND,
-    engines:      CAPABILITIES,
+    engines:      engineState,
     authRequired: Boolean(API_KEY) || guard.cfg.requireKey,
     adminKeyConfigured: Boolean(API_KEY),
     keyRequired:  guard.cfg.requireKey,
@@ -1282,10 +1177,12 @@ app.use((err, req, res, next) => {
 //  START
 // ─────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-const httpServer = app.listen(PORT, () => {
+const httpServer = app.listen(PORT, async () => {
   console.log(`TTS Studio server running → http://localhost:${PORT}`);
   console.log(`Output dir: ${OUTPUT_DIR}`);
-  console.log(`TTS backend: ${TTS_BACKEND}${TTS_BACKEND === "native" ? ` (edge: ${CAPABILITIES.edge}, piper: ${CAPABILITIES.piper})` : ""}`);
+  const engineState = await engines.healthSnapshot();
+  console.log(`TTS backend: ${TTS_BACKEND} · engines: ${Object.entries(engineState).map(([k, v]) => `${k}=${v}`).join(" ")} · default=${engines.DEFAULT_ENGINE}`);
+  if (!engineState.kokoro) console.log("Kokoro sidecar is not reachable — engine \"kokoro\" will answer 503 until `docker compose up -d`.");
   console.log(`Admin API key: ${API_KEY ? "configured (unlimited)" : "not set"}`);
   console.log(`Free tier: ${guard.cfg.requireKey ? "key required" : "anonymous allowed"} · audio TTL ${guard.cfg.audioTtlSec}s · queue ${guard.cfg.globalConcurrency}`);
 });

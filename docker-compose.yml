@@ -1,0 +1,67 @@
+# ─────────────────────────────────────────────────────────────
+#  Koe TTS Studio — Kokoro sidecar
+#
+#  Optional. The studio runs perfectly well without this file: edge and piper
+#  are unaffected, and only `engine: "kokoro"` requests are rejected (503
+#  {"error":"tts_unavailable"}) when the sidecar is down.
+#
+#    docker compose up -d      start the sidecar
+#    docker compose down       stop it
+#    docker compose logs -f    watch it warm up
+#
+#  The studio reaches it at KOKORO_BASE_URL (default http://127.0.0.1:8880).
+#  The port is bound to loopback only — it is never exposed to the network.
+#
+#  Pinned by digest: never `:latest`. Bump both the tag and the digest
+#  together when upgrading.
+# ─────────────────────────────────────────────────────────────
+
+services:
+  kokoro:
+    # msgflux/fastkokoro 0.7 — OpenAI-compatible Kokoro-82M server (ONNX Runtime).
+    # tag: 0.7-cpu   digest: manifest list, published 2026-07-22
+    image: msgflux/fastkokoro:0.7-cpu@sha256:35b4282aeefd793282a7daaf3c9cb923d59d1cd6a742a1c69317627e878954fc
+
+    container_name: koe-kokoro
+    restart: unless-stopped
+
+    # The sidecar is the only thing in this stack that does real work, so it
+    # gets a hard ceiling: 2 CPUs, 2 GB. It must never be able to starve the
+    # Node process that serves edge and piper.
+    cpus: "2.0"
+    mem_limit: 2g
+
+    ports:
+      # Loopback only — the studio is the sole intended client.
+      - "127.0.0.1:8880:8880"
+
+    environment:
+      FASTKOKORO_HOST: 0.0.0.0
+      FASTKOKORO_PORT: "8880"
+      FASTKOKORO_ONNX_PROVIDERS: CPUExecutionProvider
+      # Startup runs a warmup synthesis (image default), so give the
+      # healthcheck room before declaring failure.
+      FASTKOKORO_WARMUP: "true"
+
+    volumes:
+      # The image sets FASTKOKORO_CACHE_DIR=/models; keeping it a named volume
+      # means the ~160 MB checkpoint downloads once instead of on every restart.
+      - kokoro-models:/models
+
+    healthcheck:
+      # No curl in python:3.12-slim, so probe with the interpreter itself.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8880/health', timeout=4)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # First boot downloads the model and warms up.
+      start_period: 180s
+
+volumes:
+  kokoro-models:
