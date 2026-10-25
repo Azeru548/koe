@@ -7,22 +7,32 @@ const os = require("os");
 const path = require("path");
 
 const STATE_FILE = path.join(os.tmpdir(), `koe-guard-test-${process.pid}.json`);
+const DB_DIR = fs.mkdtempSync(path.join(os.tmpdir(), `koe-guard-db-${process.pid}-`));
 process.env.KOE_SECRET = "guard-test-secret";
 process.env.KOE_STATE_FILE = STATE_FILE;
+process.env.KOE_DB_PATH = path.join(DB_DIR, "koe.db");
 process.env.KOE_REGISTER_IP_DAY = "2";
 
 const guard = require("../guard");
 
 test.after(() => {
   try { fs.rmSync(STATE_FILE, { force: true }); } catch {}
+  try { fs.rmSync(DB_DIR, { recursive: true, force: true }); } catch {}
 });
 
-test("mintKey produces a verifiable stateless key", () => {
+test("mintKey issues a server-side key that only resolves through the keys table", () => {
   const { tid, key } = guard.mintKey();
-  assert.match(key, /^koe_sk_[0-9a-f]{12}_[A-Za-z0-9_-]+$/);
+  assert.match(key, /^koe_sk_[0-9a-f]{32}$/);
   assert.equal(guard.verifyKey(key), tid);
-  assert.equal(guard.verifyKey(key.slice(0, -1) + "x"), null);
+  // Flip the last hex digit: no row matches, so the key dies.
+  const mutated = key.slice(0, -1) + (key.endsWith("f") ? "0" : "f");
+  assert.equal(guard.verifyKey(mutated), null);
   assert.equal(guard.verifyKey("not-a-key"), null);
+  // Pre-v3 HMAC keys are not records — they are rejected outright.
+  assert.equal(guard.verifyKey("koe_sk_deadbeefdeadbeef_aaaaaaaaaaaaaaaaaaaaaaaa"), null);
+  assert.equal(guard.isValidKey(key), true);
+  assert.equal(guard.isValidKey(mutated), false);
+  assert.equal(guard.keyPrefix(key).length, 11);
 });
 
 test("anonymous subjects are stable but never expose the raw IP", () => {
@@ -94,6 +104,52 @@ test("refund returns words and optionally the request slot", () => {
   snap = guard.usageSnapshot(id, "key", now);
   assert.equal(snap.hour.words, 0);
   assert.equal(snap.hour.requests, 0);
+});
+
+test("kill switch answers 503 before anything is counted", () => {
+  const now = Date.UTC(2026, 0, 6, 12, 0, 0);
+  const id = "key:killtest";
+  guard.cfg.killSwitch = true;
+  try {
+    const verdict = guard.charge({ subjectId: id, kind: "key", words: 1, now });
+    assert.equal(verdict.ok, false);
+    assert.equal(verdict.status, 503);
+    assert.equal(verdict.error, "temporarily_disabled");
+    assert.equal(verdict.reason, "kill_switch");
+    assert.equal(guard.usageSnapshot(id, "key", now).hour.words, 0);
+  } finally {
+    guard.cfg.killSwitch = false;
+  }
+});
+
+test("a single job over the word cap is a 400 before counting", () => {
+  const now = Date.UTC(2026, 0, 7, 12, 0, 0);
+  const id = "key:captest";
+  const verdict = guard.charge({ subjectId: id, kind: "key", words: guard.cfg.maxWordsPerJob + 1, now });
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.status, 400);
+  assert.equal(verdict.reason, "job_too_long");
+  assert.equal(guard.usageSnapshot(id, "key", now).hour.words, 0);
+});
+
+test("counters are read back from the database, not from process memory", () => {
+  const now = Date.UTC(2026, 0, 8, 12, 0, 0);
+  guard.cfg.keyReqHour = 60;
+  guard.cfg.keyWordsHour = 1000;
+  guard.cfg.keyWordsDay = 100000;
+  guard.cfg.globalWordsDay = 1000000;
+  const id = "key:persisttest";
+  assert.equal(guard.charge({ subjectId: id, kind: "key", words: 5, now }).ok, true);
+
+  const stored = guard.db.readUsage(id, guard.hourWindow(now), guard.dayWindow(now));
+  assert.equal(stored.hour.words, 5);
+  assert.equal(stored.hour.requests, 1);
+  assert.equal(stored.day.words, 5);
+  assert.equal(guard.db.readGlobal(guard.dayWindow(now)).words > 0, true);
+
+  // Rows are keyed exactly as the spec requires.
+  assert.match(guard.hourWindow(now), /^hour:\d{4}-\d{2}-\d{2}T\d{2}$/);
+  assert.match(guard.dayWindow(now), /^day:\d{4}-\d{2}-\d{2}$/);
 });
 
 test("hour and day windows reset with time", () => {

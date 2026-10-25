@@ -12,8 +12,9 @@
 //  Free multi-tenant model:
 //    • TTS_API_KEY set        → use it (admin key or a key you saved)
 //    • otherwise              → reuse ~/.koe/credentials.json
-//    • otherwise              → POST /api/register once and persist
-//                               the free key for this studio URL
+//    • otherwise              → GET /keys/challenge + POST /keys once
+//                               (proof-of-work) and persist the free key
+//                               for this studio URL
 //  Keys are per-install, so every user gets their own quota.
 //
 //  Env:
@@ -27,6 +28,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const crypto = require("crypto");
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
 const { z } = require("zod");
@@ -89,20 +91,51 @@ function clearStoredKey() {
   keySource = "none";
 }
 
+// ── key issuance gate (GET /keys/challenge → POST /keys) ────
+// sha256(challenge + nonce) must start with `zeros` '0' hex chars.
+function solvePow(challenge, zeros) {
+  const target = "0".repeat(zeros);
+  for (let i = 0; i < 8_000_000; i++) {
+    const nonce = i.toString(16).padStart(4, "0");
+    const hash = crypto.createHash("sha256").update(`${challenge}${nonce}`).digest("hex");
+    if (hash.startsWith(target)) return nonce;
+  }
+  throw new Error("proof-of-work did not converge");
+}
+
+async function mintFreeKey() {
+  const info = await fetch(`${BASE_URL}/keys/challenge`, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    .then((r) => r.json());
+  if (info && info.mode === "turnstile") {
+    const err = new Error(
+      "this studio gates key issuance behind Cloudflare Turnstile, which a headless MCP client cannot solve — " +
+      "open its /mcp page in a browser to mint a key, then set TTS_API_KEY to that key."
+    );
+    err.code = "turnstile_required";
+    throw err;
+  }
+
+  const nonce = solvePow(info && info.challenge, (info && info.pow && info.pow.leadingZeroHexChars) || 4);
+  const res = await fetch(`${BASE_URL}/keys`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ challenge: info.challenge, nonce }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error || `key mint failed (${res.status})`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
 async function registerFreeKey() {
   if (!AUTO_REGISTER) return null;
   try {
-    const res = await fetch(`${BASE_URL}/api/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (!res.ok) {
-      console.error(`[koe] free-key registration unavailable (${res.status}); continuing anonymously.`);
-      return null;
-    }
-    const data = await res.json();
+    const data = await mintFreeKey();
     if (!data || typeof data.key !== "string" || !data.key) return null;
 
     tenantKey = data.key;
@@ -118,7 +151,9 @@ async function registerFreeKey() {
     console.error(`[koe] registered a free tenant key${words ? ` (${words} words/hour)` : ""}; saved to ${CRED_FILE}`);
     return tenantKey;
   } catch (err) {
-    console.error(`[koe] could not register a free key: ${err.message}`);
+    if (err.code === "turnstile_required") console.error(`[koe] could not register a free key: ${err.message}`);
+    else if (err.status === 429) console.error(`[koe] free-key registration limit reached for this IP; try again later or set TTS_API_KEY.`);
+    else console.error(`[koe] could not register a free key: ${err.message}`);
     return null;
   }
 }
@@ -194,7 +229,7 @@ async function apiJson(method, pathname, body, opts) {
     if (res.status === 401) {
       const msg = keySource === "env"
         ? "The TTS Studio rejected TTS_API_KEY (401). Fix or remove TTS_API_KEY in your MCP config."
-        : "The TTS Studio requires a free key and auto-registration did not succeed. Set TTS_API_KEY or check /api/register.";
+        : "The TTS Studio requires a free key and auto-registration did not succeed. Set TTS_API_KEY or check GET /keys/challenge + POST /keys.";
       throw new ApiError(401, msg, data);
     }
     const base = data.error || data.detail || `${pathname} failed`;

@@ -2,7 +2,7 @@
 
 This repo is a self-hosted text-to-speech studio plus an **MCP server** (`mcp/`). If you are an AI agent, this file is your complete reference for generating voiceover audio on demand — no ElevenLabs, no paid APIs. Everything below was verified against the actual code.
 
-It is also a **free public product**: every MCP install auto-registers its own signed free key, quotas are enforced per tenant, and generated audio is **ephemeral** (deleted automatically).
+It is also a **free public product**: every MCP install auto-registers its own free key (issued server-side, revocable, counted), quotas are enforced per tenant, and generated audio is **ephemeral** (deleted automatically).
 
 ```
 you (agent) ──MCP tools──> mcp/index.js ──HTTPS──> TTS Studio ──> edge-tts/piper ──> MP3/WAV
@@ -20,7 +20,7 @@ you (agent) ──MCP tools──> mcp/index.js ──HTTPS──> TTS Studio �
 4. Use that file (ffmpeg, Remotion, HyperFrames, an editor, ...) in your video project.
 5. If anything fails, call `studio_status` (and `get_usage` for quota) — it tells you if the server is reachable, asleep, rate-limited, or missing an engine.
 
-**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The whole instance shares **2 concurrent jobs, a 20-job queue, and 30,000 words/day**. One job may be at most **6,000 words / 40,000 characters**. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds`.
+**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The whole instance shares **2 concurrent jobs, a 20-job queue, and 30,000 words/day**. One job may be at most **6,000 words / 40,000 characters**. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds` and a `reason`. Counters and keys live in SQLite, so they survive restarts; a rejected or failed request never consumes quota.
 
 
 ---
@@ -38,6 +38,10 @@ Authorization: Bearer koe_sk_...        (or: x-api-key: koe_sk_...)
 - **Stateless**, JSON responses (no SSE), safe behind the Caddy reverse proxy.
 - `GET /mcp` with `Accept: text/html` is the human setup page (tabs for Claude,
   Claude Code, Cursor, and a copy-paste "set this up for me" agent prompt).
+- **`POST /mcp` always needs a live key** (no anonymous fallback). Open the
+  setup page and press *Create key* — it solves the proof-of-work gate and shows
+  the key to paste — or mint one yourself with `GET /keys/challenge` +
+  `POST /keys` (§6). Keys issued by an older build are no longer valid.
 - The caller's free key is re-used for every tool call, so per-key limits and
   tenant isolation apply exactly as in the HTTP API.
 - `generate_voiceover` returns a **short-lived signed `downloadUrl`**
@@ -55,7 +59,7 @@ Transport: stdio. Server name: `koe-tts-studio`. All tool results are `content: 
 
 ### `studio_status`
 
-Pings the studio's `/health`. **Call this first whenever a generate call fails.**
+Pings the studio's `/healthz` (alias `/health`). **Call this first whenever a generate call fails.**
 
 - Parameters: none
 - Returns (pretty-printed JSON):
@@ -72,6 +76,8 @@ Pings the studio's `/health`. **Call this first whenever a generate call fails.*
   "adminKeyConfigured": false,
   "keyRequired": true,
   "freeKeys": true,
+  "killSwitch": false,
+  "db": { "ok": true, "path": "/data/koe.db", "journalMode": "delete" },
   "queue": { "active": 0, "queued": 0, "concurrency": 2, "queueMax": 20 },
   "ephemeral": { "audioTtlSeconds": 900, "jobTtlSeconds": 3600 },
   "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 6000, "maxChars": 40000, "maxPreviewChars": 600 }, "global": { "concurrency": 2, "queueMax": 20, "wordsPerDay": 30000 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
@@ -89,6 +95,8 @@ Reading it:
 - `engines.edge` / `engines.piper` = which engines are actually usable. If `engines.piper` is `false`, requests with `engine: "piper"` will 503.
 - `keyRequired: true` = the server requires a free key. The MCP registers one automatically; `client.keyMode` is `env` (explicit `TTS_API_KEY`), `stored`, `auto`, or `none`.
 - `queue` / `limits` = current queue depth and the public rate policy. `ephemeral` = how long audio and jobs live.
+- `killSwitch: true` = the operator flipped `KOE_KILL_SWITCH`; every generation endpoint answers `503 {"error":"temporarily_disabled"}` until it is turned off.
+- `db` = reachability of the SQLite file that holds issued keys and all counters (`ok: false` makes health answer `503`).
 - `client.usage` = this install's current window (same shape as the `get_usage` tool; `null` if no key yet).
 
 ### `list_voices`
@@ -261,13 +269,17 @@ After the audio TTL, `file` becomes `null`, `audioDeletedAt` is set, and `GET /d
 
 ## 6. Direct HTTP API (no MCP required)
 
-Use this when you are not running through the MCP (scripts, curl, another runtime) or for the recovery flow in §2. Public endpoints are `/health`, `/api/register`, `/api/limits`, `/`, and `/studio`. Everything else accepts a free tenant key via header `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`; when `KOE_REQUIRE_KEY=true`, a key is mandatory for those routes. The operator's `API_KEY` is an unlimited admin key.
+Use this when you are not running through the MCP (scripts, curl, another runtime) or for the recovery flow in §2. Public endpoints are `/healthz` (alias `/health`), `/keys`, `/keys/challenge`, `/api/register`, `/api/limits`, `/`, and `/studio`. Everything else accepts a free tenant key via header `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`; when `KOE_REQUIRE_KEY=true`, a key is mandatory for those routes, and **`POST /mcp` always requires one**. The operator's `API_KEY` is an unlimited admin key.
+
+A key is an opaque server-side record: `koe_sk_<32 hex>`, issued by `POST /keys` and stored in the studio's `KOE_DB_PATH` SQLite file. Unknown or pre-v3 keys are simply absent from that table and answer `401 {"error":"invalid_key","hint":"POST /keys to get a new key"}`.
 
 Base URL: local `http://localhost:3000`, or your hosted URL.
 
 | Endpoint | Method | Body / params | Returns |
 | --- | --- | --- | --- |
-| `/api/register` | POST | — (empty body) | `{ key, tenant, limits }` — a free tenant key; capped per IP/day |
+| `/keys/challenge` | GET | — | `{ mode: "pow", challenge, expiresInSeconds, pow: { algorithm, leadingZeroHexChars } }`, or `{ mode: "turnstile", sitekey }` when Turnstile is configured. Challenges are single-use, valid 5 min |
+| `/keys` | POST | PoW: `{ challenge, nonce }` where `sha256(challenge+nonce)` starts with 4 zero hex chars. Turnstile: `{ turnstileToken }` | `201 { key, tenant, limits }` — a free tenant key; capped at 3 mints per IP per UTC day |
+| `/api/register` | POST | same as `/keys` (thin alias — same gate, same body) | `201 { key, tenant, limits }`; `403 pow_challenge_invalid` / `pow_failed` if the gate is skipped or wrong; `429` at the daily mint cap |
 | `/api/limits` | GET | — | Public rate policy (no secrets) |
 | `/usage` | GET | — | This caller's usage vs limits (admin → `{ unlimited: true }`) |
 | `/stats.html` | GET | — | Operator dashboard page (loads without a key; its data needs the admin key) |
@@ -279,11 +291,12 @@ Base URL: local `http://localhost:3000`, or your hosted URL.
 | `/job/:id` | DELETE | — | `{ deleted: "<id>" }`; removes job + audio |
 | `/tts-preview` | POST | `{ voice?, text?, rate?, pitch? }` (text ≤ 600 chars) | Streams a preview MP3 directly (`audio/mpeg`), edge only, metered |
 | `/tts-preview-piper` | POST | `{ voice?, text? }` | Streams a preview WAV, piper only, metered |
-| `/health` | GET | — | See §1 `studio_status`; never requires auth |
+| `/healthz` | GET | — | See §1 `studio_status`, plus `db: { ok, path, journalMode }` and `killSwitch`; never requires auth; `503` if the database is unreachable |
+| `/health` | GET | — | Alias of `/healthz` |
 | `/` | GET | — | Redirects to `/mcp` |
 | `/studio` | GET | — | The studio web UI |
 
-Status codes: `400` bad input (empty text, invalid engine/voice/rate), `401` missing/wrong key, `403` another tenant's job, `404` unknown job, `409` job not ready, `410` audio expired, `413` script too long (6,000 words / 40,000 chars), `429` rate/queue limit (read `retryAfterSeconds`), `503` engine unavailable or upstream cool-down. Request body limit is 10 MB.
+Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job over `KOE_MAX_JOB_WORDS` (6,000 words)**, `401` `{"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown job, `409` job not ready, `410` audio expired, `413` script over 40,000 chars, `429` rate/queue/global limit (read `retryAfterSeconds` and the `reason` field: `hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `queue_full`, `mint_cap`), `503` `{"error":"temporarily_disabled"}` (kill switch), engine unavailable, or upstream cool-down. Request body limit is 10 MB.
 
 ---
 
@@ -293,12 +306,17 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate), `401` mis
 | --- | --- | --- |
 | First call after a restart takes longer, then works | the container was warming up | Nothing — the MCP already waits this out. Raise `timeout_seconds` for very long scripts. |
 | `Could not reach the TTS Studio at <url> (...)` | Server down, wrong URL, or instance asleep/deleted | Call `studio_status`. Verify `TTS_STUDIO_URL`. Check the EC2 instance and Caddy container; see [DEPLOY.md](DEPLOY.md). |
-| `The TTS Studio rejected TTS_API_KEY (401)` | An explicit `TTS_API_KEY` is wrong, or `KOE_SECRET` was rotated | Remove `TTS_API_KEY` so the MCP auto-registers a fresh free key, or fix the key. Auto/stored keys re-register on their own. |
+| `The TTS Studio rejected TTS_API_KEY (401)` | An explicit `TTS_API_KEY` is wrong, or the key predates the v3 key store | Remove `TTS_API_KEY` so the MCP auto-registers a fresh free key, or fix the key. Auto/stored keys re-register on their own. |
+| `401 {"error":"invalid_key"}` | The key is not a row in the studio's keys table (forged, deleted, or issued by an older build) | `POST /keys` (with `GET /keys/challenge`) for a new one — the pages and the MCP do this automatically when they see a 401. See [MIGRATION-v3-keys.md](MIGRATION-v3-keys.md). |
+| `403 pow_challenge_invalid` / `pow_failed` on `/keys` | The challenge was skipped, already used, expired, or the nonce does not hash to enough zeros | Fetch a fresh `GET /keys/challenge` and solve that one; challenges are single-use |
+| `503 {"error":"temporarily_disabled"}` | The operator set `KOE_KILL_SWITCH=true` | Nothing to fix on the client — every generation endpoint is off by design. Retry later. |
 | `429 — Hourly/Daily word limit reached ...` | This tenant's free quota is exhausted | Read `retryAfterSeconds`, call `get_usage`, wait for the window to reset. Requests are not refunded; failed jobs refund words. |
 | `429 — The synthesis queue is full` | The instance's 20-job queue is full | The MCP retries once if the wait is ≤45 s; otherwise retry shortly. |
+| `429` with `reason: "global_daily_words"` | The whole instance hit its daily word ceiling (`KOE_GLOBAL_DAILY_WORDS`) | Everyone is limited, not just you — retry after the reset window. |
 | `503 — Synthesis is cooling down after upstream errors` | Circuit breaker tripped by repeated edge-tts failures | Wait `retryAfterSeconds` (starts at 60 s, max 10 min) and retry. |
 | `503 — Engine 'piper' is not available` | The server has no piper installed | Use `engine: "edge"`. |
-| `413 — Script too long` | Over 6,000 words / 40,000 chars in one call | Split into multiple `generate_voiceover` calls (one per scene) and keep the same voice/rate. |
+| `400 — Job too long (N words)` | Over `KOE_MAX_JOB_WORDS` (6,000) in one call | Split into multiple `generate_voiceover` calls (one per scene) and keep the same voice/rate. |
+| `413 — Script too long` | Over 40,000 characters in one call | Same fix: split the script per scene. |
 | `Timed out after Ns waiting for job <id>` | Script too long / slow instance | The job continues server-side — recover it per §2, or re-run with a bigger `timeout_seconds`. |
 | `403 — this job belongs to another tenant` | You used a different key/IP than the one that created the job | Use the same key (or the admin key). Jobs are tenant-isolated. |
 | `410 — Audio expired` | The 15 min audio TTL elapsed (or the server restarted) | Regenerate. The MCP downloads immediately, so this only bites with `cleanup: false`. |
@@ -309,9 +327,10 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate), `401` mis
 
 - **Per registered free key:** 60 requests/hour, 2,000 words/hour, 20,000 words/day.
 - **Anonymous (no key):** 20 requests/hour, 500 words/hour, 3,000 words/day.
-- **Per job:** 6,000 words / 40,000 characters. Previews: 600 characters.
-- **Per IP:** 3 free keys/day.
-- **Instance-wide:** 2 concurrent jobs, 20-job queue, 30,000 words/day.
+- **Per job:** 6,000 words (`400`) / 40,000 characters (`413`). Previews: 600 characters.
+- **Per IP:** 3 free keys/day (`429` once exhausted, `retryAfterSeconds` until UTC midnight).
+- **Instance-wide:** 2 concurrent jobs, 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`).
+- **Fail-safe:** `KOE_KILL_SWITCH=true` stops all generation with `503 {"error":"temporarily_disabled"}` before anything is charged.
 - **Retention:** audio 900 s, job metadata 1 hour, previews 10 min. Nothing is permanent.
 - edge synthesis timeouts: 5 min per part on the server; piper: 10 min.
 - The public instance is a small EC2 box — serialize big jobs (one at a time); don't fan out parallel generations.
@@ -348,7 +367,7 @@ claude mcp add koe-tts \
 
 Any other MCP client: same command + env shape. One-time `cd mcp && npm install` is required.
 
-**No API key is needed in the config.** On first use the MCP calls `POST /api/register`, saves the free tenant key in `~/.koe/credentials.json` (keyed by studio URL), and reuses it forever. Each install gets its own quota. Set `TTS_API_KEY` only to force a specific key (for example the operator's admin key); doing so disables auto-registration.
+**No API key is needed in the config.** On first use the MCP asks `GET /keys/challenge`, answers the proof-of-work, mints the key with `POST /keys`, saves the free tenant key in `~/.koe/credentials.json` (keyed by studio URL), and reuses it forever. If the studio ever answers `401` (for example after an upgrade that invalidates older keys), the MCP clears the stored entry and mints a new one automatically. Each install gets its own quota. Set `TTS_API_KEY` only to force a specific key (for example the operator's admin key); doing so disables auto-registration.
 
 | Env var | Default | Meaning |
 | --- | --- | --- |

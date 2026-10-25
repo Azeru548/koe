@@ -23,6 +23,9 @@ const SECRET = "mcp-test-secret";
 // exactly like the server does.
 process.env.KOE_SECRET = SECRET;
 process.env.KOE_STATE_FILE = path.join(TMP, "guard-state.json");
+process.env.KOE_DB_PATH = path.join(TMP, "koe.db");
+
+const { mintKey: mintViaHttp } = require("./helpers");
 
 let child;
 let base;
@@ -66,6 +69,7 @@ test.before(async () => {
       KOE_SECRET: SECRET,
       KOE_REQUIRE_KEY: "true",
       KOE_STATE_FILE: path.join(TMP, "state.json"),
+      KOE_DB_PATH: path.join(TMP, "koe.db"),
       KOE_OUTPUT_DIR: OUTPUT,
       KOE_JOBS_FILE: JOBS_FILE,
       KOE_SWEEP_INTERVAL_SEC: "15",
@@ -77,11 +81,10 @@ test.before(async () => {
   child.on("exit", (code) => { logs += `\n[server exited ${code}]`; });
   await waitFor(`${base}/health`);
 
-  const res = await fetch(`${base}/api/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-  const data = await res.json();
-  assert.equal(res.status, 200);
-  key = data.key;
-  tenant = data.tenant;
+  const minted = await mintViaHttp(base);
+  assert.equal(minted.status, 201);
+  key = minted.data.key;
+  tenant = minted.data.tenant;
 });
 
 test.after(() => {

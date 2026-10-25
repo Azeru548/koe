@@ -23,6 +23,7 @@ fs.writeFileSync(STORE, JSON.stringify({
 
 process.env.KOE_STATS_FILE = STORE;
 process.env.KOE_SECRET = "stats-test-secret";
+process.env.KOE_DB_PATH = path.join(TMP, "koe.db");
 
 const guard = require("../guard");
 const stats = require("../stats");

@@ -3,22 +3,27 @@
 //  Koe TTS Studio — guard.js
 //
 //  Free multi-tenant access control:
-//    • stateless HMAC-signed tenant keys (valid as long as KOE_SECRET stays set)
-//    • per-key and per-IP anonymous windows (requests + words, hour + day)
+//    • server-side keys: random `koe_sk_<32 hex>` records in SQLite (db.js).
+//      Keys are issued by POST /keys, validated by PK lookup, and revocable
+//      by deleting the row. Pre-v3 HMAC keys are no longer recognised.
+//    • per-key and per-IP anonymous windows (requests + words, hour + day),
+//      held in SQLite so counters survive restarts and deploys
+//    • hard global daily word ceiling (global_usage) bounding worst-case cost
+//    • kill switch (KOE_KILL_SWITCH) short-circuits every generation with 503
 //    • global word budget + concurrency semaphore with a bounded FIFO queue
 //      (edge-tts has no documented quota — we serialize upstream work)
 //    • circuit breaker: repeated upstream synthesis failures open a cool-down
-//    • best-effort JSON state snapshot (secret + registrations + counters)
-//      - on the AWS instance this file lives on the EBS volume, but the app
-//        must still boot correctly if it is missing or corrupt. KOE_SECRET is
-//        always an env var, never state.
+//    • the JSON state file now carries ONLY the KOE_SECRET fallback; it is
+//      never load-bearing for counters or keys. KOE_SECRET is an env var.
 //
-//  All limits are env-tunable (see CONFIG below).
+//  All limits are env-tunable (see CONFIG below). Full keys are never
+//  logged — use keyPrefix() for anything that hits stdout.
 // ─────────────────────────────────────────────────────────────
 
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const db = require("./db");
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
@@ -35,13 +40,15 @@ function boolEnv(name, def = false) {
 }
 
 const cfg = {
-  // Free-key minting
+  // Free-key minting (POST /keys): how many keys one IP may mint per UTC day.
   registerIpDay: intEnv("KOE_REGISTER_IP_DAY", 3),
 
-  // Limits for a registered free key
-  keyReqHour: intEnv("KOE_KEY_REQ_HOUR", 60),
-  keyWordsHour: intEnv("KOE_KEY_WORDS_HOUR", 2000),
-  keyWordsDay: intEnv("KOE_KEY_WORDS_DAY", 20000),
+  // Limits for a registered free key.
+  // Spec names first; the pre-v3 names are still read so an existing
+  // deployment keeps its tuning without edits.
+  keyReqHour: intEnv("KOE_HOURLY_REQUESTS", intEnv("KOE_KEY_REQ_HOUR", 60)),
+  keyWordsHour: intEnv("KOE_HOURLY_WORDS", intEnv("KOE_KEY_WORDS_HOUR", 2000)),
+  keyWordsDay: intEnv("KOE_DAILY_WORDS", intEnv("KOE_KEY_WORDS_DAY", 20000)),
 
   // Limits for callers who have not registered (browser demo / curl)
   anonReqHour: intEnv("KOE_ANON_REQ_HOUR", 20),
@@ -49,14 +56,22 @@ const cfg = {
   anonWordsDay: intEnv("KOE_ANON_WORDS_DAY", 3000),
 
   // Per-request caps (protect one tenant from monopolising the queue)
-  maxWordsPerJob: intEnv("KOE_MAX_WORDS_PER_JOB", 6000),
+  maxWordsPerJob: intEnv("KOE_MAX_JOB_WORDS", intEnv("KOE_MAX_WORDS_PER_JOB", 6000)),
   maxCharsPerJob: intEnv("KOE_MAX_CHARS_PER_JOB", 40000),
   maxCharsPerPreview: intEnv("KOE_MAX_CHARS_PER_PREVIEW", 600),
 
-  // Global safety rail (shared by every tenant)
+  // Global safety rail (shared by every tenant): hard daily word ceiling.
   globalConcurrency: Math.max(1, intEnv("KOE_GLOBAL_CONCURRENCY", 2)),
   globalQueue: intEnv("KOE_GLOBAL_QUEUE", 20),
-  globalWordsDay: intEnv("KOE_GLOBAL_WORDS_DAY", 30000),
+  globalWordsDay: intEnv("KOE_GLOBAL_DAILY_WORDS", intEnv("KOE_GLOBAL_WORDS_DAY", 30000)),
+
+  // Instant kill switch: every generation answers 503 {"error":"temporarily_disabled"}.
+  killSwitch: boolEnv("KOE_KILL_SWITCH", false),
+
+  // Key issuance anti-abuse. Turnstile is only in play when BOTH are set;
+  // otherwise the proof-of-work challenge is used.
+  turnstileSiteKey: process.env.TURNSTILE_SITEKEY || "",
+  turnstileSecret: process.env.TURNSTILE_SECRET || "",
 
   // Ephemeral audio: generated files are deleted after this TTL.
   audioTtlSec: intEnv("KOE_AUDIO_TTL_SEC", 900),
@@ -91,24 +106,21 @@ function publicLimits() {
   };
 }
 
-// ── state file (best effort) ────────────────────────────────
+// ── state file (secret bootstrap only) ──────────────────────
+// Keys, mint caps and counters live in SQLite (db.js). This JSON file keeps
+// only the generated KOE_SECRET fallback for pre-env installs, so a wiped or
+// missing file costs at most a fresh signing secret — never usage history.
 
-let state = { secret: null, registrations: [], usage: [] };
+let state = { secret: null };
 try {
   state = Object.assign(state, JSON.parse(fs.readFileSync(cfg.stateFile, "utf8")));
 } catch { /* first boot or wiped disk */ }
 
-// Declared before saveState() can be called (the secret bootstrap below).
-const regIps = new Map(Array.isArray(state.registrations) ? state.registrations : []);
-const usage = new Map(Array.isArray(state.usage) ? state.usage : []);
-
 let stateDirty = false;
 function saveState() {
   try {
-    state.registrations = Array.from(regIps.entries());
-    state.usage = Array.from(usage.entries()).filter(([, u]) => u.dayWords || u.hourWords || u.hourReq || u.dayReq);
     const tmp = `${cfg.stateFile}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+    fs.writeFileSync(tmp, JSON.stringify({ secret: state.secret }, null, 2));
     try {
       fs.renameSync(tmp, cfg.stateFile);
     } catch {
@@ -116,7 +128,7 @@ function saveState() {
       fs.rmSync(tmp, { force: true });
     }
     stateDirty = false;
-  } catch { /* disk unavailable — in-memory limits still work this uptime */ }
+  } catch { /* disk unavailable — keys and counters still live in SQLite */ }
 }
 setInterval(() => { if (stateDirty) saveState(); }, 30 * 1000).unref?.();
 
@@ -136,25 +148,44 @@ const SECRET = (() => {
   return gen;
 })();
 
-const KEY_RE = /^koe_sk_([0-9a-f]{12})_([A-Za-z0-9_-]{22,64})$/;
+// ── keys (server-issued, SQLite-backed, per-key revocable) ─
 
-function signTid(tid) {
-  return crypto.createHmac("sha256", `${SECRET}:koe.v1`).update(tid).digest("base64url").slice(0, 32);
+// v3 keys are opaque random records: 32 hex chars (128 bits) after the
+// `koe_sk_` prefix. They exist only as rows in the keys table, so revoking
+// one is a row delete and every pre-v3 HMAC key is simply absent -> 401.
+const KEY_RE = /^koe_sk_[0-9a-f]{32}$/;
+
+// Stable, non-reversible id for tenant isolation and dashboard subjects.
+// Derived from the raw key with KOE_SECRET, so nothing that stores
+// `key:<id>` (jobs, stats exports) can be turned back into a usable key.
+function keyId(raw) {
+  return crypto.createHmac("sha256", `${SECRET}:koe.kid.v1`).update(String(raw || "")).digest("base64url").slice(0, 16);
 }
 
-function mintKey() {
-  const tid = crypto.randomBytes(6).toString("hex");
-  return { tid, key: `koe_sk_${tid}_${signTid(tid)}` };
+// Logs only: enough to tell tenants apart, never enough to reconstruct one.
+function keyPrefix(raw) {
+  const s = String(raw || "");
+  return s ? s.slice(0, 11) : "-";
 }
 
+function mintKey(ipHash = null, now = Date.now()) {
+  const raw = `koe_sk_${crypto.randomBytes(16).toString("hex")}`;
+  db.insertKey({ key: raw, ip: ipHash, createdAt: new Date(now).toISOString() });
+  return { key: raw, tid: keyId(raw) };
+}
+
+// Fast PK lookup — one indexed read per request.
 function verifyKey(raw) {
-  const m = KEY_RE.exec(String(raw || ""));
-  if (!m) return null;
-  const tid = m[1];
-  const a = Buffer.from(m[2]);
-  const b = Buffer.from(signTid(tid));
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  return tid;
+  const s = String(raw || "");
+  if (!KEY_RE.test(s)) return null;
+  if (!db.findKey(s)) return null;
+  return keyId(s);
+}
+
+// True when the raw string is a live key row (no id derivation).
+function isValidKey(raw) {
+  const s = String(raw || "");
+  return KEY_RE.test(s) && !!db.findKey(s);
 }
 
 // Stable, non-reversible subject id for anonymous (no-key) callers.
@@ -176,95 +207,142 @@ function verifyDownload(jobId, token) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// ── registration (per-IP cap) ───────────────────────────────
+// ── key issuance (per-IP, per-UTC-day cap) ───────────────────
 
-function registerFromIp(ip, now = Date.now()) {
-  const dw = Math.floor(now / DAY);
-  // Store a keyed hash, never the raw IP.
-  const ipKey = anonSubject(ip);
-  let r = regIps.get(ipKey);
-  if (!r || r.dayWin !== dw) r = { dayWin: dw, n: 0 };
-  if (r.n >= cfg.registerIpDay) {
-    regIps.set(ipKey, r);
-    const err = new Error(`Registration limit reached: ${cfg.registerIpDay} free keys per IP per day. Try again after UTC midnight.`);
-    err.status = 429;
-    err.retryAfterSec = Math.ceil(((dw + 1) * DAY - now) / 1000);
-    throw err;
-  }
-  r.n += 1;
-  regIps.set(ipKey, r);
-  stateDirty = true;
-  saveState(); // registrations are the most valuable thing to persist
-  return mintKey();
+function utcDay(now = Date.now()) {
+  return new Date(now).toISOString().slice(0, 10);
 }
 
-// ── usage windows ───────────────────────────────────────────
-
-function windows(id, now = Date.now()) {
-  const hw = Math.floor(now / HOUR);
-  const dw = Math.floor(now / DAY);
-  let u = usage.get(id);
-  if (!u) {
-    u = { hw, dw, hourReq: 0, hourWords: 0, dayReq: 0, dayWords: 0 };
-    usage.set(id, u);
+function registerFromIp(ip, now = Date.now()) {
+  const day = utcDay(now);
+  // mint_ips counts the raw IP, but it stores the keyed hash — a leaked or
+  // dumped DB must not become a list of client addresses.
+  const ipHash = anonSubject(ip);
+  const count = db.bumpMint(ipHash, day, cfg.registerIpDay);
+  if (count === null) {
+    const err = new Error(`Registration limit reached: ${cfg.registerIpDay} free keys per IP per day. Try again after UTC midnight.`);
+    err.status = 429;
+    err.retryAfterSec = Math.ceil(((Math.floor(now / DAY) + 1) * DAY - now) / 1000);
+    throw err;
   }
-  if (u.hw !== hw) { u.hw = hw; u.hourReq = 0; u.hourWords = 0; }
-  if (u.dw !== dw) { u.dw = dw; u.dayReq = 0; u.dayWords = 0; }
-  return u;
+  return mintKey(ipHash, now);
+}
+
+// ── proof-of-work challenge (Turnstile fallback) ────────────
+
+const POW_ZEROS = 4; // 4 leading zero hex chars == 2^16 sha256 tries
+
+function newChallenge() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+function verifyPow(challenge, nonce) {
+  const c = String(challenge || "");
+  const n = String(nonce || "");
+  if (!/^[0-9a-f]{32,128}$/.test(c) || !/^[0-9a-f]{1,128}$/.test(n)) return false;
+  const hash = crypto.createHash("sha256").update(`${c}${n}`).digest("hex");
+  return hash.startsWith("0".repeat(POW_ZEROS));
+}
+
+// ── usage windows (UTC, persisted in SQLite) ────────────────
+
+// 'hour:YYYY-MM-DDTHH' / 'day:YYYY-MM-DD', both UTC (see db.js).
+function hourWindow(now = Date.now()) {
+  return `hour:${new Date(now).toISOString().slice(0, 13)}`;
+}
+function dayWindow(now = Date.now()) {
+  return `day:${new Date(now).toISOString().slice(0, 10)}`;
 }
 
 function retryAfterHours(now) { return Math.ceil(((Math.floor(now / HOUR) + 1) * HOUR - now) / 1000); }
 function retryAfterDays(now) { return Math.ceil(((Math.floor(now / DAY) + 1) * DAY - now) / 1000); }
 
 // Atomically check + consume quota for one submission.
-// kind: "key" | "anon". Returns { ok: true } or { ok: false, status, error, retryAfterSeconds }.
+// kind: "key" | "anon". Returns { ok: true } or
+// { ok: false, status, reason, error, retryAfterSeconds }.
+// The read-check-write happens inside one SQLite transaction, so two
+// concurrent submissions can never both slip under the limit.
 function charge({ subjectId, kind, words, now = Date.now() }) {
+  if (cfg.killSwitch) {
+    return { ok: false, status: 503, reason: "kill_switch", error: "temporarily_disabled" };
+  }
+  const w = Math.max(0, Math.floor(Number(words) || 0));
+  if (w > cfg.maxWordsPerJob) {
+    return {
+      ok: false,
+      status: 400,
+      reason: "job_too_long",
+      error: `Job too long (${w} words) — max ${cfg.maxWordsPerJob} words per job.`,
+      retryAfterSeconds: 0,
+    };
+  }
+
   const lim = kind === "key" ? keyLimits() : anonLimits();
-  const u = windows(subjectId, now);
+  const h = hourWindow(now);
+  const d = dayWindow(now);
 
-  if (u.hourReq >= lim.requestsPerHour) {
-    return { ok: false, status: 429, error: `Hourly request limit reached (${lim.requestsPerHour}/h).`, retryAfterSeconds: retryAfterHours(now) };
-  }
-  if (u.hourWords + words > lim.wordsPerHour) {
-    return { ok: false, status: 429, error: `Hourly word limit reached (${lim.wordsPerHour} words/h) — this request is ${words} words.`, retryAfterSeconds: retryAfterHours(now) };
-  }
-  if (u.dayWords + words > lim.wordsPerDay) {
-    return { ok: false, status: 429, error: `Daily word limit reached (${lim.wordsPerDay} words/day).`, retryAfterSeconds: retryAfterDays(now) };
-  }
-  const g = windows("__global__", now);
-  if (g.dayWords + words > cfg.globalWordsDay) {
-    return { ok: false, status: 429, error: `The service is at its global daily capacity (${cfg.globalWordsDay} words/day) to stay under Microsoft's radar.`, retryAfterSeconds: retryAfterDays(now) };
-  }
+  const verdict = db.transaction(() => {
+    const u = db.readUsage(subjectId, h, d);
 
-  u.hourReq += 1; u.hourWords += words; u.dayReq += 1; u.dayWords += words;
-  g.dayWords += words;
-  stateDirty = true;
-  return { ok: true };
+    if (u.hour.requests >= lim.requestsPerHour) {
+      return { reason: "hourly_requests", error: `Hourly request limit reached (${lim.requestsPerHour}/h).`, retryAfterSeconds: retryAfterHours(now) };
+    }
+    if (u.hour.words + w > lim.wordsPerHour) {
+      return { reason: "hourly_words", error: `Hourly word limit reached (${lim.wordsPerHour} words/h) — this request is ${w} words.`, retryAfterSeconds: retryAfterHours(now) };
+    }
+    if (u.day.words + w > lim.wordsPerDay) {
+      return { reason: "daily_words", error: `Daily word limit reached (${lim.wordsPerDay} words/day).`, retryAfterSeconds: retryAfterDays(now) };
+    }
+
+    const g = db.readGlobal(d);
+    if (g.words + w > cfg.globalWordsDay) {
+      return { reason: "global_daily_words", error: `The service is at its global daily capacity (${cfg.globalWordsDay} words/day) to stay under Microsoft's radar.`, retryAfterSeconds: retryAfterDays(now) };
+    }
+
+    db.addUsage(subjectId, h, d, w, 1);
+    db.addGlobal(d, w);
+    return { ok: true };
+  });
+
+  return verdict.ok ? verdict : Object.assign({ ok: false, status: 429 }, verdict);
 }
 
 // Refund words for a job that failed server-side. Requests are not refunded
 // unless `requests` is explicitly set (e.g. the queue rejected it after charge).
+// Clamped at zero in SQL, so a double refund can never go negative.
 function refund({ subjectId, words = 0, requests = false, now = Date.now() }) {
   if (!subjectId) return;
-  const u = windows(subjectId, now);
-  u.hourWords = Math.max(0, u.hourWords - words);
-  u.dayWords = Math.max(0, u.dayWords - words);
-  if (requests) {
-    u.hourReq = Math.max(0, u.hourReq - 1);
-    u.dayReq = Math.max(0, u.dayReq - 1);
-  }
-  const g = windows("__global__", now);
-  g.dayWords = Math.max(0, g.dayWords - words);
-  stateDirty = true;
+  const w = Math.max(0, Math.floor(Number(words) || 0));
+  const r = requests ? 1 : 0;
+  if (!w && !r) return;
+  const d = dayWindow(now);
+  db.transaction(() => {
+    db.subUsage(subjectId, hourWindow(now), d, w, r);
+    if (w) db.subGlobal(d, w);
+  });
 }
 
 function usageSnapshot(subjectId, kind, now = Date.now()) {
   const lim = kind === "key" ? keyLimits() : anonLimits();
-  const u = windows(subjectId, now);
+  const u = db.readUsage(subjectId, hourWindow(now), dayWindow(now));
   return {
-    hour: { requests: u.hourReq, words: u.hourWords, requestsLimit: lim.requestsPerHour, wordsLimit: lim.wordsPerHour, resetsInSeconds: retryAfterHours(now) },
-    day: { requests: u.dayReq, words: u.dayWords, wordsLimit: lim.wordsPerDay, resetsInSeconds: retryAfterDays(now) },
+    hour: { requests: u.hour.requests, words: u.hour.words, requestsLimit: lim.requestsPerHour, wordsLimit: lim.wordsPerHour, resetsInSeconds: retryAfterHours(now) },
+    day: { requests: u.day.requests, words: u.day.words, wordsLimit: lim.wordsPerDay, resetsInSeconds: retryAfterDays(now) },
   };
+}
+
+// ── log lines (key prefix only — never a full key) ──────────
+
+function logReject(reason, rawKey, ip, detail = "") {
+  const extra = detail ? ` ${detail}` : "";
+  console.log(`[guard] reject reason=${reason} key=${keyPrefix(rawKey)} ip=${ip || "-"}${extra}`);
+}
+
+function logGeneration({ rawKey, subject, words, durationMs, jobId }) {
+  console.log(
+    `[gen] key=${keyPrefix(rawKey)} subject=${subject || "-"} words=${words} ` +
+    `duration=${Math.round(durationMs)}ms job=${jobId || "-"}`
+  );
 }
 
 // ── global concurrency semaphore + bounded FIFO queue ──────
@@ -337,10 +415,19 @@ module.exports = {
   publicLimits,
   mintKey,
   verifyKey,
+  isValidKey,
+  keyId,
+  keyPrefix,
   anonSubject,
   signDownload,
   verifyDownload,
   registerFromIp,
+  utcDay,
+  newChallenge,
+  verifyPow,
+  POW_ZEROS,
+  hourWindow,
+  dayWindow,
   charge,
   refund,
   usageSnapshot,
@@ -351,5 +438,8 @@ module.exports = {
   recordUpstreamFailure,
   recordUpstreamSuccess,
   checkCircuit,
+  logReject,
+  logGeneration,
   saveState,
+  db,
 };

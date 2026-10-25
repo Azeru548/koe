@@ -11,12 +11,12 @@ Caddy (TLS, HTTP/2, gzip/zstd)
   ▼
 koe container (Node 20 + edge-tts + Piper)
   │
-  └── /data  →  jobs.json, state.json, stats.json
+  └── /data  →  jobs.json, state.json, stats.json, koe.db
 ```
 
 - **Caddy** terminates TLS with a Let's Encrypt certificate and proxies to the app.
 - **koe** listens on `127.0.0.1:8080` only; it is never exposed directly.
-- The bind mount `/home/ec2-user/koe-data` keeps job metadata, signing state, and analytics counters across container recreates.
+- The bind mount `/home/ec2-user/koe-data` keeps job metadata, signing state, analytics counters **and the issued-key/usage SQLite database (`KOE_DB_PATH=/data/koe.db`)** across container recreates.
 - Generated audio is still ephemeral by design.
 - `koe-watchdog.timer` checks every 2 minutes; `koe-diskguard.timer` runs daily.
 
@@ -193,6 +193,9 @@ Disk pressure: the guard prunes Docker at 85% root usage. Check `df -h /` first;
 | Analytics page says key rejected | `API_KEY` in `~/koe-ops/koe.env` matches what you pasted |
 | `/stats.html` returns 401 | The running image predates the analytics commit; rebuild |
 | Counters reset after deploy | `/data` volume missing or `KOE_STATS_FILE` not `/data/stats.json` |
+| Keys/counters reset on every restart | `KOE_DB_PATH` not on the volume — set `KOE_DB_PATH=/data/koe.db` in `~/koe-ops/koe.env` |
+| Every key returns `401 {"error":"invalid_key"}` | The running image predates the v3 key store (older HMAC keys are no longer records); rebuild, and clients/pages re-mint automatically |
+| `503 {"error":"temporarily_disabled"}` | `KOE_KILL_SWITCH=true` in `~/koe-ops/koe.env` — unset it and recreate the container |
 | Queue stays full | Check upstream edge-tts health; the circuit breaker cools down after failures |
 | Out of memory during build | Confirm the swap file exists (`swapon --show`) |
 

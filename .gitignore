@@ -7,6 +7,11 @@ output/
 .koe-stats.json
 .koe-stats.json.tmp
 jobs.json
+# Persistent SQLite store (keys + counters) — never commit local/dev state
+koe.db
+koe.db-journal
+koe.db-wal
+koe.db-shm
 preview-*.mp3
 preview-*.wav
 preview-piper-*.wav
@@ -34,3 +39,17 @@ voiceovers/
 /logo image.png
 /screenshots/
 ops/koe.env
+
+# Launch-film build artifacts — the film's source stays tracked:
+# videos/*/index.html, compositions/, scripts/, assets/, SPEC.md,
+# REVIEW.md, STORYLINES.md, hyperframes.json
+/videos/**/.hyperframes/
+/videos/**/.thumbnails/
+/videos/**/.waveform-cache/
+/videos/**/.verify/
+/videos/**/capture*/
+/videos/**/renders/
+/videos/**/*.log
+/videos/**/check[0-9]*.json
+/videos/**/audio-check.json
+/videos/**/audio-final.json

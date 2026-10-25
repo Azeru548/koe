@@ -22,7 +22,7 @@ Success looks like: an agent connects to the hosted MCP URL, calls `generate_voi
 
 ## Positioning
 
-The free tier *is* the product, and it is bound by construction rather than by trust. Every install mints its own signed tenant key automatically (no signup, no payment), quotas are enforced per tenant, and generated audio is ephemeral — zips deleted after 15 minutes, jobs after an hour, audio wiped on restart. Keys are stateless HMACs with no database behind them; counters and job metadata persist on a small mounted volume, so the app survives a container recreate without turning into a stateful service.
+The free tier *is* the product, and it is bound by construction rather than by trust. Every install mints its own free tenant key automatically (no signup, no payment), quotas are enforced per tenant, and generated audio is ephemeral — zips deleted after 15 minutes, jobs after an hour, audio wiped on restart. Keys are issued server-side and stored as rows in a single small SQLite file, as are the counters, so a key is revocable and limits survive a restart — while job metadata and audio stay on a mounted volume and the service still boots from an empty disk.
 
 A neighboring paid TTS vendor cannot copy that honestly: their economics need retained output and metered accounts. Koe's limits (per key, per IP, per job, plus a global queue and daily word budget) exist to keep a free public instance from being burned, not to upsell.
 
@@ -31,22 +31,22 @@ A neighboring paid TTS vendor cannot copy that honestly: their economics need re
 - **Hosted MCP** at `POST /mcp` on the AWS deployment — stateless, JSON (no SSE), safe behind the Caddy reverse proxy. `GET /mcp` is the human setup page with tabs for Claude, Claude Code, and Cursor, plus a copy-paste "set this up for me" agent prompt.
 - **Local stdio MCP** (`mcp/index.js`) for developers: same tools, but it saves audio to a local path and merges multi-part jobs into one file — the shape a video pipeline needs.
 - **Studio UI** (`index.html`) at `/studio` (the root `/` redirects to `/mcp`): script entry, voice catalog, preview, job list, usage.
-- **Raw HTTP API** (`/tts`, `/job/:id`, `/download/:id`, `/audio/:id`, `/jobs`, `/usage`, `/api/register`, `/health`) for scripts and curl.
+- **Raw HTTP API** (`/tts`, `/job/:id`, `/download/:id`, `/audio/:id`, `/jobs`, `/usage`, `/keys`, `/keys/challenge`, `/api/register`, `/healthz`) for scripts and curl.
 - Deployed on a single EC2 instance: Docker container behind Caddy with a Let's Encrypt certificate, persisted counters/job metadata on a mounted volume, and ephemeral audio. Local dev runs `node server.js` on port 3000, with a Docker backend when Docker is present. See `DEPLOY.md` and `ops/`.
 - `AGENTS.md` is the agent-facing contract (tool schemas, response shapes, error recipes); `README.md` is the human/operator reference.
 
 ## Capabilities and Constraints
 
-**Confirmed capabilities:** multi-tenant free keys with per-key and per-IP quotas; per-job splitting into ~3000-character parts that the MCP merges back into one file; edge (MP3, rate/pitch, many languages) and Piper (WAV, offline, no rate/pitch) engines; previews metered at 600 characters; a bounded global queue with a circuit breaker for upstream failures; signed short-lived download links for hosted audio; admin key that bypasses limits; operator analytics with hashed visitor ids and bot-separated user counts; 34 automated tests.
+**Confirmed capabilities:** multi-tenant free keys with per-key and per-IP quotas, issued server-side behind a proof-of-work (or Turnstile) gate and revocable per key; per-job splitting into ~3000-character parts that the MCP merges back into one file; edge (MP3, rate/pitch, many languages) and Piper (WAV, offline, no rate/pitch) engines; previews metered at 600 characters; a bounded global queue with a circuit breaker for upstream failures; an instance-wide hard daily word ceiling and a kill switch; signed short-lived download links for hosted audio; admin key that bypasses limits; operator analytics with hashed visitor ids and bot-separated user counts; 48 automated tests.
 
 **Hard constraints future work must respect:**
 
 - `edge-tts` is Microsoft's *unofficial* consumer endpoint — free, unauthenticated, occasionally throttled. Copy and product claims must not imply an official Microsoft relationship or guaranteed SLA.
-- No database. Usage counters are in-memory with a best-effort snapshot; `KOE_SECRET` is the only piece that must stay stable (rotating it invalidates every free key, and clients silently re-register).
+- One SQLite file (`KOE_DB_PATH`, pure-JS driver, no native addon) holds issued keys and every counter; it is the single source of truth behind `guard.charge` and key issuance. Keep it on the mounted volume in production. `KOE_SECRET` must still stay stable — it signs download links and hashed subjects, and rotating it re-keys every anonymous subject (clients re-register automatically after a `401`).
 - Script text is never persisted — only counts, voice, engine, status, timings.
 - Audio is ephemeral by design and the UI/docs must say so plainly; a local download is the only permanent copy.
 - Default limits (all env-tunable): registered key 60 requests / 2,000 words per hour, 20,000 words/day; anonymous 20 / 500 / 3,000; per job 6,000 words or 40,000 characters; instance-wide 2 concurrent jobs, 20-job queue, 30,000 words/day; 3 free keys per IP per day.
-- Terminology in use: "studio" (the server + UI), "voiceover"/"job", "part", "free tenant key", "hosted MCP", "stdio MCP". Error states matter and are specified: 400 validation, 401 key, 403 other tenant, 404 unknown, 409 not ready, 410 expired, 413 too long, 429 rate/queue, 503 engine down or cooling down.
+- Terminology in use: "studio" (the server + UI), "voiceover"/"job", "part", "free tenant key", "hosted MCP", "stdio MCP". Error states matter and are specified: 400 validation or a job over the word cap, 401 `{"error":"invalid_key"}`, 403 another tenant or a failed issuance gate, 404 unknown, 409 not ready, 410 expired, 413 over the character cap, 429 rate/queue/global limit (carries `reason` + `retryAfterSeconds`), 503 `{"error":"temporarily_disabled"}` kill switch, engine down or cooling down.
 
 **Deliberately undecided:** monetization and any paid tier; whether the project is offered as a clone-and-run template versus a single hosted instance; public roadmap.
 

@@ -72,17 +72,38 @@ function keyMatches(candidate) {
 //   tenant → a valid signed key         (per-key limits; free keys via POST /api/register)
 //   anon   → no key                     (smaller per-IP limits; powers the UI demo)
 const OPEN_PATHS = new Set([
-  "/health", "/api/register", "/api/limits", "/",
+  "/health", "/healthz", "/api/register", "/api/limits", "/",
+  "/keys", "/keys/challenge", // public: key issuance + anti-abuse challenge
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
   "/stats.html", // the dashboard SHELL is public; its data comes from admin-only /stats.json
 ]);
+
+// POST /mcp is the only API surface that ALWAYS needs a live keys-row key.
+const isMcpPost = (req) => req.method === "POST" && req.path === "/mcp";
 
 // GET /mcp serves the human setup page when a browser asks for HTML; MCP
 // clients hit POST /mcp instead and must authenticate.
 const wantsHtml = (req) => String(req.headers.accept || "").includes("text/html");
 
+// ── request context (auth, logging, stats all read this) ──
 app.use((req, res, next) => {
   req.ctx = { ip: String(req.ip || (req.connection && req.connection.remoteAddress) || "unknown"), tid: null, admin: false, rawKey: "" };
+  next();
+});
+
+// ── KILL SWITCH ── KOE_KILL_SWITCH=true answers every generation entry
+// point 503 before auth, quota, queue or upstream work is considered.
+const GENERATION_PATHS = new Set(["/tts", "/tts-preview", "/tts-preview-piper", "/mcp"]);
+app.use((req, res, next) => {
+  if (req.method === "POST" && GENERATION_PATHS.has(req.path) && guard.cfg.killSwitch) {
+    guard.logReject("kill_switch", req.ctx.rawKey, req.ctx.ip);
+    return res.status(503).json({ error: "temporarily_disabled" });
+  }
+  next();
+});
+
+// ── AUTH ── admin key, or a live key row from the keys table ──
+app.use((req, res, next) => {
   if (OPEN_PATHS.has(req.path)) return next();
   if (req.method === "GET" && req.path === "/mcp") return next();
 
@@ -99,15 +120,24 @@ app.use((req, res, next) => {
   const provided = req.headers["x-api-key"] || bearer || req.query.key || "";
   if (provided) {
     if (API_KEY && keyMatches(provided)) { req.ctx.admin = true; req.ctx.rawKey = provided; return next(); }
-    const tid = guard.verifyKey(provided);
+    const tid = guard.verifyKey(provided); // indexed PK lookup in the keys table
     if (tid) { req.ctx.tid = tid; req.ctx.rawKey = provided; return next(); }
+    guard.logReject("invalid_key", provided, req.ctx.ip);
     return res.status(401).json({
-      error: "Invalid API key — get a free one via POST /api/register",
-      hint: "Keys are signed with KOE_SECRET; if the operator rotated it, old keys stopped working.",
+      error: "invalid_key",
+      hint: "POST /keys to get a new key",
     });
   }
+
+  // The MCP endpoint never falls back to anonymous traffic.
+  if (isMcpPost(req)) {
+    guard.logReject("missing_key", "", req.ctx.ip, "path=/mcp");
+    return res.status(401).json({ error: "invalid_key", hint: "POST /keys to get a new key" });
+  }
+
   if (guard.cfg.requireKey && !OPEN_PATHS.has(req.path)) {
-    return res.status(401).json({ error: "API key required — get a free one via POST /api/register" });
+    guard.logReject("missing_key", "", req.ctx.ip, `path=${req.path}`);
+    return res.status(401).json({ error: "invalid_key", hint: "POST /keys to get a new key" });
   }
   next();
 });
@@ -501,15 +531,110 @@ function createZip(sourceDir, destPath) {
 
 // ── FREE PRODUCT ROUTES ──────────────────────────────────
 
-// POST /api/register — mint a free tenant key (capped per IP per day)
-app.post("/api/register", (req, res) => {
+// ── KEY ISSUANCE ────────────────────────────────────────────
+// Keys are minted here, server-side, and recorded in the keys table so they
+// can be validated, counted and revoked. Two anti-abuse gates:
+//   • Cloudflare Turnstile — when TURNSTILE_SITEKEY + TURNSTILE_SECRET are set
+//   • proof-of-work otherwise — sha256(challenge + nonce) must start with
+//     POW_ZEROS zero hex chars; challenges come from GET /keys/challenge and
+//     are single-use with a 5 minute TTL.
+
+const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+const CHALLENGE_MAX = 5000;
+const powChallenges = new Map(); // challenge -> expiry (ms)
+
+function issueChallenge() {
+  const now = Date.now();
+  if (powChallenges.size >= CHALLENGE_MAX) {
+    for (const [c, exp] of powChallenges) if (exp <= now) powChallenges.delete(c);
+    if (powChallenges.size >= CHALLENGE_MAX) powChallenges.clear();
+  }
+  const challenge = guard.newChallenge();
+  powChallenges.set(challenge, now + CHALLENGE_TTL_MS);
+  return challenge;
+}
+
+// Consumes the challenge whether or not it verifies: single-use means single-use.
+function takeChallenge(challenge) {
+  const key = String(challenge || "");
+  const exp = powChallenges.get(key);
+  if (exp === undefined) return false;
+  powChallenges.delete(key);
+  return exp > Date.now();
+}
+
+async function turnstileOk(token) {
+  if (!token) return false;
+  try {
+    const form = new FormData();
+    form.set("secret", guard.cfg.turnstileSecret);
+    form.set("response", String(token));
+    const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form });
+    const data = await r.json().catch(() => ({}));
+    return data && data.success === true;
+  } catch (err) {
+    // Never fail open: an unreachable verifier means no minting this second.
+    console.error("[keys] turnstile verify failed:", String((err && err.message) || err).slice(0, 200));
+    return false;
+  }
+}
+
+function usingTurnstile() {
+  return Boolean(guard.cfg.turnstileSecret);
+}
+
+// GET /keys/challenge — tells the client which gate to solve.
+app.get("/keys/challenge", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (usingTurnstile()) {
+    return res.json({ mode: "turnstile", sitekey: guard.cfg.turnstileSiteKey, expiresInSeconds: 300 });
+  }
+  const challenge = issueChallenge();
+  res.json({
+    mode: "pow",
+    challenge,
+    expiresInSeconds: Math.round(CHALLENGE_TTL_MS / 1000),
+    pow: { algorithm: "sha256(challenge + nonce)", leadingZeroHexChars: guard.POW_ZEROS },
+  });
+});
+
+// POST /keys — the canonical mint endpoint. Shared by /api/register.
+async function handleMint(req, res) {
+  const body = req.body || {};
+
+  if (usingTurnstile()) {
+    const ok = await turnstileOk(body.turnstileToken || body.token);
+    if (!ok) {
+      guard.logReject("turnstile_failed", "", req.ctx.ip);
+      return res.status(403).json({ error: "turnstile_failed", hint: "Complete the Turnstile challenge and retry." });
+    }
+  } else {
+    const challenge = String(body.challenge || "");
+    if (!takeChallenge(challenge)) {
+      guard.logReject("pow_challenge_invalid", "", req.ctx.ip);
+      return res.status(403).json({ error: "pow_challenge_invalid", hint: "GET /keys/challenge for a fresh challenge." });
+    }
+    if (!guard.verifyPow(challenge, String(body.nonce || ""))) {
+      guard.logReject("pow_failed", "", req.ctx.ip);
+      return res.status(403).json({ error: "pow_failed", hint: "sha256(challenge + nonce) must start with the required zeros." });
+    }
+  }
+
   try {
     const minted = guard.registerFromIp(req.ctx.ip);
-    res.json({ key: minted.key, tenant: minted.tid, limits: guard.publicLimits() });
+    console.log(`[keys] minted key=${guard.keyPrefix(minted.key)} ip=${req.ctx.ip}`);
+    res.status(201).json({ key: minted.key, tenant: minted.tid, limits: guard.publicLimits() });
   } catch (err) {
+    guard.logReject("mint_cap", "", req.ctx.ip);
     res.status(err.status || 500).json({ error: err.message, retryAfterSeconds: err.retryAfterSec });
   }
-});
+}
+
+app.post("/keys", handleMint);
+
+// POST /api/register — thin alias of POST /keys (same gate, same body, same
+// 201 {key} payload) so pre-existing callers keep working instead of 404ing.
+app.post("/api/register", handleMint);
 
 // GET /api/limits — public policy (no secrets)
 app.get("/api/limits", (req, res) => res.json(guard.publicLimits()));
@@ -632,7 +757,9 @@ app.post("/tts", async (req, res) => {
     return res.status(413).json({ error: `Script too long (${text.length} chars) — max ${guard.cfg.maxCharsPerJob} chars per job.`, maxChars: guard.cfg.maxCharsPerJob });
   }
   if (words > guard.cfg.maxWordsPerJob) {
-    return res.status(413).json({ error: `Script too long (${words} words) — max ${guard.cfg.maxWordsPerJob} words per job.`, maxWords: guard.cfg.maxWordsPerJob });
+    // Spec: a single oversized job is a 400, rejected BEFORE anything is counted.
+    guard.logReject("job_too_long", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
+    return res.status(400).json({ error: `Job too long (${words} words) — max ${guard.cfg.maxWordsPerJob} words per job.`, maxWords: guard.cfg.maxWordsPerJob });
   }
 
   // ── rate limiting / queueing (free multi-tenant guards) ──
@@ -640,23 +767,28 @@ app.post("/tts", async (req, res) => {
 
   const circ = guard.checkCircuit();
   if (circ.open) {
+    guard.logReject("upstream_cooldown", req.ctx.rawKey, req.ctx.ip);
     return res.status(503).json({ error: "Synthesis is cooling down after upstream errors", retryAfterSeconds: circ.retryAfterSec });
   }
   if (guard.queueFull()) {
+    guard.logReject("queue_full", req.ctx.rawKey, req.ctx.ip);
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
   if (subject) {
     const verdict = guard.charge({ subjectId: subject.id, kind: subject.kind, words });
     if (!verdict.ok) {
-      return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds });
+      guard.logReject(verdict.reason || "limit", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
+      return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds, reason: verdict.reason });
     }
   }
   const slot = guard.tryAcquireSlot();
   if (!slot) {
     // Lost a race for the last queue place: return the charge.
     if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
+    guard.logReject("queue_full", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
+  const submittedAt = Date.now();
   // Count the words against the same subject that observe() counted the request
   // for — including the admin caller, whose charge is skipped but whose work
   // still belongs on the dashboard.
@@ -746,6 +878,7 @@ app.post("/tts", async (req, res) => {
       job.progress       = 100;
       saveJob(job);
       guard.recordUpstreamSuccess();
+      guard.logGeneration({ rawKey: req.ctx.rawKey, subject: subject ? subject.id : "admin", words, durationMs: Date.now() - submittedAt, jobId });
 
     } catch (err) {
       const message = String((err && err.message) || err).slice(0, 500);
@@ -920,6 +1053,7 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
 
   const circ = guard.checkCircuit();
   if (circ.open) {
+    guard.logReject("upstream_cooldown", req.ctx.rawKey, req.ctx.ip);
     return res.status(503).json({ error: "Synthesis is cooling down after upstream errors", retryAfterSeconds: circ.retryAfterSec });
   }
 
@@ -928,16 +1062,19 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
   if (subject) {
     const verdict = guard.charge({ subjectId: subject.id, kind: subject.kind, words });
     if (!verdict.ok) {
-      return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds });
+      guard.logReject(verdict.reason || "limit", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
+      return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds, reason: verdict.reason });
     }
   }
 
   const slot = guard.tryAcquireSlot();
   if (!slot) {
     if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
+    guard.logReject("queue_full", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
   stats.markWords({ subject, words });
+  const submittedAt = Date.now();
 
   let released = false;
   const release = () => {
@@ -974,6 +1111,7 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     }
 
     guard.recordUpstreamSuccess();
+    guard.logGeneration({ rawKey: req.ctx.rawKey, subject: subject ? subject.id : "admin", words, durationMs: Date.now() - submittedAt, jobId: `preview:${fileName}` });
     streamPreview(res, previewPath, ext === "wav" ? "audio/wav" : "audio/mpeg", `preview.${ext}`);
   } catch (err) {
     release();
@@ -1099,11 +1237,14 @@ app.delete("/mcp", (req, res) => {
   res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method Not Allowed" }, id: null });
 });
 
-// GET /health
-app.get("/health", (req, res) => {
+// GET /healthz — liveness + "can I actually touch the database".
+// GET /health is the same handler kept as an alias (existing probes, docs,
+// AGENTS.md and the watchdog all point at it).
+function healthHandler(req, res) {
+  const dbInfo = guard.db.health();
   res.setHeader("Cache-Control", "no-store");
-  res.json({
-    status:       "ok",
+  res.status(dbInfo.ok ? 200 : 503).json({
+    status:       dbInfo.ok ? "ok" : "degraded",
     uptime:       Math.round(process.uptime()),
     jobs:         loadJobs().length,
     time:         new Date().toISOString(),
@@ -1113,12 +1254,16 @@ app.get("/health", (req, res) => {
     adminKeyConfigured: Boolean(API_KEY),
     keyRequired:  guard.cfg.requireKey,
     freeKeys:     true,
+    killSwitch:   guard.cfg.killSwitch,
+    db:           { ok: dbInfo.ok, path: dbInfo.path, journalMode: dbInfo.journalMode },
     mcp:          { endpoint: "/mcp", transport: "streamable-http", stateless: true, setup: "/mcp" },
     queue:        guard.slotStats(),
     ephemeral:    { audioTtlSeconds: guard.cfg.audioTtlSec, jobTtlSeconds: guard.cfg.jobTtlSec },
     limits:       guard.publicLimits(),
   });
-});
+}
+app.get("/healthz", healthHandler);
+app.get("/health", healthHandler);
 
 // JSON error handler (bad body, too large, unexpected failures)
 app.use((err, req, res, next) => {

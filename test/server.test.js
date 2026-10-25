@@ -12,6 +12,7 @@ const ROOT = path.join(__dirname, "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-server-test-"));
 const JOBS_FILE = path.join(TMP, "output", "jobs.json");
 const ADMIN_KEY = "admin-test-key";
+const { mintKey: mintViaHttp } = require("./helpers");
 
 let child;
 let base;
@@ -67,8 +68,9 @@ test.before(async () => {
       KOE_SECRET: "server-test-secret",
       API_KEY: ADMIN_KEY,
       KOE_REQUIRE_KEY: "true",
-      KOE_REGISTER_IP_DAY: "2",
+      KOE_REGISTER_IP_DAY: "3",
       KOE_STATE_FILE: path.join(TMP, "state.json"),
+      KOE_DB_PATH: path.join(TMP, "koe.db"),
       KOE_OUTPUT_DIR: path.join(TMP, "output"),
       KOE_JOBS_FILE: JOBS_FILE,
       KOE_STATS_FILE: path.join(TMP, "stats.json"),
@@ -113,22 +115,43 @@ test("public policy endpoints do not require a key", async () => {
   assert.match(await ui.text(), /Koe/);
 });
 
-test("free keys can be minted and are capped per IP per day", async () => {
-  const first = await json("POST", "/api/register", { body: {} });
-  assert.equal(first.status, 200);
-  assert.match(first.data.key, /^koe_sk_/);
+test("free keys can be minted through the PoW gate and are capped per IP per day", async () => {
+  const first = await mintViaHttp(base);
+  assert.equal(first.status, 201);
+  assert.match(first.data.key, /^koe_sk_[0-9a-f]{32}$/);
   assert.ok(first.data.tenant);
 
-  const second = await json("POST", "/api/register", { body: {} });
-  assert.equal(second.status, 200);
+  const second = await mintViaHttp(base);
+  assert.equal(second.status, 201);
   assert.notEqual(second.data.key, first.data.key);
+
+  const third = await mintViaHttp(base);
+  assert.equal(third.status, 201);
 
   keys = [first.data.key, second.data.key];
   tenants = [first.data.tenant, second.data.tenant];
 
-  const third = await json("POST", "/api/register", { body: {} });
-  assert.equal(third.status, 429);
-  assert.ok(third.data.retryAfterSeconds > 0);
+  // 4th mint from the same IP on the same UTC day → 429.
+  const fourth = await mintViaHttp(base);
+  assert.equal(fourth.status, 429);
+  assert.ok(fourth.data.retryAfterSeconds > 0);
+});
+
+test("/api/register is a thin alias of /keys behind the same gate", async () => {
+  // Same handler: a POST with no proof-of-work never mints anything.
+  const bare = await json("POST", "/api/register", { body: {} });
+  assert.equal(bare.status, 403);
+  assert.equal(bare.data.error, "pow_challenge_invalid");
+
+  const ch = await json("GET", "/keys/challenge");
+  assert.equal(ch.status, 200);
+  assert.equal(ch.data.mode, "pow");
+  assert.ok(ch.data.challenge);
+  assert.equal(ch.data.pow.leadingZeroHexChars, 4);
+
+  const forged = await json("POST", "/keys", { body: { challenge: ch.data.challenge, nonce: "0000" } });
+  assert.equal(forged.status, 403);
+  assert.equal(forged.data.error, "pow_failed");
 });
 
 test("protected routes reject missing and invalid keys", async () => {

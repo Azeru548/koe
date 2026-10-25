@@ -103,6 +103,7 @@ test.before(async () => {
       API_KEY: ADMIN_KEY,
       KOE_REQUIRE_KEY: "false",
       KOE_STATE_FILE: path.join(TMP, "state.json"),
+      KOE_DB_PATH: path.join(TMP, "koe.db"),
       KOE_OUTPUT_DIR: OUTPUT_DIR,
       KOE_JOBS_FILE: JOBS_FILE,
     },

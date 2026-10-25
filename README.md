@@ -10,16 +10,16 @@ agent / browser ──free tenant key──> TTS Studio ──> edge-tts ──>
         └── auto-registers on first use  └── deletes audio after 15 minutes
 ```
 
-- **Multi-tenant** — every MCP install and every browser gets its own signed free key with independent hourly/daily quotas.
+- **Multi-tenant** — every MCP install and every browser gets its own free key (issued server-side) with independent hourly/daily quotas.
 - **Rate-limited** — per-key and per-IP limits, a bounded global queue, a global daily word budget, and a circuit breaker for upstream (Microsoft) failures.
 - **Ephemeral audio** — generated zips are deleted after 15 minutes; job metadata after 1 hour; a restart wipes all audio. Nothing depends on permanent storage.
-- **Zero database** — keys are stateless HMACs; usage counters live in memory with a best-effort snapshot. `KOE_SECRET` is the only piece that must be stable.
+- **One small SQLite file** — issued keys and every counter live in `KOE_DB_PATH` (`./koe.db` by default), so limits survive restarts and a key is revocable by deleting its row. `KOE_SECRET` still signs download links and hashed subjects.
 
 ## Use it from any agent (hosted MCP)
 
 The public instance runs at **<https://koe.kennedyazeru.space>**. The **hosted MCP server** is at `https://koe.kennedyazeru.space/mcp`. Agents connect by URL — no install, no local Node, no config file. The same URL serves a human setup page in a browser.
 
-1. Open <https://koe.kennedyazeru.space/mcp> and click **Create key**.
+1. Open <https://koe.kennedyazeru.space/mcp> and click **Create key** (the page solves the proof-of-work challenge for you).
 2. Point your client at `https://koe.kennedyazeru.space/mcp` with `Authorization: Bearer <key>` (or `x-api-key: <key>`).
 3. Ask the agent to call `studio_status`, then `generate_voiceover`.
 
@@ -46,20 +46,37 @@ All of these are environment variables (see below).
 
 ### How keys work
 
-```bash
-# Mint a free key (no payment, no account)
-curl -X POST https://koe.kennedyazeru.space/api/register
-# → { "key": "koe_sk_ab12cd34ef56_...", "tenant": "ab12cd34ef56", "limits": {...} }
+Keys are issued **server-side**: `POST /keys` writes an opaque `koe_sk_<32 hex>` record into SQLite, and every request validates against that table. Nothing client-side can be counted.
 
-# Use it
+```bash
+# 1. Ask which anti-abuse gate is active
+curl https://koe.kennedyazeru.space/keys/challenge
+# → { "mode": "pow", "challenge": "…", "pow": { "leadingZeroHexChars": 4 } }
+#   (or { "mode": "turnstile", "sitekey": "…" } when Turnstile is configured)
+
+# 2. Solve it — proof-of-work: find a nonce whose sha256(challenge + nonce)
+#    starts with 4 zero hex chars (~65k tries, well under a second) — and mint
+curl -X POST https://koe.kennedyazeru.space/keys \
+     -H "Content-Type: application/json" \
+     -d '{"challenge":"<from step 1>","nonce":"0f3a"}'
+# → 201 { "key": "koe_sk_9f2c…", "tenant": "…", "limits": {…} }
+
+# 3. Use it
 curl -H "x-api-key: koe_sk_..." -H "Content-Type: application/json" \
      -d '{"text":"Hello from Koe","voice":"en-US-AndrewNeural"}' \
      https://koe.kennedyazeru.space/tts
 ```
 
-- Keys are signed with `KOE_SECRET` and contain no server-side state, so registration works even on a wiped container disk. Rotating `KOE_SECRET` invalidates old keys; the MCP and UI re-register automatically.
+- `POST /api/register` is a thin alias of `POST /keys` — same gate, same `201 {key}` body, so older callers keep working instead of getting a 404.
+- Challenges are single-use and expire after 5 minutes; a wrong or replayed one is `403 pow_challenge_invalid` / `pow_failed`.
+- With `TURNSTILE_SITEKEY` + `TURNSTILE_SECRET` set, the gate becomes Cloudflare Turnstile instead of proof-of-work (headless clients then need `TTS_API_KEY`).
+- Keys are rows, so they are revocable: delete the row (or wipe `KOE_DB_PATH`) and the key stops working on the next request. The studio UI and the MCP client re-mint automatically when a stored key starts returning `401` — see [MIGRATION-v3-keys.md](MIGRATION-v3-keys.md).
 - `KOE_REQUIRE_KEY=true` rejects anonymous calls. The bundled MCP server and studio UI register a key automatically, so end users never see this step.
 - `API_KEY` is an operator/admin key. It bypasses all limits and can see every tenant's jobs. Keep it private.
+
+### Kill switch
+
+`KOE_KILL_SWITCH=true` answers `503 {"error":"temporarily_disabled"}` on `POST /tts`, `POST /tts-preview*` and `POST /mcp` **before** auth, quota, queueing or any upstream work. Flip it in the environment and restart to stop all generation instantly; everything else (health, key issuance, usage, dashboards) keeps answering.
 
 ### Ephemeral audio
 
@@ -89,17 +106,22 @@ Local usage: `npm install && node server.js` → <http://localhost:3000>. `/` re
 | `DELETE /job/:id` | key / same tenant | Delete job + audio |
 | `POST /tts-preview` | key (metered) | Stream an edge voice MP3 |
 | `POST /tts-preview-piper` | key (metered) | Stream a Piper WAV |
-| `POST /api/register` | public | Mint a free tenant key (per-IP capped) |
+| `POST /keys` | public (gated) | Mint a free key → `201 {key, tenant, limits}`; PoW or Turnstile gate, capped per IP/day |
+| `GET /keys/challenge` | public | Which gate to solve: `{mode:"pow"\|"turnstile", challenge?, sitekey?}` |
+| `POST /api/register` | public (gated) | Thin alias of `POST /keys` (same gate, same body) |
 | `GET /api/limits` | public | Public limit policy (no secrets) |
 | `GET /usage` | key | This caller's usage vs limits |
-| `GET /health` | public | Backend, engines, queue, limits, TTLs |
+| `GET /healthz` | public | Backend, engines, queue, limits, TTLs, and DB reachability |
+| `GET /health` | public | Alias of `/healthz` |
 | `GET /` | public | Redirects to `/mcp` |
 | `GET /studio` | public | Studio UI |
 | `GET /stats.html` | public shell | Operator analytics dashboard; data needs the admin key |
 | `GET /stats.json` | admin | Machine-readable counters used by the dashboard |
 | `GET /stats` | admin | Server-rendered operator report (`?key=` works) |
 
-Auth accepts `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`. Status codes: `400` validation, `401` missing/invalid key, `403` another tenant's job, `404` unknown, `409` not ready, `410` audio expired, `413` script too large, `429` rate/queue limit, `503` engine unavailable or upstream cool-down.
+Auth accepts `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`. `POST /mcp` always needs a live key row (or the admin key). Status codes: `400` validation or a job over `KOE_MAX_JOB_WORDS`, `401 {"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown, `409` not ready, `410` audio expired, `413` script over the 40,000-char cap, `429 {"reason":…}` rate/queue/global limit, `503 {"error":"temporarily_disabled"}` kill switch, engine unavailable or upstream cool-down.
+
+Rejections carry a `reason` (`hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `job_too_long`, `kill_switch`, `queue_full`, `invalid_key`, `mint_cap`) and, for limits, a `retryAfterSeconds` reset window.
 
 ### Two backends
 
@@ -127,9 +149,9 @@ mkdir -p ~/koe-ops
 bash ~/koe-ops/rebuild.sh
 ```
 
-`rebuild.sh` clones/pulls the repo, builds the image, recreates `koe` on `127.0.0.1:8080`, and starts Caddy. `KOE_SECRET` must stay stable — it signs every free key. `API_KEY` is the operator key used by `/stats`, `/stats.json`, and the analytics dashboard.
+`rebuild.sh` clones/pulls the repo, builds the image, recreates `koe` on `127.0.0.1:8080`, and starts Caddy. `KOE_SECRET` must stay stable — it signs download links and every hashed subject id. `API_KEY` is the operator key used by `/stats`, `/stats.json`, and the analytics dashboard.
 
-The Docker image installs Node 20 + `edge-tts` and best-effort Piper. It keeps runtime data (`jobs.json`, `state.json`, `stats.json`) on a mounted volume so a container recreate does not wipe counters or job metadata.
+The Docker image installs Node 20 + `edge-tts` and best-effort Piper. It keeps runtime data (`jobs.json`, `state.json`, `stats.json`, and `koe.db`) on a mounted volume so a container recreate does not wipe issued keys, usage counters or job metadata — set `KOE_DB_PATH=/data/koe.db` alongside `KOE_STATE_FILE`/`KOE_JOBS_FILE`/`KOE_STATS_FILE`.
 
 > `render.yaml` remains in the repo as a legacy blueprint. It is not the production target.
 
@@ -176,7 +198,7 @@ claude mcp add koe-tts \
   -- node C:/Users/User/koe/mcp/index.js
 ```
 
-No key is required in the config. On first use the MCP calls `POST /api/register`, saves the free key in `~/.koe/credentials.json` (keyed by studio URL), and reuses it. Each user/install therefore gets an independent quota. Set `TTS_API_KEY` only if you want to force a specific key (for example the operator's admin key).
+No key is required in the config. On first use the MCP asks `GET /keys/challenge`, answers the proof-of-work, mints the key with `POST /keys`, saves it in `~/.koe/credentials.json` (keyed by studio URL), and reuses it. Each user/install therefore gets an independent quota. If the studio starts answering `401` (for example after an upgrade that invalidates old keys), the client clears the stored key and mints a fresh one automatically. Set `TTS_API_KEY` only if you want to force a specific key (for example the operator's admin key).
 
 ### Tools
 
@@ -213,28 +235,31 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
 | `TTS_BACKEND` | auto | `native` or `docker` |
-| `KOE_SECRET` | generated | **Set this in production.** Signs free tenant keys |
+| `KOE_SECRET` | generated | **Set this in production.** Signs download links, hashed anon subjects and key ids (keys themselves are DB rows) |
+| `KOE_DB_PATH` | `./koe.db` | SQLite file holding issued keys and every counter (`keys`, `usage`, `mint_ips`, `global_usage`). One connection per process; restarts resume from it |
 | `API_KEY` | *(none)* | Admin key: unlimited, sees all jobs |
 | `KOE_REQUIRE_KEY` | `false` | Reject anonymous callers |
 | `KOE_REGISTER_IP_DAY` | `3` | Free keys per IP per day |
-| `KOE_KEY_REQ_HOUR` | `60` | Requests/hour per key |
-| `KOE_KEY_WORDS_HOUR` | `2000` | Words/hour per key |
-| `KOE_KEY_WORDS_DAY` | `20000` | Words/day per key |
+| `KOE_HOURLY_REQUESTS` | `60` | Requests/hour per key *(legacy name: `KOE_KEY_REQ_HOUR`)* |
+| `KOE_HOURLY_WORDS` | `2000` | Words/hour per key *(legacy: `KOE_KEY_WORDS_HOUR`)* |
+| `KOE_DAILY_WORDS` | `20000` | Words/day per key *(legacy: `KOE_KEY_WORDS_DAY`)* |
 | `KOE_ANON_REQ_HOUR` | `20` | Requests/hour per anonymous IP |
 | `KOE_ANON_WORDS_HOUR` | `500` | Words/hour per anonymous IP |
 | `KOE_ANON_WORDS_DAY` | `3000` | Words/day per anonymous IP |
-| `KOE_MAX_WORDS_PER_JOB` | `6000` | Per-request word cap |
-| `KOE_MAX_CHARS_PER_JOB` | `40000` | Per-request character cap |
+| `KOE_MAX_JOB_WORDS` | `6000` | Per-request word cap; larger jobs are `400` before counting *(legacy: `KOE_MAX_WORDS_PER_JOB`)* |
+| `KOE_MAX_CHARS_PER_JOB` | `40000` | Per-request character cap (`413`) |
 | `KOE_MAX_CHARS_PER_PREVIEW` | `600` | Preview text cap |
 | `KOE_GLOBAL_CONCURRENCY` | `2` | Simultaneous upstream jobs |
 | `KOE_GLOBAL_QUEUE` | `20` | Max queued jobs |
-| `KOE_GLOBAL_WORDS_DAY` | `30000` | Instance-wide daily word budget |
+| `KOE_GLOBAL_DAILY_WORDS` | `30000` | Instance-wide hard daily word ceiling *(legacy: `KOE_GLOBAL_WORDS_DAY`)* |
+| `KOE_KILL_SWITCH` | `false` | `true` → `503 {"error":"temporarily_disabled"}` on every generation endpoint |
+| `TURNSTILE_SITEKEY` / `TURNSTILE_SECRET` | *(unset)* | Set **both** to swap the proof-of-work issuance gate for Cloudflare Turnstile |
 | `KOE_AUDIO_TTL_SEC` | `900` | Audio zip lifetime |
 | `KOE_JOB_TTL_SEC` | `3600` | Job metadata lifetime |
 | `KOE_PREVIEW_TTL_SEC` | `600` | Preview file lifetime |
 | `KOE_SWEEP_INTERVAL_SEC` | `60` | Cleanup sweep interval |
 | `KOE_COOLDOWN_SEC` | `60` | Base upstream failure cool-down (doubles, max 10 min) |
-| `KOE_STATE_FILE` | `.koe-state.json` | Best-effort state snapshot |
+| `KOE_STATE_FILE` | `.koe-state.json` | Only the generated `KOE_SECRET` fallback — counters live in SQLite |
 | `KOE_OUTPUT_DIR` | `./output` | Runtime audio/work/job directory |
 | `KOE_JOBS_FILE` | `output/jobs.json` | Job metadata file |
 | `KOE_STATS_FILE` | `.koe-stats.json` | Persisted traffic/voiceover counters used by `/stats` |
