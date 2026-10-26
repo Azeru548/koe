@@ -183,7 +183,7 @@ curl -s localhost:3000/healthz | jq '.engines'
 
 `kokoro: false` means the sidecar is down or still warming up — a normal state, not a fault. `GET /healthz` stays `200` either way, because a missing optional engine must never fail the watchdog.
 
-If the sidecar lives on another host, set `KOKORO_BASE_URL` for the app container (default `http://127.0.0.1:8880`).
+The `koe` container is bridge-networked, so it cannot use `127.0.0.1:8880` — that is the container's own loopback. `ops/rebuild.sh` therefore starts it with `--add-host=host.docker.internal:host-gateway` and `KOKORO_BASE_URL=http://host.docker.internal:8880`, which reaches the sidecar on the host's loopback. Point `KOKORO_BASE_URL` somewhere else only if the sidecar lives on a different machine (the default inside the studio process is `http://127.0.0.1:8880`, correct when the studio is not containerised).
 
 Logs:
 

@@ -45,6 +45,8 @@ mkdir -p /home/ec2-user/koe-data
 sudo docker rm -f koe 2>/dev/null || true
 sudo docker run -d --name koe --restart unless-stopped \
   -p 127.0.0.1:8080:3000 \
+  --add-host=host.docker.internal:host-gateway \
+  -e KOKORO_BASE_URL="http://host.docker.internal:8880" \
   -e TTS_BACKEND=native \
   -e KOE_PUBLIC_URL="https://${KOE_DOMAIN}" \
   -e KOE_SECRET="$KOE_SECRET" \
