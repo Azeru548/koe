@@ -45,8 +45,7 @@ mkdir -p /home/ec2-user/koe-data
 sudo docker rm -f koe 2>/dev/null || true
 sudo docker run -d --name koe --restart unless-stopped \
   -p 127.0.0.1:8080:3000 \
-  --add-host=host.docker.internal:host-gateway \
-  -e KOKORO_BASE_URL="http://host.docker.internal:8880" \
+  -e KOKORO_BASE_URL="http://kokoro:8880" \
   -e TTS_BACKEND=native \
   -e KOE_PUBLIC_URL="https://${KOE_DOMAIN}" \
   -e KOE_SECRET="$KOE_SECRET" \
@@ -63,6 +62,16 @@ sudo docker run -d --name koe --restart unless-stopped \
   -e KOE_STATE_FILE=/data/state.json \
   koe
 
+# Kokoro reachability — the sidecar publishes 127.0.0.1:8880 on the HOST, so a
+# container can never reach it via host.docker.internal/host-gateway: that
+# arrives on the bridge interface, not loopback, and is refused
+# (ECONNREFUSED, verified on the live instance). Instead the studio joins the
+# sidecar's own Docker network and reaches it by name, so the host port stays
+# bound to loopback and is never exposed. MUST run after `docker run` above —
+# the container has to exist first. Best-effort: with no sidecar deployed the
+# network may not exist and the engine simply reports unavailable, which is the
+# documented optional behaviour.
+sudo docker network connect koe_default koe >/dev/null 2>&1 || true
 echo "=== [6/6] caddy ==="
 mkdir -p /home/ec2-user/caddy/data /home/ec2-user/caddy/config
 [ -f "$OPS_DIR/Caddyfile" ] || cp "$REPO_DIR/ops/Caddyfile" "$OPS_DIR/Caddyfile"

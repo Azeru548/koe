@@ -207,7 +207,17 @@ curl -s localhost:3000/healthz | jq '.engines'
 
 `kokoro: false` means the sidecar is down or still warming up — a normal state, not a fault. `GET /healthz` stays `200` either way, because a missing optional engine must never fail the watchdog.
 
-The `koe` container is bridge-networked, so it cannot use `127.0.0.1:8880` — that is the container's own loopback. `ops/rebuild.sh` therefore starts it with `--add-host=host.docker.internal:host-gateway` and `KOKORO_BASE_URL=http://host.docker.internal:8880`, which reaches the sidecar on the host's loopback. Point `KOKORO_BASE_URL` somewhere else only if the sidecar lives on a different machine (the default inside the studio process is `http://127.0.0.1:8880`, correct when the studio is not containerised).
+The `koe` container is bridge-networked, so `127.0.0.1:8880` is the container's own loopback and never reaches the sidecar. The obvious-looking fix does **not** work: `--add-host=host.docker.internal:host-gateway` with `KOKORO_BASE_URL=http://host.docker.internal:8880` gets `ECONNREFUSED`, because the sidecar's port is bound to `127.0.0.1` on the host and a container arriving over the bridge gateway lands on a non-loopback interface. Verified directly on the live instance — do not reintroduce it.
+
+Put the studio on the sidecar's Docker network instead. The sidecar listens on `0.0.0.0:8880` *inside* its own container, so a peer container on the same user-defined network reaches it by name, while the published host port stays bound to loopback and is never exposed:
+
+```bash
+docker network connect koe_default koe   # best-effort; rebuild.sh does this
+KOKORO_BASE_URL=http://kokoro:8880       # compose service name (the container name
+                                         # koe-kokoro resolves on that network too)
+```
+
+Leave `-p 127.0.0.1:8880:8880` exactly as `docker-compose.yml` has it. Point `KOKORO_BASE_URL` somewhere else only if the sidecar lives on a different machine (the default inside the studio process is `http://127.0.0.1:8880`, correct when the studio is not containerised).
 
 Logs:
 
