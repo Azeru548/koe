@@ -39,6 +39,15 @@ ssh -i ~/.ssh/koe-key.pem ec2-user@<public-ip>
 sudo dnf install -y docker git curl
 sudo systemctl enable --now docker
 
+# Amazon Linux 2023 ships Docker without a compose plugin, and `docker compose`
+# is what §8 uses to run the Kokoro sidecar. Install it as a *user* CLI plugin:
+# no sudo, no extra package repo.
+mkdir -p ~/.docker/cli-plugins
+curl -fsSL -o ~/.docker/cli-plugins/docker-compose \
+  https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64
+chmod +x ~/.docker/cli-plugins/docker-compose
+docker compose version          # → Docker Compose version v2.29.7
+
 mkdir -p ~/koe-ops
 ```
 
@@ -144,6 +153,8 @@ bash ~/koe-ops/rebuild.sh
 
 Because the script hard-resets the instance checkout, do not keep uncommitted fixes on the server. Commit and push first.
 
+**Keep the Dockerfile `COPY` list in sync with new root-level files.** It copies an explicit list of names, not `.`, so a module added to the repo root but left out of that list builds cleanly and then crashes at boot with `MODULE_NOT_FOUND`. This bit the v3 key store: `db.js` was never added to the list, and because no rebuild had happened since that commit, the first deploy after it returned **502** until the line was fixed. If you add a root-level module, add it to the `COPY` line in the same commit.
+
 ## 7. Analytics
 
 `/stats.html` is a public shell. Enter `API_KEY` once; the key is kept in that browser's local storage. The page calls the admin-only `/stats.json` and shows:
@@ -173,6 +184,19 @@ docker compose pull && docker compose up -d   # after bumping tag + digest
 ```
 
 The image is pinned by **digest** (`msgflux/fastkokoro:0.7-cpu@sha256:35b4…`, never `:latest`), bound to `127.0.0.1:8880` only, and capped at `cpus: "2.0"` / `mem_limit: 2g` so it can never starve the app container. The healthcheck probes `GET /health` inside the container with a 180s start period for the first-boot model download.
+
+> **First boot needs more RAM than a 1 GB instance has.** After downloading the
+> model (~236 MB) the sidecar rewrites it —
+> `Simplifying ONNX model for CPU: ... -> /models/onnx/*.sim.<hash>.onnx` — and
+> that step never completed on the reference box (913 MB RAM, 2 vCPU, 1 GB swap):
+> 10 restarts, `/models/onnx` still empty, load average 28, SSH unresponsive.
+> `mem_limit: 2g` does not save you there, because the **host** OOM-kills before
+> the container's own 2 GB cgroup limit is reached — `docker inspect` then shows
+> `OOMKilled=false` with `ExitCode=137`, which is misleading. On a 2-vCPU host
+> `cpus: "2.0"` is not a cap at all. Once the `.sim.*` file lands it persists in
+> the `kokoro-models` volume and later boots skip the step, so the options are a
+> one-time pass on a larger box or an instance with more memory. **Never run
+> `docker compose up -d` unattended on a 1 GB host.**
 
 Verify from the app's side:
 
