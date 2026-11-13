@@ -156,7 +156,7 @@ bash ~/koe-ops/rebuild.sh
 
 Because the script hard-resets the instance checkout, do not keep uncommitted fixes on the server. Commit and push first.
 
-**Keep the Dockerfile `COPY` list in sync with new root-level files.** It copies an explicit list of names, not `.`, so a module added to the repo root but left out of that list builds cleanly and then crashes at boot with `MODULE_NOT_FOUND`. This bit the v3 key store: `db.js` was never added to the list, and because no rebuild had happened since that commit, the first deploy after it returned **502** until the line was fixed. If you add a root-level module, add it to the `COPY` line in the same commit.
+**The image copies the build context (`COPY . .`), filtered by `.dockerignore`.** A new root-level module now ships automatically, so the old failure mode — `db.js` missing from a hand-maintained `COPY` list, which returned **502** on the first deploy after that commit — cannot recur. The trade-off is the other direction: anything you do **not** want in the image (local runtime state, large artifacts) has to be added to `.dockerignore`. `koe.db`, `.koe-stats.json`, `output/`, `node_modules/`, `test/`, `ops/` and `mcp/` are already excluded.
 
 ## 7. Analytics
 
