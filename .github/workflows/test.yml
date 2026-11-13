@@ -1,4 +1,4 @@
-name: test
+name: ci
 
 on:
   push:
@@ -41,3 +41,84 @@ jobs:
             require('fs').accessSync('assets/logo-mark.png');
             console.log('image contents ok');
           "
+
+  # Deploys main to the EC2 instance by running the same script an operator
+  # would run by hand. Two gates keep it from surprising anyone:
+  #
+  #   • KOE_AUTO_DEPLOY must be a repository variable set to "true", so adding
+  #     an SSH key alone never starts deploying;
+  #   • both check jobs above must pass first.
+  #
+  # See DEPLOY.md §6 for the secrets, the forced-command key setup and how to
+  # turn this off.
+  deploy:
+    needs: [test, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.KOE_AUTO_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    # rebuild.sh stops and recreates the container, so two runs must never
+    # overlap. Queue them instead of cancelling: a cancelled deploy could leave
+    # the ordering of image and container undefined.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Check the deploy secrets are configured
+        env:
+          KEY: ${{ secrets.KOE_SSH_KEY }}
+          HOST: ${{ secrets.KOE_HOST }}
+          KNOWN_HOSTS: ${{ secrets.KOE_KNOWN_HOSTS }}
+        run: |
+          missing=""
+          [ -n "$KEY" ] || missing="$missing KOE_SSH_KEY"
+          [ -n "$HOST" ] || missing="$missing KOE_HOST"
+          [ -n "$KNOWN_HOSTS" ] || missing="$missing KOE_KNOWN_HOSTS"
+          if [ -n "$missing" ]; then
+            echo "::error::KOE_AUTO_DEPLOY is true but these secrets are missing:$missing — see DEPLOY.md §6."
+            exit 1
+          fi
+
+      - name: Install the deploy key
+        env:
+          KEY: ${{ secrets.KOE_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.KOE_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/koe_deploy
+          chmod 600 ~/.ssh/koe_deploy
+          # Pinned host key: without it the runner would accept whatever host
+          # answers first, and a deploy key would be handed to it.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Rebuild the instance
+        env:
+          HOST: ${{ secrets.KOE_HOST }}
+          USERNAME: ${{ secrets.KOE_USER || 'ec2-user' }}
+        run: |
+          ssh -i ~/.ssh/koe_deploy \
+              -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 \
+              "${USERNAME}@${HOST}" 'bash ~/koe-ops/rebuild.sh'
+
+      - name: Verify the deployed site
+        env:
+          SITE: ${{ secrets.KOE_SITE_URL || 'https://koe.kennedyazeru.space' }}
+        run: |
+          body=""
+          for _ in $(seq 1 20); do
+            body="$(curl -fsS -m 10 "$SITE/health" || true)"
+            [ -n "$body" ] && break
+            sleep 5
+          done
+          if [ -z "$body" ]; then
+            echo "::error::no response from $SITE/health after ~100s — the deploy may have left the site down; check the rebuild log above and \`docker logs koe\` on the instance"
+            exit 1
+          fi
+          echo "$body" | jq '{status, backend, engines, db, queue}'
+          test "$(echo "$body" | jq -r .status)" = "ok"
+          test "$(echo "$body" | jq -r .db.ok)" = "true"
+          # The reason this deploy exists: the database must live on the volume.
+          case "$(echo "$body" | jq -r .db.path)" in
+            /data/*) ;;
+            *) echo "::error::database is not on /data — keys will not survive a recreate"; exit 1 ;;
+          esac

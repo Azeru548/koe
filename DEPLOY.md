@@ -156,6 +156,67 @@ bash ~/koe-ops/rebuild.sh
 
 Because the script hard-resets the instance checkout, do not keep uncommitted fixes on the server. Commit and push first.
 
+### Automatic deploys (optional)
+
+`.github/workflows/test.yml` ends with a `deploy` job that runs the same
+`rebuild.sh` over SSH, but only when `npm test` **and** the Docker build have
+passed on a push to `main`. Pull requests never deploy. It stays off until you
+enable it, so adding a key alone cannot start deploying.
+
+1. Create a deploy key with no passphrase:
+
+   ```bash
+   ssh-keygen -t ed25519 -N "" -C "koe deploy (github actions)" -f koe_deploy
+   ```
+
+2. Append the **public** key to `~/.ssh/authorized_keys` on the instance, pinned
+   to the one command it needs:
+
+   ```
+   command="bash /home/ec2-user/koe-ops/rebuild.sh",no-agent-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA… koe deploy (github actions)
+   ```
+
+   With that prefix the key cannot open a shell at all: if it leaks, the worst
+   case is a redeploy, not a takeover. (The workflow still asks for
+   `rebuild.sh`; a forced command simply overrides the request.)
+
+3. Add repository secrets (Settings → Secrets and variables → Actions):
+
+   | Secret | Value |
+   | --- | --- |
+   | `KOE_SSH_KEY` | the private key, i.e. the whole `koe_deploy` file |
+   | `KOE_HOST` | `koe.kennedyazeru.space`, or the instance's Elastic IP |
+   | `KOE_KNOWN_HOSTS` | `ssh-keyscan -t ed25519 koe.kennedyazeru.space` |
+   | `KOE_USER` | optional, default `ec2-user` |
+   | `KOE_SITE_URL` | optional, default `https://koe.kennedyazeru.space` |
+
+   The pinned `known_hosts` matters: without it the runner would trust whatever
+   host answers and hand it the key.
+
+4. Enable it with a repository **variable** (not a secret):
+
+   ```bash
+   gh variable set KOE_AUTO_DEPLOY --body true
+   ```
+
+5. Check the prerequisite once — the script calls `sudo docker`, so the deploy
+   user needs non-interactive sudo:
+
+   ```bash
+   ssh -i koe_deploy ec2-user@koe.kennedyazeru.space 'sudo -n true && echo sudo-ok'
+   ```
+
+On each push to `main` the job then: runs the tests and the Docker build, SSHes
+in and streams the `rebuild.sh` log into the run, then re-checks `/health` and
+**fails the build if `db.path` is not under `/data`** — the invariant that keeps
+issued keys alive across recreates. If the image build fails, `rebuild.sh`
+exits before touching the running container, so the site keeps serving the
+previous version.
+
+The job uses the `production` environment, so you can later require a reviewer
+(one click per deploy) without editing the workflow. Turn automatic deploys off
+with `gh variable set KOE_AUTO_DEPLOY --body false`, or delete the variable.
+
 **The image copies the build context (`COPY . .`), filtered by `.dockerignore`.** A new root-level module now ships automatically, so the old failure mode — `db.js` missing from a hand-maintained `COPY` list, which returned **502** on the first deploy after that commit — cannot recur. The trade-off is the other direction: anything you do **not** want in the image (local runtime state, large artifacts) has to be added to `.dockerignore`. `koe.db`, `.koe-stats.json`, `output/`, `node_modules/`, `test/`, `ops/` and `mcp/` are already excluded.
 
 ## 7. Analytics

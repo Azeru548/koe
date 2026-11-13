@@ -12,6 +12,10 @@ instance. The full runbook is [../DEPLOY.md](../DEPLOY.md).
 | `koe.env.example` | Secret-bearing deploy env. Copy to `~/koe-ops/koe.env` and fill in. |
 | `systemd/` | Unit and timer files for the watchdog and disk guard. |
 
+The GitHub Actions `deploy` job runs `rebuild.sh` on the instance over SSH after
+the tests and the Docker build pass on `main`. It is opt-in; the key, secrets and
+variable are documented in [../DEPLOY.md](../DEPLOY.md#automatic-deploys-optional).
+
 Install on the instance:
 
 ```bash
