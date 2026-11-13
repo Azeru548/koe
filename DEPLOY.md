@@ -115,6 +115,8 @@ The script:
 3. Clones `KOE_REPO_URL` to `KOE_REPO_DIR` or resets it to `origin/$KOE_BRANCH`.
 4. Builds the `koe` image.
 5. Recreates the `koe` container on `127.0.0.1:8080` with the `/data` volume, pointing `KOE_DB_PATH`, `KOE_STATS_FILE`, `KOE_JOBS_FILE` and `KOE_STATE_FILE` at it.
+
+   Before removing the old container it preserves the issued-key database: if `/data` has no database yet, it stops the container, copies `KOE_DB_PATH` (or `/app/koe.db` on an image that stored it inside the container) onto the volume, checks that the copy really is SQLite, and carries on. It never overwrites a database already on the volume — that one is newer — and never aborts the deploy: a failed copy prints the manual `docker cp` command and lets the rebuild finish, because clients re-mint on a `401`.
 6. Recreates Caddy with the `KOE_DOMAIN` from `koe.env`.
 7. Polls `https://$KOE_DOMAIN/health` and prints `REBUILD_OK`.
 

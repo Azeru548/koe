@@ -5,7 +5,7 @@ instance. The full runbook is [../DEPLOY.md](../DEPLOY.md).
 
 | File | Purpose |
 | --- | --- |
-| `rebuild.sh` | Pull the deployment branch, build the image, recreate `koe` and `caddy`. |
+| `rebuild.sh` | Pull the deployment branch, build the image, preserve the previous container's key database, recreate `koe` and `caddy`. |
 | `watchdog.sh` | Every 2 minutes: restart an unhealthy `koe`; rebuild if it stays down; recreate `caddy` if needed. |
 | `disk-guard.sh` | Daily: log root usage; `docker system prune` at 85%; clean old `/tmp` files. |
 | `Caddyfile` | TLS reverse proxy. Set `KOE_DOMAIN` in `koe.env`; Caddy obtains the certificate. |

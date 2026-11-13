@@ -41,7 +41,59 @@ echo "=== [4/6] image ==="
 sudo docker build -t koe "$REPO_DIR" 2>&1 | tail -3
 
 echo "=== [5/6] run koe (internal port) ==="
-mkdir -p /home/ec2-user/koe-data
+DATA_DIR="${KOE_DATA_DIR:-/home/ec2-user/koe-data}"
+mkdir -p "$DATA_DIR"
+
+# ── preserve the issued-key/usage database from the container being replaced ──
+# Images built before KOE_DB_PATH was passed stored the database at
+# /app/koe.db — INSIDE the container — so `docker rm -f` destroys every issued
+# key, usage counter and mint cap. Before removing it, take that database out.
+#
+#   • a database already on the volume always wins: it is the newer one, and
+#     this step never overwrites it;
+#   • the old container is stopped first so the copy is not a torn snapshot;
+#   • the copy is only accepted if it really is a SQLite file;
+#   • a failure never aborts the deploy — it prints the manual command instead,
+#     because keys are recoverable (clients re-mint on 401) and a half-deployed
+#     box is not.
+DB_IN_CONTAINER="${KOE_DB_PATH:-/data/koe.db}"
+HOST_DB=""
+case "$DB_IN_CONTAINER" in
+  /data/*) HOST_DB="$DATA_DIR/${DB_IN_CONTAINER#/data/}" ;;
+  *) echo "WARN: KOE_DB_PATH=$DB_IN_CONTAINER is not under /data — keys will not persist across recreates" ;;
+esac
+
+if [ -f "$HOST_DB" ]; then
+  echo "keys: keeping the database already on the volume ($HOST_DB)"
+elif [ -n "$HOST_DB" ] && sudo docker inspect koe >/dev/null 2>&1; then
+  OLD_DB="$(sudo docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' koe 2>/dev/null | sed -n 's/^KOE_DB_PATH=//p')"
+  OLD_DB="$(printf '%s' "$OLD_DB" | tr -d '\r')"
+  OLD_DB="${OLD_DB:-/app/koe.db}"
+  if [ "$OLD_DB" = "$DB_IN_CONTAINER" ]; then
+    echo "keys: the previous container already used the volume ($OLD_DB) — nothing to copy"
+  else
+    STAGE="$(mktemp -d)"
+    sudo docker stop koe >/dev/null 2>&1 || true
+    if sudo docker cp "koe:$OLD_DB" "$STAGE/$(basename "$HOST_DB")" >/dev/null 2>&1; then
+      if [ "$(sudo head -c 15 "$STAGE/$(basename "$HOST_DB")" 2>/dev/null)" = "SQLite format 3" ]; then
+        for suffix in -journal -wal -shm; do
+          sudo docker cp "koe:$OLD_DB$suffix" "$STAGE/$(basename "$HOST_DB")$suffix" >/dev/null 2>&1 || true
+        done
+        sudo cp -a "$STAGE"/. "$DATA_DIR"/
+        echo "keys: preserved $OLD_DB from the previous container → $HOST_DB"
+      else
+        echo "WARN: $OLD_DB in the previous container is not a SQLite database — left it alone."
+        echo "      If that container held issued keys they are lost on recreate; clients re-mint on 401."
+        echo "      Inspect it before deleting anything: sudo docker cp koe:$OLD_DB /tmp/koe-inspect.db"
+      fi
+    else
+      echo "keys: no database at $OLD_DB in the previous container — starting with a fresh one."
+      echo "      If it did hold issued keys, copy it out first: sudo docker cp koe:$OLD_DB $HOST_DB"
+    fi
+    rm -rf "$STAGE"
+  fi
+fi
+
 sudo docker rm -f koe 2>/dev/null || true
 sudo docker run -d --name koe --restart unless-stopped \
   -p 127.0.0.1:8080:3000 \
@@ -56,7 +108,7 @@ sudo docker run -d --name koe --restart unless-stopped \
   -e KOE_AUDIO_TTL_SEC=900 \
   -e KOE_JOB_TTL_SEC=3600 \
   -e API_KEY="$API_KEY" \
-  -v /home/ec2-user/koe-data:/data \
+  -v "$DATA_DIR":/data \
   -e KOE_DB_PATH="${KOE_DB_PATH:-/data/koe.db}" \
   -e KOE_STATS_FILE=/data/stats.json \
   -e KOE_JOBS_FILE=/data/jobs.json \
