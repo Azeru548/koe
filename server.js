@@ -4,10 +4,9 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const archiver = require("archiver");
-const AdmZip = require("adm-zip");
 const guard = require("./guard");
 const stats = require("./stats");
-const { mergeAudioParts } = require("./audio");
+const { mergeZipAudio } = require("./audio");
 const { createHostedMcp } = require("./hosted-mcp");
 const { StreamableHTTPServerTransport } = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
 const engines = require("./engines");
@@ -35,8 +34,42 @@ async function engineAvailable(name) {
 
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", 1); // behind Caddy/reverse proxy - req.ip comes from X-Forwarded-For
-app.use(cors());
+
+// ── PROXY TRUST ─────────────────────────────────────────────
+// Behind Caddy the immediate peer is always loopback, so trusting *only*
+// loopback still honours the proxy's X-Forwarded-For while making it
+// impossible for a directly-connected client to spoof its own address and
+// dodge the per-IP limits. KOE_TRUST_PROXY overrides it: "false" disables
+// trust, a number counts hops, anything else is an Express address spec.
+function trustProxySetting() {
+  const raw = process.env.KOE_TRUST_PROXY;
+  if (raw === undefined || raw === "") return "loopback";
+  const v = String(raw).trim().toLowerCase();
+  if (v === "false" || v === "none" || v === "0") return false;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? n : raw;
+}
+app.set("trust proxy", trustProxySetting());
+
+// ── CORS ────────────────────────────────────────────────────
+// API keys are not cookies, so this is not a confidentiality boundary — but a
+// wildcard let any website drive the public free tier from a visitor's
+// browser. Default: same-origin (no Origin), the documented local flows
+// (loopback, and a file:// page's "null" origin), plus KOE_ALLOWED_ORIGINS.
+const LOOPBACK_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+const ALLOWED_ORIGINS = new Set(
+  String(process.env.KOE_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim().replace(/\/+$/, ""))
+    .filter(Boolean)
+);
+
+function originAllowed(origin) {
+  if (!origin || origin === "null") return true; // curl, same-origin, local file page
+  return ALLOWED_ORIGINS.has(String(origin).replace(/\/+$/, "")) || LOOPBACK_ORIGIN_RE.test(origin);
+}
+
+app.use(cors({ origin: (origin, cb) => cb(null, originAllowed(origin)) }));
 app.use(express.json({ limit: "10mb" }));
 app.use((req, res, next) => { res.setHeader("X-Content-Type-Options", "nosniff"); next(); });
 
@@ -77,11 +110,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// Rejections answer before the traffic counter is mounted, so record them
+// here. They are real HTTP hits and visitors, but never product actions —
+// a forged key must not look like someone who generated audio.
+function observeRejected(req) {
+  try { stats.observe(req, { rejected: true }); } catch { /* analytics must never break a response */ }
+}
+
 // ── KILL SWITCH ── KOE_KILL_SWITCH=true answers every generation entry
 // point 503 before auth, quota, queue or upstream work is considered.
 const GENERATION_PATHS = new Set(["/tts", "/tts-preview", "/tts-preview-piper", "/mcp"]);
 app.use((req, res, next) => {
   if (req.method === "POST" && GENERATION_PATHS.has(req.path) && guard.cfg.killSwitch) {
+    observeRejected(req);
     guard.logReject("kill_switch", req.ctx.rawKey, req.ctx.ip);
     return res.status(503).json({ error: "temporarily_disabled" });
   }
@@ -108,6 +149,7 @@ app.use((req, res, next) => {
     if (API_KEY && keyMatches(provided)) { req.ctx.admin = true; req.ctx.rawKey = provided; return next(); }
     const tid = guard.verifyKey(provided); // indexed PK lookup in the keys table
     if (tid) { req.ctx.tid = tid; req.ctx.rawKey = provided; return next(); }
+    observeRejected(req);
     guard.logReject("invalid_key", provided, req.ctx.ip);
     return res.status(401).json({
       error: "invalid_key",
@@ -117,11 +159,13 @@ app.use((req, res, next) => {
 
   // The MCP endpoint never falls back to anonymous traffic.
   if (isMcpPost(req)) {
+    observeRejected(req);
     guard.logReject("missing_key", "", req.ctx.ip, "path=/mcp");
     return res.status(401).json({ error: "invalid_key", hint: "POST /keys to get a new key" });
   }
 
   if (guard.cfg.requireKey && !OPEN_PATHS.has(req.path)) {
+    observeRejected(req);
     guard.logReject("missing_key", "", req.ctx.ip, `path=${req.path}`);
     return res.status(401).json({ error: "invalid_key", hint: "POST /keys to get a new key" });
   }
@@ -864,12 +908,7 @@ app.get("/audio/:id", (req, res) => {
   const ext = engines.extFor(job.engine);
   let merged;
   try {
-    const entries = new AdmZip(zipPath)
-      .getEntries()
-      .filter((e) => !e.isDirectory)
-      .sort((a, b) => a.entryName.localeCompare(b.entryName));
-    if (!entries.length) return res.status(500).json({ error: "Job contained no audio parts" });
-    merged = mergeAudioParts(entries.map((e) => e.getData()), ext);
+    merged = mergeZipAudio(zipPath, ext);
   } catch (err) {
     return res.status(500).json({ error: "Could not assemble audio", detail: String(err.message || err).slice(0, 200) });
   }

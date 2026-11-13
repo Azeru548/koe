@@ -129,10 +129,13 @@ function isSystemNoise(req) {
   return PRIVATE_IP_RE.test(String(req.ctx.ip || ""));
 }
 
-function observe(req) {
+// `rejected` marks a request the guard/auth layer refused before the normal
+// counter is mounted. It is still a real HTTP hit and a visitor, but it must
+// never count as a voiceover/MCP action (a forged key is not a product user).
+function observe(req, { rejected = false } = {}) {
   if (isSystemNoise(req)) return;
   const now = Date.now();
-  const kind = pathKind(req.method, req.path);
+  const kind = rejected ? null : pathKind(req.method, req.path);
 
   store.allTime.requests++;
   const d = dayBucket(now);

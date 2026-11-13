@@ -25,11 +25,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY server.js guard.js db.js stats.js stats.html index.html mcp.html voices.js audio.js hosted-mcp.js mcp-sample-*.mp3 ./
-# The engine registry (edge / piper / kokoro / google stub) must ship in the
-# image or server.js cannot boot.
-COPY engines ./engines
-COPY assets ./assets
+# Copy the whole build context: a hand-maintained file list silently dropped
+# db.js from the image once already. `.dockerignore` keeps node_modules, output,
+# tests, ops and local secrets out of the build context.
+COPY . .
 
 ENV NODE_ENV=production
 ENV TTS_BACKEND=native

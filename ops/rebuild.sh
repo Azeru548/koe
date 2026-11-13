@@ -57,6 +57,7 @@ sudo docker run -d --name koe --restart unless-stopped \
   -e KOE_JOB_TTL_SEC=3600 \
   -e API_KEY="$API_KEY" \
   -v /home/ec2-user/koe-data:/data \
+  -e KOE_DB_PATH="${KOE_DB_PATH:-/data/koe.db}" \
   -e KOE_STATS_FILE=/data/stats.json \
   -e KOE_JOBS_FILE=/data/jobs.json \
   -e KOE_STATE_FILE=/data/state.json \

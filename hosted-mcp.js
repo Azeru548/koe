@@ -21,9 +21,8 @@
 
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { z } = require("zod");
-const AdmZip = require("adm-zip");
 const engines = require("./engines");
-const { mergeAudioParts } = require("./audio");
+const { mergeZipAudio } = require("./audio");
 
 const VERSION = "1.0.0";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -38,15 +37,6 @@ function jsonResult(obj) {
 }
 function errorResult(message) {
   return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
-}
-
-function extractZipAudio(zipBuffer) {
-  const zip = new AdmZip(zipBuffer);
-  return zip
-    .getEntries()
-    .filter((e) => !e.isDirectory)
-    .sort((a, b) => a.entryName.localeCompare(b.entryName))
-    .map((e) => e.getData());
 }
 
 /**
@@ -169,7 +159,7 @@ function createHostedMcp({ client }) {
       if (inlineMax > 0) {
         try {
           const zipBuffer = await client.download(jobId);
-          const merged = mergeAudioParts(extractZipAudio(zipBuffer), ext);
+          const merged = mergeZipAudio(zipBuffer, ext);
           if (merged.length <= inlineMax) {
             content.push({
               type: "audio",

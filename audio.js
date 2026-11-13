@@ -8,6 +8,8 @@
 //    • WAV parts are stitched by rewriting the RIFF header.
 // ─────────────────────────────────────────────────────────────
 
+const AdmZip = require("adm-zip");
+
 function parseWav(buf) {
   if (buf.length < 44 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") {
     throw new Error("not a RIFF/WAVE buffer");
@@ -54,4 +56,21 @@ function mergeAudioParts(buffers, ext) {
   return ext === "wav" ? concatWav(buffers) : Buffer.concat(buffers);
 }
 
-module.exports = { parseWav, concatWav, mergeAudioParts };
+// Ordered audio parts out of a job zip (part_001.mp3, part_002.mp3, ...).
+// The sort lives here because both callers need it — the hosted MCP inlines the
+// merged clip and /audio/:id streams it — and they must never disagree about
+// part order. `zip` is an AdmZip instance, a Buffer, or a path on disk.
+function extractZipAudio(zip) {
+  const archive = zip instanceof AdmZip ? zip : new AdmZip(zip);
+  return archive
+    .getEntries()
+    .filter((e) => !e.isDirectory)
+    .sort((a, b) => a.entryName.localeCompare(b.entryName))
+    .map((e) => e.getData());
+}
+
+function mergeZipAudio(zip, ext) {
+  return mergeAudioParts(extractZipAudio(zip), ext);
+}
+
+module.exports = { parseWav, concatWav, mergeAudioParts, extractZipAudio, mergeZipAudio };

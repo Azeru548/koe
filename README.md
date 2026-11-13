@@ -13,7 +13,7 @@ agent / browser ──free tenant key──> TTS Studio ──> edge-tts ──>
 - **Multi-tenant** — every MCP install and every browser gets its own free key (issued server-side) with independent hourly/daily quotas.
 - **Rate-limited** — per-key and per-IP limits, a bounded global queue, a global daily word budget, and a circuit breaker for upstream (Microsoft) failures.
 - **Ephemeral audio** — generated zips are deleted after 15 minutes; job metadata after 1 hour; a restart wipes all audio. Nothing depends on permanent storage.
-- **One small SQLite file** — issued keys and every counter live in `KOE_DB_PATH` (`./koe.db` by default), so limits survive restarts and a key is revocable by deleting its row. `KOE_SECRET` still signs download links and hashed subjects.
+- **One small SQLite file** — issued keys and every counter live in `KOE_DB_PATH` (`./koe.db` by default), so limits survive restarts and a key is revocable by deleting its row. Keys are persisted as SHA-256 hashes, never plaintext, so a dumped database cannot be replayed as live keys. `KOE_SECRET` still signs download links and hashed subjects.
 
 ## Use it from any agent (hosted MCP)
 
@@ -71,6 +71,7 @@ curl -H "x-api-key: koe_sk_..." -H "Content-Type: application/json" \
 - Challenges are single-use and expire after 5 minutes; a wrong or replayed one is `403 pow_challenge_invalid` / `pow_failed`.
 - With `TURNSTILE_SITEKEY` + `TURNSTILE_SECRET` set, the gate becomes Cloudflare Turnstile instead of proof-of-work (headless clients then need `TTS_API_KEY`).
 - Keys are rows, so they are revocable: delete the row (or wipe `KOE_DB_PATH`) and the key stops working on the next request. The studio UI and the MCP client re-mint automatically when a stored key starts returning `401` — see [MIGRATION-v3-keys.md](MIGRATION-v3-keys.md).
+- Rows hold `sha256(key)`, never the key itself. A database from a build that stored raw keys is upgraded on open: each plaintext row is rewritten as its digest in place, so existing keys keep working and no plaintext secret is left on disk.
 - `KOE_REQUIRE_KEY=true` rejects anonymous calls. The bundled MCP server and studio UI register a key automatically, so end users never see this step.
 - `API_KEY` is an operator/admin key. It bypasses all limits and can see every tenant's jobs. Keep it private.
 
@@ -283,6 +284,8 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `KOE_DB_PATH` | `./koe.db` | SQLite file holding issued keys and every counter (`keys`, `usage`, `mint_ips`, `global_usage`). One connection per process; restarts resume from it |
 | `API_KEY` | *(none)* | Admin key: unlimited, sees all jobs |
 | `KOE_REQUIRE_KEY` | `false` | Reject anonymous callers |
+| `KOE_TRUST_PROXY` | `loopback` | Which peers may set `X-Forwarded-For`. The default trusts only the local reverse proxy, so a directly-connected client cannot spoof its IP to dodge per-IP limits. `false` disables trust; a number counts hops |
+| `KOE_ALLOWED_ORIGINS` | *(none)* | Extra browser origins allowed by CORS (comma-separated). Same-origin, loopback origins and `file://` pages are always allowed |
 | `KOE_REGISTER_IP_DAY` | `3` | Free keys per IP per day |
 | `KOE_HOURLY_REQUESTS` | `60` | Requests/hour per key *(legacy name: `KOE_KEY_REQ_HOUR`)* |
 | `KOE_HOURLY_WORDS` | `2000` | Words/hour per key *(legacy: `KOE_KEY_WORDS_HOUR`)* |
@@ -330,4 +333,4 @@ Counters persist to `KOE_STATS_FILE` (default `.koe-stats.json`; `/data/stats.js
 
 - edge-tts is free but unofficial (Microsoft's consumer endpoint); occasional throttling is expected. The circuit breaker pauses new work briefly instead of hammering it.
 - Very long scripts are split into ~3000-char parts by the studio; the MCP merges them back into a single file (MP3s concatenated, WAVs re-muxed properly).
-- Tests: `npm test` (34 tests: guard limits, key auth, tenant isolation, validation, ephemeral cleanup, analytics privacy/accounting, hosted MCP handshake and signed audio links).
+- Tests: `npm test` (78 tests: guard limits, key auth and hashing, tenant isolation, validation, ephemeral cleanup, analytics privacy/accounting, engine adapters, Kokoro sidecar behaviour, hosted MCP handshake and signed audio links). CI runs them on push and on the Docker build.

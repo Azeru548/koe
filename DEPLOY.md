@@ -80,6 +80,7 @@ API_KEY=<private admin key>
 KOE_REPO_URL=https://github.com/Azeru548/koe.git
 KOE_BRANCH=main
 KOE_REPO_DIR=/home/ec2-user/koe
+KOE_DB_PATH=/data/koe.db   # must stay on the mounted volume
 ```
 
 Generate secrets locally, then paste them in:
@@ -113,7 +114,7 @@ The script:
 2. Installs/enables Docker and Git.
 3. Clones `KOE_REPO_URL` to `KOE_REPO_DIR` or resets it to `origin/$KOE_BRANCH`.
 4. Builds the `koe` image.
-5. Recreates the `koe` container on `127.0.0.1:8080` with the `/data` volume.
+5. Recreates the `koe` container on `127.0.0.1:8080` with the `/data` volume, pointing `KOE_DB_PATH`, `KOE_STATS_FILE`, `KOE_JOBS_FILE` and `KOE_STATE_FILE` at it.
 6. Recreates Caddy with the `KOE_DOMAIN` from `koe.env`.
 7. Polls `https://$KOE_DOMAIN/health` and prints `REBUILD_OK`.
 
@@ -253,7 +254,7 @@ Disk pressure: the guard prunes Docker at 85% root usage. Check `df -h /` first;
 | Analytics page says key rejected | `API_KEY` in `~/koe-ops/koe.env` matches what you pasted |
 | `/stats.html` returns 401 | The running image predates the analytics commit; rebuild |
 | Counters reset after deploy | `/data` volume missing or `KOE_STATS_FILE` not `/data/stats.json` |
-| Keys/counters reset on every restart | `KOE_DB_PATH` not on the volume — set `KOE_DB_PATH=/data/koe.db` in `~/koe-ops/koe.env` |
+| Keys/counters reset on every restart | `KOE_DB_PATH` not on the volume. `rebuild.sh` passes `KOE_DB_PATH` (default `/data/koe.db`) to the container; if you changed it, set the same value in `~/koe-ops/koe.env` and re-run `rebuild.sh` so the new `docker run` picks it up |
 | Every key returns `401 {"error":"invalid_key"}` | The running image predates the v3 key store (older HMAC keys are no longer records); rebuild, and clients/pages re-mint automatically |
 | `503 {"error":"temporarily_disabled"}` | `KOE_KILL_SWITCH=true` in `~/koe-ops/koe.env` — unset it and recreate the container |
 | Queue stays full | Check upstream edge-tts health; the circuit breaker cools down after failures |

@@ -15,13 +15,13 @@
 //  Moved verbatim out of server.js — no behaviour change.
 // ─────────────────────────────────────────────────────────────
 
-const { execSync } = require("child_process");
+const { execFileSync } = require("child_process");
 
 function detectBackend() {
   const pref = (process.env.TTS_BACKEND || "").toLowerCase();
   if (pref === "docker" || pref === "native") return pref;
   try {
-    execSync("docker --version", { stdio: "ignore", timeout: 5000 });
+    execFileSync("docker", ["--version"], { stdio: "ignore", timeout: 5000 });
     return "docker";
   } catch {
     return "native";
@@ -31,9 +31,11 @@ function detectBackend() {
 const TTS_BACKEND = detectBackend();
 
 // Probe a CLI by running `--help`. Used at boot to build CAPABILITIES.
+// execFile (no shell) even though the command is a hardcoded literal, so a
+// future caller cannot accidentally turn this into a shell-injection point.
 function cmdAvailable(cmd) {
   try {
-    execSync(`"${cmd}" --help`, { stdio: "ignore", timeout: 10000 });
+    execFileSync(cmd, ["--help"], { stdio: "ignore", timeout: 10000 });
     return true;
   } catch {
     return false;

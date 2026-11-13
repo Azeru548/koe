@@ -8,7 +8,8 @@
 //  are genuine `INSERT ... ON CONFLICT DO UPDATE` statements.
 //
 //  Tables (created on open):
-//    keys         issued API keys — server-side, per-key revocable
+//    keys         issued API keys, stored as SHA-256 hashes — server-side,
+//                 per-key revocable, and useless in a dumped database
 //    usage        one row per (subject, window); window is
 //                 'hour:YYYY-MM-DDTHH' or 'day:YYYY-MM-DD', both UTC
 //    mint_ips     key-minting cap, one row per (ip, UTC day)
@@ -19,11 +20,21 @@
 //  check-then-increment charge is atomic even if two requests interleave.
 // ─────────────────────────────────────────────────────────────
 
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { Database } = require("node-sqlite3-wasm");
 
 const DB_PATH = process.env.KOE_DB_PATH || path.join(__dirname, "koe.db");
+
+// Keys are persisted as SHA-256 hashes, never in plaintext: a dumped or
+// backed-up database cannot be replayed as live API keys. The raw key exists
+// only in the POST /keys response and on the client that stored it.
+// The `key` column name is kept so existing databases keep their schema; it
+// holds the digest, and `open()` drops any pre-hash plaintext row.
+function hashKey(raw) {
+  return crypto.createHash("sha256").update(String(raw || "")).digest("hex");
+}
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS keys (
@@ -71,7 +82,28 @@ function open() {
   } catch { journalMode = "unknown"; }
   db.exec("PRAGMA synchronous = FULL");
   db.exec(SCHEMA);
+  migratePlaintextKeys(db);
   return db;
+}
+
+// Upgrade from builds that stored raw `koe_sk_…` values. Each row is rewritten
+// as its SHA-256 digest in one transaction, so issued keys keep resolving (no
+// forced re-mint, no mint-cap cliff) and no plaintext secret survives on disk.
+// A digest is 64 hex chars, which is how a non-migrated row is recognised.
+function migratePlaintextKeys(d) {
+  let rows;
+  try { rows = d.all("SELECT key, created_at, ip FROM keys WHERE length(key) != 64"); } catch { return; }
+  if (!rows || !rows.length) return;
+  d.exec("BEGIN IMMEDIATE");
+  try {
+    for (const row of rows) {
+      d.run("INSERT OR IGNORE INTO keys (key, created_at, ip) VALUES (?, ?, ?)", [hashKey(row.key), row.created_at, row.ip]);
+      d.run("DELETE FROM keys WHERE key = ?", [row.key]);
+    }
+    d.exec("COMMIT");
+  } catch {
+    try { d.exec("ROLLBACK"); } catch { /* already rolled back */ }
+  }
 }
 
 function conn() { return open(); }
@@ -95,12 +127,13 @@ function transaction(fn) {
 
 function insertKey({ key, ip = null, createdAt }) {
   open();
-  db.run("INSERT OR IGNORE INTO keys (key, created_at, ip) VALUES (?, ?, ?)", [key, createdAt, ip]);
+  db.run("INSERT OR IGNORE INTO keys (key, created_at, ip) VALUES (?, ?, ?)", [hashKey(key), createdAt, ip]);
 }
 
+// Looks a key up by digest, so the stored row never contains the secret.
 function findKey(key) {
   open();
-  return db.get("SELECT key, created_at FROM keys WHERE key = ?", [String(key || "")]);
+  return db.get("SELECT key, created_at FROM keys WHERE key = ?", [hashKey(key)]);
 }
 
 function countKeys() {
@@ -218,6 +251,7 @@ process.on("SIGINT", () => close());
 
 module.exports = {
   DB_PATH,
+  hashKey,
   open,
   conn,
   transaction,

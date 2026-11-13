@@ -1,6 +1,14 @@
 node_modules
 output
 *.zip
+# local runtime state must never be baked into the image
+koe.db
+koe.db-journal
+koe.db-wal
+koe.db-shm
+.koe-stats.json
+.koe-stats.json.tmp
+voiceovers
 preview-*.mp3
 preview-*.wav
 preview-piper-*.wav
@@ -8,6 +16,9 @@ output.mp3
 jobs.json
 .koe-state.json
 mcp
+test
+ops
+.github
 .freebuff
 .git
 Dockerfile
