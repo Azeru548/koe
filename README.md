@@ -178,7 +178,7 @@ The id prefix is `locale + gender` (`a`=American, `b`=British, `f`/`m`=female/ma
 
 ## Deploy on AWS (EC2 + Docker + Caddy)
 
-Production is a single EC2 instance running the `koe` container behind Caddy, with a Let's Encrypt certificate and two systemd timers (watchdog and disk guard). The complete runbook is in **[DEPLOY.md](DEPLOY.md)**; the reusable scripts and unit files are in **[ops/](ops/)**. Pushes to `main` can also deploy automatically once CI passes — the opt-in setup (deploy key, pinned host key, one repository variable) is in [DEPLOY.md §6](DEPLOY.md#6-update-production).
+Production is a single EC2 instance running the `koe` container behind Caddy, with a Let's Encrypt certificate and two systemd timers (watchdog and disk guard). The complete runbook is in **[DEPLOY.md](DEPLOY.md)**; the reusable scripts and unit files are in **[ops/](ops/)**. Pushes to `main` can also deploy automatically once CI passes, and a deploy can be started by hand from the Actions tab — both go through Systems Manager, so the instance needs no open SSH port and GitHub stores no AWS key. The opt-in setup (OIDC role, instance profile, repository variables) is in [DEPLOY.md §6](DEPLOY.md#6-update-production).
 
 **Short version**
 

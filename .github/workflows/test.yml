@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -42,18 +43,23 @@ jobs:
             console.log('image contents ok');
           "
 
-  # Deploys main to the EC2 instance by running the same script an operator
-  # would run by hand. Two gates keep it from surprising anyone:
+  # Deploys main to the EC2 instance by running the same script an operator would
+  # run by hand — through Systems Manager, so the instance needs no open inbound
+  # port and GitHub stores no AWS key. Three gates keep it from surprising
+  # anyone:
   #
-  #   • KOE_AUTO_DEPLOY must be a repository variable set to "true", so adding
-  #     an SSH key alone never starts deploying;
+  #   • a push deploys only when the repository variable KOE_AUTO_DEPLOY is
+  #     "true"; a manual run from the Actions tab always deploys;
+  #   • it only ever runs for main;
   #   • both check jobs above must pass first.
   #
-  # See DEPLOY.md §6 for the secrets, the forced-command key setup and how to
-  # turn this off.
+  # See DEPLOY.md §6 for the IAM role, the variables and how to turn this off.
   deploy:
     needs: [test, docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.KOE_AUTO_DEPLOY == 'true'
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && vars.KOE_AUTO_DEPLOY == 'true'))
     runs-on: ubuntu-latest
     environment: production
     # rebuild.sh stops and recreates the container, so two runs must never
@@ -62,47 +68,97 @@ jobs:
     concurrency:
       group: deploy-production
       cancel-in-progress: false
+    permissions:
+      id-token: write # mint the OIDC token AWS exchanges for credentials
+      contents: read
     steps:
-      - name: Check the deploy secrets are configured
+      - name: Check the deploy settings are configured
         env:
-          KEY: ${{ secrets.KOE_SSH_KEY }}
-          HOST: ${{ secrets.KOE_HOST }}
-          KNOWN_HOSTS: ${{ secrets.KOE_KNOWN_HOSTS }}
+          ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          INSTANCE_ID: ${{ vars.KOE_INSTANCE_ID }}
         run: |
           missing=""
-          [ -n "$KEY" ] || missing="$missing KOE_SSH_KEY"
-          [ -n "$HOST" ] || missing="$missing KOE_HOST"
-          [ -n "$KNOWN_HOSTS" ] || missing="$missing KOE_KNOWN_HOSTS"
+          [ -n "$ROLE_ARN" ] || missing="$missing AWS_DEPLOY_ROLE_ARN"
+          [ -n "$INSTANCE_ID" ] || missing="$missing KOE_INSTANCE_ID"
           if [ -n "$missing" ]; then
-            echo "::error::KOE_AUTO_DEPLOY is true but these secrets are missing:$missing — see DEPLOY.md §6."
+            echo "::error::deploy needs these repository variables:$missing — see DEPLOY.md §6."
             exit 1
           fi
 
-      - name: Install the deploy key
+      # No long-lived secret: the runner presents a signed GitHub identity, AWS
+      # checks it against the role's trust policy, and returns short-lived
+      # credentials. Nothing to rotate or leak.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: koe-deploy-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_REGION || 'eu-north-1' }}
+
+      - name: Wait for Systems Manager to see the instance
         env:
-          KEY: ${{ secrets.KOE_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.KOE_KNOWN_HOSTS }}
+          INSTANCE_ID: ${{ vars.KOE_INSTANCE_ID }}
         run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/koe_deploy
-          chmod 600 ~/.ssh/koe_deploy
-          # Pinned host key: without it the runner would accept whatever host
-          # answers first, and a deploy key would be handed to it.
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
+          for attempt in $(seq 1 30); do
+            status="$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+              --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null || true)"
+            if [ "$status" = "Online" ]; then
+              echo "$INSTANCE_ID is Online"
+              exit 0
+            fi
+            echo "attempt $attempt: ssm status ${status:-unknown}"
+            sleep 10
+          done
+          echo "::error::$INSTANCE_ID never reported Online to Systems Manager — the agent or its instance profile is missing (DEPLOY.md §6). Without it no deploy can reach the box."
+          exit 1
 
       - name: Rebuild the instance
         env:
-          HOST: ${{ secrets.KOE_HOST }}
-          USERNAME: ${{ secrets.KOE_USER || 'ec2-user' }}
+          INSTANCE_ID: ${{ vars.KOE_INSTANCE_ID }}
         run: |
-          ssh -i ~/.ssh/koe_deploy \
-              -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 \
-              "${USERNAME}@${HOST}" 'bash ~/koe-ops/rebuild.sh'
+          # Systems Manager runs commands as root, and git refuses to touch a
+          # checkout owned by another user ("detected dubious ownership"), so
+          # drop to ec2-user first. KOE_OPS_DIR is what makes the script read the
+          # operator's koe.env instead of a fresh example file.
+          command_id="$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "koe deploy ${GITHUB_SHA::7}" \
+            --timeout-seconds 2400 \
+            --parameters 'commands=["sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe-ops/rebuild.sh"]' \
+            --query 'Command.CommandId' --output text)"
+          echo "command id: $command_id"
+
+          # The image is built on the instance: allow for 30 minutes, then stop
+          # waiting and report whatever state it reached.
+          status="Pending"
+          for attempt in $(seq 1 180); do
+            status="$(aws ssm get-command-invocation --command-id "$command_id" \
+              --instance-id "$INSTANCE_ID" --query 'Status' --output text 2>/dev/null || echo Pending)"
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            if [ $((attempt % 6)) -eq 0 ]; then
+              echo "still $status after $((attempt * 10))s"
+            fi
+            sleep 10
+          done
+
+          echo "===== rebuild.sh stdout ====="
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' --output text | tail -60
+          echo "===== rebuild.sh stderr ====="
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+            --query 'StandardErrorContent' --output text | tail -30
+
+          if [ "$status" != "Success" ]; then
+            echo "::error::rebuild.sh finished with status $status — read the log above, then \`docker logs koe\` on the instance"
+            exit 1
+          fi
 
       - name: Verify the deployed site
         env:
-          SITE: ${{ secrets.KOE_SITE_URL || 'https://koe.kennedyazeru.space' }}
+          SITE: ${{ vars.KOE_SITE_URL || 'https://koe.kennedyazeru.space' }}
         run: |
           body=""
           for _ in $(seq 1 20); do

@@ -159,65 +159,133 @@ Because the script hard-resets the instance checkout, do not keep uncommitted fi
 ### Automatic deploys (optional)
 
 `.github/workflows/test.yml` ends with a `deploy` job that runs the same
-`rebuild.sh` over SSH, but only when `npm test` **and** the Docker build have
-passed on a push to `main`. Pull requests never deploy. It stays off until you
-enable it, so adding a key alone cannot start deploying.
+`rebuild.sh` — but over **Systems Manager**, not SSH, so the instance needs no
+open inbound port and no deploy key, and it can also be started by hand from
+**Actions → ci → Run workflow** (choose `main`). It runs when `npm test` **and**
+the Docker build have passed on a push to `main`, and pull requests never deploy.
 
-1. Create a deploy key with no passphrase:
+The job authenticates with GitHub's OIDC identity provider, so no AWS
+credential is stored in GitHub. Set this up once, with your AWS credentials
+(CloudShell is fine):
+
+1. Register GitHub as an OIDC provider. If it answers `EntityAlreadyExists`, the
+   provider is already there — continue.
 
    ```bash
-   ssh-keygen -t ed25519 -N "" -C "koe deploy (github actions)" -f koe_deploy
+   aws iam create-open-id-connect-provider \
+     --url token.actions.githubusercontent.com \
+     --client-id-list sts.amazonaws.com
    ```
 
-2. Append the **public** key to `~/.ssh/authorized_keys` on the instance, pinned
-   to the one command it needs:
+2. Create a role only this repository's `main` and the `production` environment
+   can assume:
 
+   ```bash
+   ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+
+   cat > /tmp/koe-trust.json <<JSON
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Principal": { "Federated": "arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com" },
+       "Action": "sts:AssumeRoleWithWebIdentity",
+       "Condition": {
+         "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
+         "StringLike": {
+           "token.actions.githubusercontent.com:sub": [
+             "repo:Azeru548/koe:ref:refs/heads/main",
+             "repo:Azeru548/koe:environment:production"
+           ]
+         }
+       }
+     }]
+   }
+   JSON
+
+   aws iam create-role --role-name koe-deploy \
+     --assume-role-policy-document file:///tmp/koe-trust.json
+
+   cat > /tmp/koe-ssm.json <<'JSON'
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Action": [
+         "ssm:SendCommand",
+         "ssm:GetCommandInvocation",
+         "ssm:DescribeInstanceInformation"
+       ],
+       "Resource": "*"
+     }]
+   }
+   JSON
+
+   aws iam put-role-policy --role-name koe-deploy \
+     --policy-name koe-deploy-ssm --policy-document file:///tmp/koe-ssm.json
    ```
-   command="bash /home/ec2-user/koe-ops/rebuild.sh",no-agent-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA… koe deploy (github actions)
-   ```
 
-   With that prefix the key cannot open a shell at all: if it leaks, the worst
-   case is a redeploy, not a takeover. (The workflow still asks for
-   `rebuild.sh`; a forced command simply overrides the request.)
+   The role can run commands and read their output — it cannot read the database
+   or anything else on the box.
 
-3. Add repository secrets (Settings → Secrets and variables → Actions):
+3. Add repository **variables** (Settings → Secrets and variables → Actions →
+   Variables):
 
-   | Secret | Value |
+   | Variable | Value |
    | --- | --- |
-   | `KOE_SSH_KEY` | the private key, i.e. the whole `koe_deploy` file |
-   | `KOE_HOST` | `koe.kennedyazeru.space`, or the instance's Elastic IP |
-   | `KOE_KNOWN_HOSTS` | `ssh-keyscan -t ed25519 koe.kennedyazeru.space` |
-   | `KOE_USER` | optional, default `ec2-user` |
+   | `AWS_DEPLOY_ROLE_ARN` | the ARN returned by `create-role` |
+   | `KOE_INSTANCE_ID` | the instance id, e.g. `i-022095021f7a993a7` |
+   | `AWS_REGION` | optional, default `eu-north-1` |
    | `KOE_SITE_URL` | optional, default `https://koe.kennedyazeru.space` |
 
-   The pinned `known_hosts` matters: without it the runner would trust whatever
-   host answers and hand it the key.
+4. The instance must be visible to Systems Manager: Amazon Linux 2023 ships the
+   agent, it only needs an instance profile carrying
+   `AmazonSSMManagedInstanceCore`:
 
-4. Enable it with a repository **variable** (not a secret):
+   ```bash
+   aws ec2 associate-iam-instance-profile --region eu-north-1 \
+     --instance-id "$KOE_INSTANCE_ID" \
+     --iam-instance-profile Name=koe-ssm
+   ```
+
+   Confirm before relying on it — the list must show the instance as `Online`:
+
+   ```bash
+   aws ssm describe-instance-information --region eu-north-1 --output table
+   ```
+
+5. Automatic deploys stay off until you opt in:
 
    ```bash
    gh variable set KOE_AUTO_DEPLOY --body true
    ```
 
-5. Check the prerequisite once — the script calls `sudo docker`, so the deploy
-   user needs non-interactive sudo:
+On each push to `main` (or each manual run) the job then: runs the tests and the
+Docker build, waits for the instance to report `Online`, sends `rebuild.sh`
+through `AWS-RunShellScript`, **prints the script's log in the run**, fails if its
+status is not `Success`, then re-checks `/health` and **fails the build if
+`db.path` is not under `/data`** — the invariant that keeps issued keys alive
+across recreates. If the image build fails, `rebuild.sh` exits before touching the
+running container, so the site keeps serving the previous version.
 
-   ```bash
-   ssh -i koe_deploy ec2-user@koe.kennedyazeru.space 'sudo -n true && echo sudo-ok'
-   ```
+The job runs the script as `ec2-user`. Systems Manager executes commands as root,
+and `git` refuses to operate on a checkout owned by another user (`detected
+dubious ownership`), so the command it sends is:
 
-On each push to `main` the job then: runs the tests and the Docker build, SSHes
-in and streams the `rebuild.sh` log into the run, then re-checks `/health` and
-**fails the build if `db.path` is not under `/data`** — the invariant that keeps
-issued keys alive across recreates. If the image build fails, `rebuild.sh`
-exits before touching the running container, so the site keeps serving the
-previous version.
+```
+sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe-ops/rebuild.sh
+```
+
+Keep both parts if you run it by hand for the same reason — and keep
+`KOE_OPS_DIR`, which is what makes the script read `~/koe-ops/koe.env`.
 
 The job uses the `production` environment, so you can later require a reviewer
-(one click per deploy) without editing the workflow. Turn automatic deploys off
-with `gh variable set KOE_AUTO_DEPLOY --body false`, or delete the variable.
+(one click per deploy) without editing the workflow. The trust policy above
+allow-lists both `refs/heads/main` and the `production` environment: if you
+rename the environment, update the policy or the role will refuse to be assumed.
 
-**The image copies the build context (`COPY . .`), filtered by `.dockerignore`.** A new root-level module now ships automatically, so the old failure mode — `db.js` missing from a hand-maintained `COPY` list, which returned **502** on the first deploy after that commit — cannot recur. The trade-off is the other direction: anything you do **not** want in the image (local runtime state, large artifacts) has to be added to `.dockerignore`. `koe.db`, `.koe-stats.json`, `output/`, `node_modules/`, `test/`, `ops/` and `mcp/` are already excluded.
+Turn automatic deploys off with `gh variable set KOE_AUTO_DEPLOY --body false`, or
+delete the variable. Manual runs from the Actions tab keep working either way.
 
 ## 7. Analytics
 

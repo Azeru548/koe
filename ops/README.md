@@ -12,9 +12,14 @@ instance. The full runbook is [../DEPLOY.md](../DEPLOY.md).
 | `koe.env.example` | Secret-bearing deploy env. Copy to `~/koe-ops/koe.env` and fill in. |
 | `systemd/` | Unit and timer files for the watchdog and disk guard. |
 
-The GitHub Actions `deploy` job runs `rebuild.sh` on the instance over SSH after
-the tests and the Docker build pass on `main`. It is opt-in; the key, secrets and
-variable are documented in [../DEPLOY.md](../DEPLOY.md#automatic-deploys-optional).
+The GitHub Actions `deploy` job runs `rebuild.sh` on the instance through
+**Systems Manager** — no SSH, no inbound port, no AWS key in GitHub — after the
+tests and the Docker build pass on `main`, or on a manual run from the Actions
+tab. It drops to `ec2-user` before running the script (Systems Manager executes
+as root, and `git` refuses a checkout owned by another user) and keeps
+`KOE_OPS_DIR` pointing at `~/koe-ops`, so `koe.env` is the one in use. It is
+opt-in; the OIDC role, variables and SSM prerequisite are documented in
+[../DEPLOY.md](../DEPLOY.md#automatic-deploys-optional).
 
 Install on the instance:
 
