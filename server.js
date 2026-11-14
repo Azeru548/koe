@@ -182,8 +182,8 @@ function callerSubject(req) {
   return { id: guard.anonSubject(req.ctx.ip), kind: "anon" };
 }
 
-// The public entry point is the MCP setup page; the studio lives at /studio.
-app.get("/", (req, res) => res.redirect(302, "/mcp"));
+// The public entry point is the landing page; setup lives at /mcp, the studio at /studio.
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "landing.html")));
 app.get("/studio", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 
 // Brand assets are public and cacheable — no key needed.

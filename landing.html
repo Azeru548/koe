@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Koe — give your agent a voice</title>
+<meta name="description" content="Koe is a hosted MCP server that turns text into a finished voiceover. 29 curated neural voices, no API bill, no account. Point Claude, Cursor, or any MCP client at one URL.">
+<meta name="theme-color" content="#ece3d2">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Shippori+Mincho:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* washi and ink */
+  --washi: #ece3d2;
+  --washi-hi: #f5eede;
+  --washi-lo: #e3d8c2;
+  --sumi: #1a1712;
+  --sumi-2: #3a332a;
+  --muted: #6f6656;
+  --faint: #8d8371;
+  --rule: #cfc3ab;
+  --rule-hi: #b9ab90;
+  /* shu 朱 — vermilion, ai 藍 — indigo, kin 金 — gold */
+  --shu: #b23a2b;
+  --shu-deep: #8d2b1f;
+  --ai: #26384f;
+  --ai-deep: #1b2a3c;
+  --kin: #a9812f;
+
+  --display: 'Shippori Mincho', 'Source Serif 4', Georgia, serif;
+  --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'DM Mono', 'Fira Mono', monospace;
+
+  --wrap: 1120px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  color: var(--sumi-2);
+  background-color: var(--washi);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* washi grain — one faint turbulence layer over the whole page */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='.055'/%3E%3C/svg%3E");
+}
+
+a { color: var(--sumi); text-decoration: none; }
+:focus-visible { outline: 2px solid var(--shu); outline-offset: 3px; }
+
+.wrap { width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+
+/* ────────────── topbar ────────────── */
+.topbar {
+  position: relative; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px;
+  padding: 20px 0 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.brand { display: flex; align-items: center; gap: 11px; }
+.brand img { height: 26px; width: auto; display: block; }
+.brand-name {
+  font-family: var(--display); font-weight: 600; font-size: 19px;
+  letter-spacing: .06em; color: var(--sumi);
+}
+.brand-kana { font-family: var(--display); font-size: 12px; color: var(--faint); letter-spacing: .18em; }
+
+nav.nav { display: flex; align-items: center; gap: 22px; font-size: 13px; }
+nav.nav a { color: var(--muted); letter-spacing: .01em; }
+nav.nav a:hover { color: var(--sumi); }
+nav.nav a.gh {
+  padding: 6px 13px; border: 1px solid var(--rule-hi);
+  color: var(--sumi); background: rgba(255,255,255,.35);
+  transition: background .2s, border-color .2s;
+}
+nav.nav a.gh:hover { background: var(--washi-hi); border-color: var(--sumi); }
+
+/* ────────────── hero ────────────── */
+.hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.06fr .94fr;
+  gap: 56px;
+  align-items: center;
+  padding: 62px 0 74px;
+}
+
+/* vertical side caption, like a print margin */
+.hero::before {
+  content: "声の木版";
+  position: absolute; top: 62px; left: -46px;
+  writing-mode: vertical-rl; text-orientation: upright;
+  font-family: var(--display); font-size: 11px;
+  letter-spacing: .34em; color: var(--faint);
+  opacity: .85;
+}
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 26px;
+}
+.eyebrow::before {
+  content: ""; width: 30px; height: 1px; background: var(--shu);
+}
+
+.hero h1 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(44px, 6.2vw, 82px);
+  line-height: 1.02;
+  letter-spacing: -.012em;
+  color: var(--sumi);
+  text-wrap: balance;
+}
+.hero h1 .line { display: block; }
+.hero h1 em { font-style: normal; color: var(--shu); position: relative; }
+/* the brush underline under the emphasised word */
+.hero h1 em::after {
+  content: ""; position: absolute; left: -2%; right: -4%; bottom: .07em;
+  height: .16em;
+  background: var(--shu); opacity: .16;
+  transform: rotate(-.5deg);
+  border-radius: 40% 60% 55% 45% / 60% 40% 60% 40%;
+}
+
+.lede {
+  margin-top: 26px; max-width: 51ch;
+  font-size: 16px; line-height: 1.68; color: var(--muted);
+}
+.lede b { color: var(--sumi-2); font-weight: 500; }
+
+.cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 34px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 500; letter-spacing: .01em;
+  padding: 13px 22px; border: 1px solid transparent; cursor: pointer;
+  text-decoration: none; transition: background .18s, color .18s, border-color .18s, transform .12s;
+  background: transparent; color: var(--sumi);
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--shu); color: #fdf8ee; }
+.btn-primary:hover { background: var(--shu-deep); }
+.btn-ghost { border-color: var(--rule-hi); color: var(--sumi); background: rgba(255,255,255,.3); }
+.btn-ghost:hover { border-color: var(--sumi); background: var(--washi-hi); }
+
+.trust {
+  margin-top: 20px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  color: var(--faint);
+}
+.trust span + span::before { content: " · "; color: var(--rule-hi); }
+
+/* ────────────── the print (hero artwork) ────────────── */
+.print {
+  position: relative;
+  filter: drop-shadow(0 18px 40px rgba(26,23,18,.14));
+}
+.print svg { display: block; width: 100%; height: auto; }
+.print figcaption {
+  margin-top: 14px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--faint);
+  display: flex; justify-content: space-between; gap: 12px;
+}
+
+/* ────────────── section furniture ────────────── */
+.rule-brush {
+  height: 1px; border: 0;
+  background: linear-gradient(90deg, transparent, var(--rule-hi) 12%, var(--rule-hi) 88%, transparent);
+  position: relative; z-index: 1;
+}
+
+section.band { padding: 78px 0; position: relative; z-index: 1; }
+
+.kicker {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--shu); margin-bottom: 14px;
+}
+h2 {
+  font-family: var(--display); font-weight: 600;
+  font-size: clamp(27px, 3.4vw, 40px); line-height: 1.16;
+  letter-spacing: -.008em; color: var(--sumi);
+  max-width: 22ch;
+}
+.sub { margin-top: 14px; max-width: 56ch; color: var(--muted); font-size: 15px; }
+
+/* sample player */
+.hear { display: grid; grid-template-columns: .9fr 1.1fr; gap: 54px; align-items: center; }
+.player {
+  border: 1px solid var(--rule-hi);
+  background: var(--washi-hi);
+  padding: 22px;
+  position: relative;
+}
+.player::after {
+  content: ""; position: absolute; inset: 5px;
+  border: 1px solid rgba(185,171,144,.5); pointer-events: none;
+}
+.player-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--faint);
+  padding-bottom: 14px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.player-main { display: flex; align-items: center; gap: 18px; }
+.play {
+  flex: 0 0 auto; width: 52px; height: 52px;
+  border: 1px solid var(--sumi); background: var(--sumi); color: var(--washi-hi);
+  display: grid; place-items: center; cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.play:hover { background: var(--shu); border-color: var(--shu); }
+.play svg { width: 18px; height: 18px; }
+.play .i-pause, .play[aria-pressed="true"] .i-play { display: none; }
+.play[aria-pressed="true"] .i-pause { display: block; }
+
+.wave { display: flex; align-items: center; gap: 3px; height: 46px; flex: 1; }
+.wave i {
+  flex: 1; background: var(--ai); opacity: .5;
+  height: var(--h, 40%); border-radius: 1px;
+  transition: height .3s ease, opacity .3s;
+}
+.player[data-playing="true"] .wave i {
+  animation: breathe 1.1s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * 60ms);
+  opacity: .9; background: var(--shu);
+}
+@keyframes breathe { from { height: calc(var(--h) * .55); } to { height: calc(var(--h) * 1.5); } }
+
+.player-foot {
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--rule);
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  flex-wrap: wrap;
+}
+.voice-name { font-family: var(--display); font-size: 17px; color: var(--sumi); }
+.voice-meta { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--faint); text-transform: uppercase; }
+.voices { display: flex; gap: 0; border: 1px solid var(--rule-hi); }
+.voices button {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 8px 13px; background: transparent; border: 0; cursor: pointer;
+  color: var(--muted); border-left: 1px solid var(--rule-hi);
+  transition: background .15s, color .15s;
+}
+.voices button:first-child { border-left: 0; }
+.voices button[aria-pressed="true"] { background: var(--sumi); color: var(--washi-hi); }
+.voices button:hover:not([aria-pressed="true"]) { background: var(--washi); color: var(--sumi); }
+
+/* steps */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 46px; border-top: 1px solid var(--rule-hi); }
+.step { padding: 30px 30px 30px 0; border-right: 1px solid var(--rule); }
+.step:last-child { border-right: 0; padding-right: 0; }
+.step:not(:first-child) { padding-left: 30px; }
+.step-num {
+  font-family: var(--display); font-size: 15px; color: var(--shu);
+  letter-spacing: .1em; display: block; margin-bottom: 16px;
+}
+.step h3 { font-family: var(--display); font-size: 19px; font-weight: 600; color: var(--sumi); margin-bottom: 8px; }
+.step p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+.step code {
+  display: inline-block; margin-top: 12px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--ai-deep);
+  background: rgba(38,56,79,.07); padding: 5px 9px;
+  border-left: 2px solid var(--ai);
+  overflow-wrap: anywhere;
+}
+
+/* limits + footer */
+.ledger {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--rule-hi); background: var(--washi-hi);
+  margin-top: 40px;
+}
+.ledger div { padding: 24px 26px; border-right: 1px solid var(--rule); }
+.ledger div:last-child { border-right: 0; }
+.ledger dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.ledger dd { font-family: var(--display); font-size: 25px; color: var(--sumi); margin-top: 6px; line-height: 1.2; }
+.ledger dd small { font-family: var(--font); font-size: 12px; color: var(--muted); letter-spacing: 0; }
+
+footer {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--rule-hi);
+  padding: 34px 0 44px;
+  margin-top: 20px;
+  /* seigaiha wave band, faint, as the closing motif */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%2326384f' stroke-opacity='.13' stroke-width='1'%3E%3Cpath d='M0 40a20 20 0 0 1 40 0M20 40a20 20 0 0 1 40 0M40 40a20 20 0 0 1 40 0M60 40a20 20 0 0 1 40 0M80 40a20 20 0 0 1 40 0M100 40a20 20 0 0 1 40 0'/%3E%3Cpath d='M-10 30a20 20 0 0 1 40 0M10 30a20 20 0 0 1 40 0M30 30a20 20 0 0 1 40 0M50 30a20 20 0 0 1 40 0M70 30a20 20 0 0 1 40 0M90 30a20 20 0 0 1 40 0'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-position: bottom -8px left;
+}
+.foot-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 20px; font-size: 13px; }
+.foot-links a { color: var(--muted); }
+.foot-links a:hover { color: var(--shu); }
+.colophon { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--faint); text-transform: uppercase; }
+
+/* ────────────── responsive ────────────── */
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; gap: 44px; padding: 44px 0 56px; }
+  .hero::before { display: none; }
+  .print { max-width: 460px; margin: 0 auto; width: 100%; }
+  .hear { grid-template-columns: 1fr; gap: 34px; }
+  .steps { grid-template-columns: 1fr; }
+  .step, .step:not(:first-child) { padding: 24px 0; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .step:last-child { border-bottom: 0; }
+  .ledger { grid-template-columns: 1fr; }
+  .ledger div { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .ledger div:last-child { border-bottom: 0; }
+  nav.nav a:not(.gh) { display: none; }
+  section.band { padding: 56px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Koe home">
+      <img src="/logo-mark.png" alt="">
+      <span class="brand-name">Koe</span>
+      <span class="brand-kana">声</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="#hear">Hear it</a>
+      <a href="#connect">Connect</a>
+      <a href="/mcp">Setup</a>
+      <a href="/studio">Studio</a>
+      <a class="gh" href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+</div>
+
+<main>
+  <div class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Hosted MCP · text to voice</p>
+        <h1 id="hero-title">
+          <span class="line">Give your</span>
+          <span class="line">agent <em>a voice.</em></span>
+        </h1>
+        <p class="lede">Koe is a <b>hosted MCP server</b> that turns a script into a finished voiceover. Twenty-nine curated neural voices, one URL, no account and no API bill — point Claude, Cursor or any MCP client at it and the work comes back as audio.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#connect">Connect your agent</a>
+          <a class="btn btn-ghost" href="#hear">Hear a sample</a>
+        </div>
+        <p class="trust"><span>No account</span><span>No card</span><span>Audio deleted after 15 min</span></p>
+      </div>
+
+      <figure class="print">
+        <!-- Hand-drawn woodblock panel: oiran-singer, moon, shu seal. No external art. -->
+        <svg viewBox="0 0 520 640" role="img" aria-labelledby="print-title print-desc">
+          <title id="print-title">A singer in profile, woodblock print style, her voice carried outward in ink arcs</title>
+          <desc id="print-desc">Flat-colour illustration in the manner of a Japanese woodblock print: a woman in profile with dark hair and a vermilion comb, an indigo kimono with a paper collar, a folding fan raised, a thin moon circle behind her, three arcs of sound, a title cartouche and a red seal.</desc>
+
+          <defs>
+            <pattern id="grain" width="6" height="6" patternUnits="userSpaceOnUse">
+              <rect width="6" height="6" fill="#f6efe0"/>
+              <path d="M0 2h6M0 4.5h6" stroke="#e8ddc6" stroke-width=".45"/>
+            </pattern>
+            <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f8f2e4"/>
+              <stop offset="1" stop-color="#eee4cf"/>
+            </linearGradient>
+          </defs>
+
+          <rect x="0" y="0" width="520" height="640" fill="url(#paper)"/>
+          <rect x="0" y="0" width="520" height="640" fill="url(#grain)" opacity=".55"/>
+
+          <!-- the moon, drawn as a single ink line -->
+          <circle cx="246" cy="288" r="182" fill="#f7f0e0" fill-opacity=".75"/>
+          <circle cx="246" cy="288" r="182" fill="none" stroke="#1a1712" stroke-width="1.2" opacity=".6"/>
+
+          <!-- her voice, three ink arcs, before her face -->
+          <g fill="none" stroke="#b23a2b" stroke-linecap="round">
+            <path d="M345 227A50 50 0 0 1 355 283" stroke-width="3.2" opacity=".9"/>
+            <path d="M364 208A76 76 0 0 1 379 294" stroke-width="2.3" opacity=".5"/>
+            <path d="M384 189A104 104 0 0 1 404 306" stroke-width="1.5" opacity=".28"/>
+          </g>
+
+          <!-- kimono: sleeve, then body, keyblock outlines throughout -->
+          <path d="M150 384C122 402 110 452 112 520L178 520C174 466 178 424 192 398Z"
+                fill="#1b2a3c" stroke="#1a1712" stroke-width="1.3" stroke-linejoin="round"/>
+          <path d="M262 352C302 352 344 366 376 390L396 566H128L148 384C188 362 236 352 262 352Z"
+                fill="#26384f" stroke="#1a1712" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M148 384C124 398 112 440 110 500L170 500C168 452 174 414 191 396Z"
+                fill="#32455e" stroke="#1a1712" stroke-width="1.2" stroke-linejoin="round"/>
+          <g stroke="#3f5677" stroke-width="1.2" opacity=".55" fill="none">
+            <path d="M198 424C218 472 224 516 224 562"/>
+            <path d="M252 410C264 470 266 518 264 562"/>
+            <path d="M312 420C330 466 340 514 346 562"/>
+          </g>
+
+          <!-- neck, face and the jaw in profile -->
+          <path d="M238 168C270 162 298 184 304 214C306 224 302 226 308 230L322 246
+                   C327 250 325 255 316 256C309 257 306 259 309 263C313 267 312 271 305 272
+                   C311 277 311 283 303 287C299 297 291 305 279 310L262 316L264 356L226 356
+                   L228 318L216 306C206 288 204 260 208 232C212 200 220 178 238 168Z"
+                fill="#f7edda" stroke="#1a1712" stroke-width="1.3" stroke-linejoin="round"/>
+
+          <!-- hair: mass down the back, then the crown and fringe -->
+          <path d="M240 166C206 174 192 206 194 244C196 288 190 330 182 372
+                   C196 378 212 380 224 378C218 340 216 306 218 274C220 240 226 200 240 166Z"
+                fill="#171410" stroke="#1a1712" stroke-width="1.2" stroke-linejoin="round"/>
+          <ellipse cx="199" cy="196" rx="30" ry="25" fill="#171410" stroke="#1a1712" stroke-width="1.2"/>
+          <path d="M240 166C274 156 306 180 310 214C296 196 268 188 242 192
+                   C232 210 228 236 230 258C216 226 222 184 240 166Z"
+                fill="#171410" stroke="#1a1712" stroke-width="1.2" stroke-linejoin="round"/>
+          <g stroke="#8b8378" stroke-width=".9" opacity=".45" fill="none">
+            <path d="M206 226C204 262 200 306 196 346"/>
+            <path d="M218 232C216 268 214 308 212 344"/>
+          </g>
+
+          <!-- comb and pin -->
+          <g stroke="#1a1712" stroke-width="1">
+            <rect x="176" y="166" width="46" height="9" fill="#b23a2b"/>
+            <path d="M181 175h4v13h-4zM190 175h4v13h-4zM199 175h4v13h-4zM208 175h4v13h-4zM217 175h4v13h-4z" fill="#b23a2b"/>
+          </g>
+          <path d="M200 166L216 120" stroke="#a9812f" stroke-width="2.2"/>
+          <circle cx="218" cy="114" r="3.6" fill="#a9812f"/>
+
+          <!-- closed eye, brow, lips -->
+          <g fill="none" stroke="#1a1712" stroke-linecap="round">
+            <path d="M276 220q11-8 22-1" stroke-width="2.2"/>
+            <path d="M272 204q12-6 24-2" stroke-width="1.2" opacity=".55"/>
+          </g>
+          <path d="M300 264q9 4 1 10q-3-5-1-10Z" fill="#b23a2b"/>
+          <circle cx="313" cy="250" r="1.4" fill="#1a1712" opacity=".6"/>
+          <path d="M278 300C290 292 296 280 298 268" fill="none" stroke="#1a1712" stroke-width=".9" opacity=".22"/>
+          <circle cx="284" cy="244" r="9" fill="#b23a2b" opacity=".12"/>
+
+          <!-- collar: paper with a vermilion edge, running from the nape -->
+          <path d="M258 350C288 366 304 394 310 432L288 444C278 404 262 378 244 364Z"
+                fill="#f2e9d6" stroke="#1a1712" stroke-width="1.1" stroke-linejoin="round"/>
+          <path d="M244 364C262 378 278 404 288 444" fill="none" stroke="#b23a2b" stroke-width="3" opacity=".9"/>
+
+          <!-- raised hand and folding fan -->
+          <ellipse cx="356" cy="378" rx="18" ry="15" fill="#efe0c6" stroke="#1a1712" stroke-width="1.1" transform="rotate(-24 356 378)"/>
+          <g>
+            <path d="M358 376L438 288A88 88 0 0 1 478 398Z" fill="#f7edda" stroke="#1a1712" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M358 376L438 288A88 88 0 0 1 478 398Z" fill="#b23a2b" opacity=".2"/>
+            <g stroke="#8d2b1f" stroke-width="1" opacity=".6" fill="none">
+              <path d="M358 376L446 306"/><path d="M358 376L460 326"/><path d="M358 376L470 352"/>
+              <path d="M358 376L472 378"/><path d="M358 376L466 404"/>
+            </g>
+            <circle cx="358" cy="376" r="4.8" fill="#1a1712"/>
+          </g>
+
+          <!-- title cartouche -->
+          <rect x="424" y="44" width="46" height="134" fill="#b23a2b" stroke="#8d2b1f" stroke-width="1"/>
+          <text x="447" y="60" writing-mode="tb" text-anchor="start"
+                font-family="'Shippori Mincho', serif" font-size="15" letter-spacing="3"
+                fill="#f8f2e4">聲の木版</text>
+
+          <!-- frame: ink outside, gold inside -->
+          <rect x="14.5" y="14.5" width="491" height="611" fill="none" stroke="#1a1712" stroke-width="1.4" opacity=".8"/>
+          <rect x="24.5" y="24.5" width="471" height="591" fill="none" stroke="#a9812f" stroke-width=".7" opacity=".55"/>
+
+          <!-- hanko 声 -->
+          <rect x="38" y="528" width="44" height="44" fill="#b23a2b"/>
+          <text x="60" y="560" text-anchor="middle" font-family="'Shippori Mincho', serif" font-size="29" fill="#f8f2e4">声</text>
+
+          <!-- printed texture over everything, the way a woodblock sits on paper -->
+          <rect x="0" y="0" width="520" height="640" fill="url(#grain)" opacity=".3" style="mix-blend-mode:multiply"/>
+        </svg>
+        <figcaption><span>Shu · ai · sumi</span><span>Koe, print no. 1</span></figcaption>
+      </figure>
+    </section>
+  </div>
+
+  <hr class="rule-brush">
+
+  <div class="wrap">
+    <section class="band" id="hear">
+      <div class="hear">
+        <div>
+          <p class="kicker">壱 · The instrument</p>
+          <h2>The script is the score. Koe sings it.</h2>
+          <p class="sub">Three of the twenty-nine voices, generated the same way your agent gets them: text in, MP3 out, quota counted against a free key. These clips are short on purpose — the same call takes a few seconds on a warm instance.</p>
+        </div>
+
+        <div class="player" id="player" data-playing="false">
+          <div class="player-top"><span>Hear it</span><span>MP3 · ~8s</span></div>
+          <div class="player-main">
+            <button class="play" id="play" type="button" aria-label="Play the voice sample" aria-pressed="false">
+              <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.1v13.8c0 .8.9 1.3 1.6.9l11-6.9a1 1 0 0 0 0-1.8l-11-6.9A1 1 0 0 0 8 5.1Z"/></svg>
+              <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+            </button>
+            <div class="wave" aria-hidden="true">
+              <i style="--h:22%;--i:0"></i><i style="--h:44%;--i:1"></i><i style="--h:64%;--i:2"></i><i style="--h:34%;--i:3"></i>
+              <i style="--h:78%;--i:4"></i><i style="--h:52%;--i:5"></i><i style="--h:28%;--i:6"></i><i style="--h:70%;--i:7"></i>
+              <i style="--h:44%;--i:8"></i><i style="--h:86%;--i:9"></i><i style="--h:58%;--i:10"></i><i style="--h:32%;--i:11"></i>
+              <i style="--h:74%;--i:12"></i><i style="--h:46%;--i:13"></i><i style="--h:66%;--i:14"></i><i style="--h:30%;--i:15"></i>
+              <i style="--h:80%;--i:16"></i><i style="--h:54%;--i:17"></i><i style="--h:38%;--i:18"></i><i style="--h:68%;--i:19"></i>
+              <i style="--h:26%;--i:20"></i><i style="--h:58%;--i:21"></i><i style="--h:42%;--i:22"></i><i style="--h:74%;--i:23"></i>
+            </div>
+          </div>
+          <div class="player-foot">
+            <div>
+              <div class="voice-name" id="voice-name">Andrew</div>
+              <div class="voice-meta" id="voice-meta">Warm · en-US</div>
+            </div>
+            <div class="voices" role="group" aria-label="Choose a sample voice">
+              <button type="button" data-src="andrew" data-name="Andrew" data-meta="Warm · en-US" aria-pressed="true">Andrew</button>
+              <button type="button" data-src="jenny" data-name="Jenny" data-meta="Friendly · en-US" aria-pressed="false">Jenny</button>
+              <button type="button" data-src="sonia" data-name="Sonia" data-meta="Formal · en-GB" aria-pressed="false">Sonia</button>
+            </div>
+          </div>
+          <audio id="audio" preload="none" src="/mcp-sample-andrew.mp3"></audio>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <hr class="rule-brush">
+
+  <div class="wrap">
+    <section class="band" id="connect">
+      <p class="kicker">弐 · The hand-off</p>
+      <h2>Three moves to a finished voiceover.</h2>
+      <p class="sub">No install, no SDK, no key purchase. The endpoint is stateless and speaks plain JSON over Streamable HTTP, which is why it survives behind a proxy and an ephemeral container disk.</p>
+
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">壱</span>
+          <h3>Take a free key</h3>
+          <p>Open the setup page and press <em>Create key</em>. It solves the proof-of-work challenge for you and shows the key once. Three per IP per day.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">弐</span>
+          <h3>Point the agent at Koe</h3>
+          <p>Add the URL and send the key as a bearer header. One endpoint, every MCP client.</p>
+          <code>https://koe.kennedyazeru.space/mcp</code>
+        </div>
+        <div class="step">
+          <span class="step-num">参</span>
+          <h3>Ask for a voiceover</h3>
+          <p><code>generate_voiceover</code> takes the script, voice and rate; it returns an MP3, or a signed URL when the audio lives on the server.</p>
+        </div>
+      </div>
+
+      <dl class="ledger">
+        <div>
+          <dt>Free key</dt>
+          <dd>60 / hour <small>· 2,000 words</small></dd>
+        </div>
+        <div>
+          <dt>One job</dt>
+          <dd>6,000 words <small>· 40,000 chars</small></dd>
+        </div>
+        <div>
+          <dt>Audio lifetime</dt>
+          <dd>15 min <small>· then deleted</small></dd>
+        </div>
+      </dl>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <nav class="foot-links" aria-label="Footer">
+        <a href="/mcp">Setup &amp; key</a>
+        <a href="/studio">Studio</a>
+        <a href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">Source</a>
+        <a href="https://github.com/Azeru548/koe/blob/main/AGENTS.md" target="_blank" rel="noopener">Agent reference</a>
+      </nav>
+      <span class="colophon">ISC · 声 · self-hosted on one small box</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var player = document.getElementById("player");
+  var audio = document.getElementById("audio");
+  var play = document.getElementById("play");
+  var name = document.getElementById("voice-name");
+  var meta = document.getElementById("voice-meta");
+  var buttons = Array.prototype.slice.call(document.querySelectorAll(".voices button"));
+
+  function setPressed(on) {
+    play.setAttribute("aria-pressed", on ? "true" : "false");
+    play.setAttribute("aria-label", on ? "Pause the voice sample" : "Play the voice sample");
+    player.setAttribute("data-playing", on ? "true" : "false");
+  }
+
+  play.addEventListener("click", function () {
+    if (audio.paused) { audio.play(); } else { audio.pause(); }
+  });
+  audio.addEventListener("play", function () { setPressed(true); });
+  audio.addEventListener("pause", function () { setPressed(false); });
+  audio.addEventListener("ended", function () { setPressed(false); });
+
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      buttons.forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+      var wasPlaying = !audio.paused;
+      audio.src = "/mcp-sample-" + b.dataset.src + ".mp3";
+      name.textContent = b.dataset.name;
+      meta.textContent = b.dataset.meta;
+      if (wasPlaying) { audio.play(); }
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -115,10 +115,19 @@ test("GET /mcp serves the public setup page to browsers", async () => {
   assert.match(html, /favicon-32\.png/);
 });
 
-test("GET / redirects to the MCP landing page", async () => {
-  const res = await fetch(`${base}/`, { redirect: "manual" });
-  assert.equal(res.status, 302);
-  assert.equal(res.headers.get("location"), "/mcp");
+test("GET / serves the landing page", async () => {
+  const res = await fetch(`${base}/`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") || "", /text\/html/);
+  const html = await res.text();
+  assert.match(html, /<title>Koe/);
+  assert.match(html, /<h1[^>]*id="hero-title"/);
+  assert.match(html, /a voice\./);
+  // the hero artwork is inline, so the page needs no external image request
+  assert.match(html, /<svg viewBox="0 0 520 640"/);
+  // and it links onward to the setup page rather than replacing it
+  assert.match(html, /href="\/mcp"/);
+  assert.match(html, /koe\.kennedyazeru\.space\/mcp/);
 });
 
 test("GET /studio serves the studio page", async () => {
