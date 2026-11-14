@@ -178,7 +178,12 @@ credential is stored in GitHub. Set this up once, with your AWS credentials
    ```
 
 2. Create a role only this repository's `main` and the `production` environment
-   can assume:
+   can assume. Note the `@id` parts in the subject: repositories created or
+   renamed after **15 July 2026** emit an immutable `sub` claim such as
+   `repo:Azeru548@312097779/koe@1320227600:ref:refs/heads/main`, and a policy
+   written with bare names never matches it (`Not authorized to perform
+   sts:AssumeRoleWithWebIdentity`). The numbers below are this repository's —
+   `owner_id` and `repo_id` from `https://api.github.com/repos/Azeru548/koe`.
 
    ```bash
    ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
@@ -194,8 +199,8 @@ credential is stored in GitHub. Set this up once, with your AWS credentials
          "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
          "StringLike": {
            "token.actions.githubusercontent.com:sub": [
-             "repo:Azeru548/koe:ref:refs/heads/main",
-             "repo:Azeru548/koe:environment:production"
+             "repo:Azeru548@312097779/koe@1320227600:ref:refs/heads/main",
+             "repo:Azeru548@312097779/koe@1320227600:environment:production"
            ]
          }
        }
