@@ -173,7 +173,7 @@ credential is stored in GitHub. Set this up once, with your AWS credentials
 
    ```bash
    aws iam create-open-id-connect-provider \
-     --url token.actions.githubusercontent.com \
+     --url https://token.actions.githubusercontent.com \
      --client-id-list sts.amazonaws.com
    ```
 
