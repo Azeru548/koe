@@ -334,3 +334,16 @@ Counters persist to `KOE_STATS_FILE` (default `.koe-stats.json`; `/data/stats.js
 - edge-tts is free but unofficial (Microsoft's consumer endpoint); occasional throttling is expected. The circuit breaker pauses new work briefly instead of hammering it.
 - Very long scripts are split into ~3000-char parts by the studio; the MCP merges them back into a single file (MP3s concatenated, WAVs re-muxed properly).
 - Tests: `npm test` (78 tests: guard limits, key auth and hashing, tenant isolation, validation, ephemeral cleanup, analytics privacy/accounting, engine adapters, Kokoro sidecar behaviour, hosted MCP handshake and signed audio links). CI runs them on push and on the Docker build.
+
+## Agent skill
+
+[`skills/koe-voiceover/SKILL.md`](skills/koe-voiceover/SKILL.md) packages this
+server as a portable `SKILL.md`: when to reach for a voiceover, how to get a free
+key, the tool table, script-formatting rules and the error table. Point it at the
+hosted endpoint or your own instance. Zip the folder to publish it to a skill
+marketplace.
+
+## Licence
+
+ISC © Azeru548 — see [LICENSE](LICENSE). Use it, modify it, self-host it,
+redistribute it.
