@@ -5,43 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Koe MCP — a voice for any agent</title>
 <meta name="description" content="A hosted MCP server that turns text into a finished voiceover. 29 curated neural voices, no API bill, no account. Connect Claude, Cursor, or any MCP client.">
-<meta name="theme-color" content="#f2f0e9">
+<meta name="theme-color" content="#ece3d2">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Shippori+Mincho:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #f2f0e9;              /* paper */
-  --glass: #fbfaf5;            /* sheet — flat, no glass */
-  --glass-strong: #fbfaf5;
-  --border: #d8d2c4;           /* line */
-  --border-hi: #c3baa8;        /* line-strong */
-  --ink-900: #181613;          /* ink */
-  --ink-700: #3b372f;          /* ink-2 */
-  --ink-500: #6d675c;          /* muted */
-  --ink-450: #6d675c;
-  --ink-300: #8f887a;          /* faint */
-  --ink-100: #d8d2c4;
-  --accent: #b23a2b;           /* oxide */
+  --bg: #ece3d2;              /* washi */
+  --glass: #f5eede;            /* washi, lighter */
+  --glass-strong: #ece3d2;
+  --border: #cfc3ab;           /* rule */
+  --border-hi: #b9ab90;        /* rule-strong */
+  --ink-900: #1a1712;          /* sumi */
+  --ink-700: #3a332a;          /* sumi-2 */
+  --ink-500: #6f6656;          /* muted */
+  --ink-450: #6f6656;
+  --ink-300: #8d8371;          /* faint */
+  --ink-100: #cfc3ab;
+  --accent: #b23a2b;           /* shu */
   --accent-ink: #8d2b1f;
-  --accent-soft: #f3e2dc;
+  --accent-soft: rgba(178,58,43,.10);
   --voice: #b23a2b;
   --success-ink: #2f6b4f;
   --success-bg: rgba(47,107,79,0.08);
   --success-border: rgba(47,107,79,0.22);
   --danger-ink: #a8322a;
   --danger-bg: rgba(168,50,42,0.07);
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 6px;
-  --shadow-sm: 0 1px 0 rgba(24,22,19,.04), 0 8px 20px rgba(24,22,19,.06);
-  --shadow-md: 0 10px 30px rgba(24,22,19,.12), 0 2px 6px rgba(24,22,19,.06);
+  /* print furniture has square corners — nothing on the landing page is rounded */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --shadow-sm: 0 1px 0 rgba(26,23,18,.05);
+  --shadow-md: 0 12px 30px rgba(26,23,18,.10);
   --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --display: 'Source Serif 4', Georgia, serif;
+  --display: 'Shippori Mincho', 'Source Serif 4', Georgia, serif;
   --mono: 'DM Mono', 'Fira Mono', monospace;
 }
 
@@ -55,6 +56,17 @@ body {
   -webkit-font-smoothing: antialiased;
   line-height: 1.55;
 }
+
+/* washi grain — one faint turbulence layer, exactly as the landing page */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='.055'/%3E%3C/svg%3E");
+}
+header.topbar, main, .footer { position: relative; z-index: 1; }
 
 a { color: var(--ink-900); }
 code, pre { font-family: var(--mono); }
@@ -369,19 +381,103 @@ details code { font-size: 12.5px; background: rgba(24,22,19,0.05); padding: 1px 
   html { scroll-behavior: auto; }
   .sample-card.playing .wave span { animation: none; }
 }
+
+/* ────────────── landing shell ────────────── */
+/* The setup page wears the same skin as the landing page: the same washi
+   grain, sumi ink, vermilion, Shippori Mincho headings and square print
+   furniture, so moving between / and /mcp does not feel like two products. */
+.topbar {
+  height: auto;
+  /* same column as the page body, so the brand lines up with the headline */
+  max-width: 1120px; margin: 0 auto;
+  padding: 20px 28px 18px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  gap: 11px;
+  font-family: var(--display); font-weight: 600;
+  font-size: 19px; letter-spacing: .06em;
+}
+.logo-mark { height: 26px; width: auto; }
+.logo .kana { font-size: 12px; color: var(--ink-300); letter-spacing: .18em; font-weight: 400; }
+.nav { gap: 22px; font-size: 13px; }
+.nav .gh { padding: 0; border: 0; background: none; }
+main { max-width: 1120px; padding: 0 28px 96px; }
+
+.hero { padding: 58px 0 60px; gap: 52px; }
+.hero-copy h1 {
+  font-size: clamp(44px, 6.4vw, 80px);
+  line-height: 1.02; letter-spacing: -.012em;
+  text-wrap: balance;
+}
+h1 em { position: relative; }
+/* the brush stroke under the emphasised word */
+h1 em::after {
+  content: ""; position: absolute; left: -2%; right: -4%; bottom: .07em;
+  height: .16em; background: var(--accent); opacity: .16;
+  transform: rotate(-.5deg);
+  border-radius: 40% 60% 55% 45% / 60% 40% 60% 40%;
+}
+
+.btn { border-radius: 0; }
+.btn-primary { box-shadow: none; color: #fdf8ee; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-ink); box-shadow: none; }
+.btn-ghost { background: rgba(255,255,255,.3); border-color: var(--border-hi); }
+.btn-ghost:hover:not(:disabled) { background: var(--glass); }
+
+section { margin-top: 64px; }
+h2 {
+  font-family: var(--display); font-weight: 600;
+  font-size: clamp(26px, 3.2vw, 36px); line-height: 1.16;
+  letter-spacing: -.008em;
+}
+
+/* the sample card becomes a small print plate: square, with an inner rule */
+.sample-card { box-shadow: none; border-color: var(--border-hi); }
+.sample-card::after {
+  content: ""; position: absolute; inset: 5px;
+  border: 1px solid rgba(185,171,144,.5); pointer-events: none;
+}
+.play-btn { border-radius: 0; background: var(--ink-900); box-shadow: none; }
+.play-btn:hover { transform: none; background: var(--accent); box-shadow: none; }
+
+.pane, .card, .prompt, .table-wrap { box-shadow: none; }
+
+/* closing wave band and colophon, as on the landing page */
+.footer {
+  max-width: 1120px; padding: 26px 28px 46px;
+  align-items: center;
+  border-top: 1px solid var(--border-hi);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%2326384f' stroke-opacity='.13' stroke-width='1'%3E%3Cpath d='M0 40a20 20 0 0 1 40 0M20 40a20 20 0 0 1 40 0M40 40a20 20 0 0 1 40 0M60 40a20 20 0 0 1 40 0M80 40a20 20 0 0 1 40 0M100 40a20 20 0 0 1 40 0'/%3E%3Cpath d='M-10 30a20 20 0 0 1 40 0M10 30a20 20 0 0 1 40 0M30 30a20 20 0 0 1 40 0M50 30a20 20 0 0 1 40 0M70 30a20 20 0 0 1 40 0M90 30a20 20 0 0 1 40 0'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-position: bottom -8px left;
+}
+.foot-links { display: flex; flex-wrap: wrap; gap: 20px; font-size: 13px; }
+.colophon {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-300);
+}
+
+/* the landing topbar drops its links on small screens; so does this one */
+@media (max-width: 760px) {
+  .nav { display: none; }
+}
 </style>
 </head>
 <body>
 
 <header class="topbar">
-  <a class="logo" href="/mcp">
-    <img class="logo-mark" src="/logo-mark.png" alt="" width="21" height="28">
-    Koe
+  <a class="logo" href="/" aria-label="Koe home">
+    <img class="logo-mark" src="/logo-mark.png" alt="" width="26" height="26">
+    <span>Koe</span>
+    <span class="kana">声</span>
   </a>
   <nav class="nav" aria-label="Primary">
-    <a href="/studio">Studio</a>
+    <a href="/">Home</a>
     <a href="#setup">Quickstart</a>
     <a href="#faq">FAQ</a>
+    <a href="/studio">Studio</a>
   </nav>
 </header>
 
@@ -665,8 +761,12 @@ details code { font-size: 12.5px; background: rgba(24,22,19,0.05); padding: 1px 
 </main>
 
 <footer class="footer">
-  <span>Koe TTS Studio · free for now. Be kind to the upstream endpoint.</span>
-  <span><a href="/studio">Studio</a> · <a href="/health">Health</a> · <a href="/api/limits">Limits JSON</a></span>
+  <nav class="foot-links" aria-label="Footer">
+    <a href="/studio">Studio</a>
+    <a href="/health">Health</a>
+    <a href="/api/limits">Limits JSON</a>
+  </nav>
+  <span class="colophon">声 · free for now · no account, no card</span>
 </footer>
 
 <script>
