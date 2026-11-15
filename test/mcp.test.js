@@ -123,9 +123,14 @@ test("GET / serves the landing page", async () => {
   assert.match(html, /<title>Koe/);
   assert.match(html, /<h1[^>]*id="hero-title"/);
   assert.match(html, /a voice\./);
-  // the hero artwork is inline, so the page needs no external image request
-  assert.match(html, /<svg viewBox="0 0 560 600"/);
-  assert.match(html, /href="\/oiran\.png\?v=\d+"/);
+  // the portrait floats free: it must carry alt text and must not be boxed
+  // into a framed plate again
+  assert.match(html, /<img[^>]+src="\/oiran\.png\?v=\d+"[^>]+alt="[^"]*oiran/);
+  const figure = html.slice(
+    html.indexOf('class="print"'),
+    html.indexOf("</figure>", html.indexOf('class="print"')),
+  );
+  assert.doesNotMatch(figure, /<svg|<rect/, "the hero portrait must not be framed");
   // and it links onward to the setup page rather than replacing it
   assert.match(html, /href="\/mcp"/);
   assert.match(html, /koe\.kennedyazeru\.space\/mcp/);
@@ -151,8 +156,8 @@ test("GET /studio serves the studio page", async () => {
 });
 
 test("brand assets are served publicly", async () => {
-  // /oiran.png is the landing hero: an <image href> that must load before the
-  // visitor has a key, or the plate renders empty.
+  // /oiran.png is the landing hero: an <img> that must load before the visitor
+  // has a key, or the figure renders as an empty box.
   for (const route of ["/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png", "/oiran.png"]) {
     const res = await fetch(`${base}${route}`);
     assert.equal(res.status, 200, route);

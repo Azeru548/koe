@@ -191,12 +191,12 @@ nav.nav a.gh:hover { background: var(--washi-hi); border-color: var(--sumi); }
   position: relative;
   filter: drop-shadow(0 18px 40px rgba(26,23,18,.14));
 }
-.print svg { display: block; width: 100%; height: auto; }
-.print figcaption {
-  margin-top: 14px;
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--faint);
-  display: flex; justify-content: space-between; gap: 12px;
+.print img {
+  display: block; width: 100%; height: auto;
+  /* the artwork ends in a straight crop; let it settle into the paper instead
+     of stopping on a hard edge now that no frame explains the cut */
+  -webkit-mask-image: linear-gradient(to bottom, #000 88%, rgba(0,0,0,0) 100%);
+  mask-image: linear-gradient(to bottom, #000 88%, rgba(0,0,0,0) 100%);
 }
 
 /* ────────────── section furniture ────────────── */
@@ -402,50 +402,10 @@ footer {
       </div>
 
       <figure class="print">
-        <!-- Portrait plate: the oiran art printed onto washi, framed and sealed. -->
-        <svg viewBox="0 0 560 600" role="img" aria-labelledby="print-title print-desc">
-          <title id="print-title">Koe: an oiran in woodblock style singing into a vintage ribbon microphone</title>
-          <desc id="print-desc">A half-length woodblock-style portrait of a singer in a red and black kimono with a gold kanzashi, holding a ribbon microphone to her lips, printed on washi paper inside an ink and gold frame with a red title cartouche reading 声の木版 and a 声 seal.</desc>
-
-          <defs>
-            <pattern id="grain" width="6" height="6" patternUnits="userSpaceOnUse">
-              <rect width="6" height="6" fill="#f6efe0"/>
-              <path d="M0 2h6M0 4.5h6" stroke="#e8ddc6" stroke-width=".45"/>
-            </pattern>
-            <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#f8f2e4"/>
-              <stop offset="1" stop-color="#eee4cf"/>
-            </linearGradient>
-            <pattern id="halftone" width="7" height="7" patternUnits="userSpaceOnUse">
-              <circle cx="1.6" cy="1.6" r="1.15" fill="#1a1712"/>
-            </pattern>
-          </defs>
-
-          <rect x="0" y="0" width="560" height="600" fill="url(#paper)"/>
-          <rect x="0" y="0" width="560" height="600" fill="url(#grain)" opacity=".5"/>
-
-          <image href="/oiran.png?v=2" x="26" y="26" width="508" height="490"
-                 preserveAspectRatio="xMidYMax meet"/>
-
-          <!-- title cartouche, set over the plate the way prints do it -->
-          <g>
-            <rect x="486" y="40" width="46" height="126" fill="#b23a2b" stroke="#8d2b1f" stroke-width="1"/>
-            <text x="509" y="55" writing-mode="tb" font-family="'Shippori Mincho', serif"
-                  font-size="15" letter-spacing="3" fill="#f8f2e4">聲の木版</text>
-          </g>
-
-          <!-- frame: ink outside, gold inside -->
-          <rect x="14.5" y="14.5" width="531" height="571" fill="none" stroke="#1a1712" stroke-width="1.5" opacity=".8"/>
-          <rect x="24.5" y="24.5" width="511" height="551" fill="none" stroke="#a9812f" stroke-width=".7" opacity=".55"/>
-
-          <!-- hanko 声, in the lower margin -->
-          <rect x="38" y="524" width="42" height="42" fill="#b23a2b"/>
-          <text x="59" y="555" text-anchor="middle" font-family="'Shippori Mincho', serif" font-size="28" fill="#f8f2e4">声</text>
-
-          <!-- printed texture over everything -->
-          <rect x="0" y="0" width="560" height="600" fill="url(#grain)" opacity=".26" style="mix-blend-mode:multiply"/>
-        </svg>
-        <figcaption><span>Shu · ai · sumi</span><span>Koe, print no. 1</span></figcaption>
+        <!-- no plate and no frame: the portrait is a cut-out floating on the
+             washi, so her silhouette — not a box — gives it depth -->
+        <img src="/oiran.png?v=2" width="386" height="375"
+             alt="An oiran in woodblock style, in a red and black kimono with a gold kanzashi, singing into a vintage ribbon microphone.">
       </figure>
     </section>
   </div>
