@@ -369,10 +369,10 @@ footer {
       </div>
 
       <figure class="print">
-        <!-- Hand-drawn woodblock panel: oiran-singer, moon, shu seal. No external art. -->
-        <svg viewBox="0 0 520 640" role="img" aria-labelledby="print-title print-desc">
-          <title id="print-title">A singer in profile at a ribbon microphone, woodblock print style, her voice carried outward in ink arcs</title>
-          <desc id="print-desc">Flat-colour illustration in the manner of a Japanese woodblock print: a singer in profile with dark hair, a vermilion comb and a gold kanzashi, an indigo kimono with a paper collar, a ribbon microphone raised to her lips, a thin moon circle behind her, three arcs of sound, a title cartouche and a red seal.</desc>
+        <!-- Portrait plate: the oiran art printed onto washi, framed and sealed. -->
+        <svg viewBox="0 0 560 600" role="img" aria-labelledby="print-title print-desc">
+          <title id="print-title">Koe: an oiran in woodblock style singing into a vintage ribbon microphone</title>
+          <desc id="print-desc">A half-length woodblock-style portrait of a singer in a red and black kimono with a gold kanzashi, holding a ribbon microphone to her lips, printed on washi paper inside an ink and gold frame with a red title cartouche reading 声の木版 and a 声 seal.</desc>
 
           <defs>
             <pattern id="grain" width="6" height="6" patternUnits="userSpaceOnUse">
@@ -383,122 +383,34 @@ footer {
               <stop offset="0" stop-color="#f8f2e4"/>
               <stop offset="1" stop-color="#eee4cf"/>
             </linearGradient>
+            <pattern id="halftone" width="7" height="7" patternUnits="userSpaceOnUse">
+              <circle cx="1.6" cy="1.6" r="1.15" fill="#1a1712"/>
+            </pattern>
           </defs>
 
-          <rect x="0" y="0" width="520" height="640" fill="url(#paper)"/>
-          <rect x="0" y="0" width="520" height="640" fill="url(#grain)" opacity=".55"/>
+          <rect x="0" y="0" width="560" height="600" fill="url(#paper)"/>
+          <rect x="0" y="0" width="560" height="600" fill="url(#grain)" opacity=".5"/>
 
-          <!-- the moon, drawn as a single ink line -->
-          <circle cx="246" cy="288" r="182" fill="#f7f0e0" fill-opacity=".75"/>
-          <circle cx="246" cy="288" r="182" fill="none" stroke="#1a1712" stroke-width="1.2" opacity=".6"/>
+          <image href="/oiran.png?v=2" x="26" y="26" width="508" height="490"
+                 preserveAspectRatio="xMidYMax meet"/>
 
-          <!-- her voice, three ink arcs, before her face -->
-          <g fill="none" stroke="#b23a2b" stroke-linecap="round">
-            <path d="M404 227A46 46 0 0 1 414 285" stroke-width="3.2" opacity=".9"/>
-            <path d="M419 208A70 70 0 0 1 435 297" stroke-width="2.3" opacity=".5"/>
-            <path d="M434 190A94 94 0 0 1 455 309" stroke-width="1.5" opacity=".28"/>
-          </g>
-
-          <!-- kimono: sleeve, then body, keyblock outlines throughout -->
-          <path d="M150 384C122 402 110 452 112 520L178 520C174 466 178 424 192 398Z"
-                fill="#1b2a3c" stroke="#1a1712" stroke-width="1.3" stroke-linejoin="round"/>
-          <path d="M262 352C302 352 344 366 376 390L396 566H128L148 384C188 362 236 352 262 352Z"
-                fill="#26384f" stroke="#1a1712" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M148 384C124 398 112 440 110 500L170 500C168 452 174 414 191 396Z"
-                fill="#32455e" stroke="#1a1712" stroke-width="1.2" stroke-linejoin="round"/>
-          <g stroke="#3f5677" stroke-width="1.2" opacity=".55" fill="none">
-            <path d="M198 424C218 472 224 516 224 562"/>
-            <path d="M252 410C264 470 266 518 264 562"/>
-            <path d="M312 420C330 466 340 514 346 562"/>
-          </g>
-
-          <!-- neck, face and the jaw in profile -->
-          <path d="M238 168C270 162 298 184 304 214C306 224 302 226 308 230L322 246
-                   C327 250 325 255 316 256C309 257 306 259 309 263C313 267 312 271 305 272
-                   C311 277 311 283 303 287C299 297 291 305 279 310L262 316L264 356L226 356
-                   L228 318L216 306C206 288 204 260 208 232C212 200 220 178 238 168Z"
-                fill="#f7edda" stroke="#1a1712" stroke-width="1.3" stroke-linejoin="round"/>
-
-          <!-- hair: mass down the back, then the crown and fringe -->
-          <path d="M240 166C206 174 192 206 194 244C196 288 190 330 182 372
-                   C196 378 212 380 224 378C218 340 216 306 218 274C220 240 226 200 240 166Z"
-                fill="#171410" stroke="#1a1712" stroke-width="1.2" stroke-linejoin="round"/>
-          <ellipse cx="199" cy="196" rx="30" ry="25" fill="#171410" stroke="#1a1712" stroke-width="1.2"/>
-          <path d="M240 166C274 156 306 180 310 214C296 196 268 188 242 192
-                   C232 210 228 236 230 258C216 226 222 184 240 166Z"
-                fill="#171410" stroke="#1a1712" stroke-width="1.2" stroke-linejoin="round"/>
-          <g stroke="#8b8378" stroke-width=".9" opacity=".45" fill="none">
-            <path d="M206 226C204 262 200 306 196 346"/>
-            <path d="M218 232C216 268 214 308 212 344"/>
-          </g>
-
-          <!-- comb and pin -->
-          <g stroke="#1a1712" stroke-width="1">
-            <rect x="176" y="166" width="46" height="9" fill="#b23a2b"/>
-            <path d="M181 175h4v13h-4zM190 175h4v13h-4zM199 175h4v13h-4zM208 175h4v13h-4zM217 175h4v13h-4z" fill="#b23a2b"/>
-          </g>
-          <g fill="#a9812f" stroke="#7d5f22" stroke-width=".8">
-            <circle cx="228" cy="176" r="5.5"/><circle cx="240" cy="170" r="4.2"/>
-            <circle cx="250" cy="178" r="4.8"/><circle cx="236" cy="186" r="4.4"/>
-            <circle cx="224" cy="188" r="3.6"/>
-          </g>
-          <g stroke="#a9812f" stroke-width="1.1" fill="none">
-            <path d="M246 190c4 16 6 28 4 40"/><path d="M238 194c1 14 0 24-3 34"/>
-          </g>
-          <g fill="#b23a2b">
-            <circle cx="250" cy="232" r="2.6"/><circle cx="235" cy="230" r="2.6"/>
-          </g>
-          <path d="M200 166L216 120" stroke="#a9812f" stroke-width="2.2"/>
-          <circle cx="218" cy="114" r="3.6" fill="#a9812f"/>
-
-          <!-- closed eye, brow, lips -->
-          <g fill="none" stroke="#1a1712" stroke-linecap="round">
-            <path d="M276 220q11-8 22-1" stroke-width="2.2"/>
-            <path d="M272 204q12-6 24-2" stroke-width="1.2" opacity=".55"/>
-          </g>
-          <path d="M300 264q9 4 1 10q-3-5-1-10Z" fill="#b23a2b"/>
-          <circle cx="313" cy="250" r="1.4" fill="#1a1712" opacity=".6"/>
-          <path d="M278 300C290 292 296 280 298 268" fill="none" stroke="#1a1712" stroke-width=".9" opacity=".22"/>
-          <circle cx="284" cy="244" r="9" fill="#b23a2b" opacity=".12"/>
-
-          <!-- collar: paper with a vermilion edge, running from the nape -->
-          <path d="M258 350C288 366 304 394 310 432L288 444C278 404 262 378 244 364Z"
-                fill="#f2e9d6" stroke="#1a1712" stroke-width="1.1" stroke-linejoin="round"/>
-          <path d="M244 364C262 378 278 404 288 444" fill="none" stroke="#b23a2b" stroke-width="3" opacity=".9"/>
-
-          <!-- raised hand and folding fan -->
-          <!-- the ribbon microphone: a singer's instrument, not a prop -->
-          <path d="M392 430C372 402 356 372 348 340L374 330C384 362 400 392 414 414Z"
-                fill="#32455e" stroke="#1a1712" stroke-width="1.2" stroke-linejoin="round"/>
+          <!-- title cartouche, set over the plate the way prints do it -->
           <g>
-            <path d="M352 306V468" stroke="#1a1712" stroke-width="4" stroke-linecap="round"/>
-            <rect x="330" y="230" width="42" height="60" rx="21" fill="#a9812f" stroke="#1a1712" stroke-width="1.4"/>
-            <g stroke="#1a1712" stroke-width=".9" opacity=".55" fill="none">
-              <path d="M334 242h34M335 252h32M336 262h30M337 272h28"/>
-            </g>
-            <path d="M333 290h36" stroke="#8d6b22" stroke-width="3"/>
-            <path d="M338 296c2 8 26 8 28 0" fill="none" stroke="#1a1712" stroke-width="1.4"/>
+            <rect x="486" y="40" width="46" height="126" fill="#b23a2b" stroke="#8d2b1f" stroke-width="1"/>
+            <text x="509" y="55" writing-mode="tb" font-family="'Shippori Mincho', serif"
+                  font-size="15" letter-spacing="3" fill="#f8f2e4">聲の木版</text>
           </g>
-          <ellipse cx="352" cy="332" rx="20" ry="15" fill="#efe0c6" stroke="#1a1712" stroke-width="1.1" transform="rotate(-14 352 332)"/>
-          <g stroke="#c9b492" stroke-width=".8" opacity=".9" fill="none">
-            <path d="M338 328h28M340 336h24"/></g>
-
-          <!-- title cartouche -->
-          <rect x="424" y="44" width="46" height="134" fill="#b23a2b" stroke="#8d2b1f" stroke-width="1"/>
-          <text x="447" y="60" writing-mode="tb" text-anchor="start"
-                font-family="'Shippori Mincho', serif" font-size="15" letter-spacing="3"
-                fill="#f8f2e4">聲の木版</text>
 
           <!-- frame: ink outside, gold inside -->
-          <rect x="14.5" y="14.5" width="491" height="611" fill="none" stroke="#1a1712" stroke-width="1.4" opacity=".8"/>
-          <rect x="24.5" y="24.5" width="471" height="591" fill="none" stroke="#a9812f" stroke-width=".7" opacity=".55"/>
+          <rect x="14.5" y="14.5" width="531" height="571" fill="none" stroke="#1a1712" stroke-width="1.5" opacity=".8"/>
+          <rect x="24.5" y="24.5" width="511" height="551" fill="none" stroke="#a9812f" stroke-width=".7" opacity=".55"/>
 
-          <!-- hanko 声 -->
-          <rect x="38" y="528" width="44" height="44" fill="#b23a2b"/>
-          <text x="60" y="560" text-anchor="middle" font-family="'Shippori Mincho', serif" font-size="29" fill="#f8f2e4">声</text>
+          <!-- hanko 声, in the lower margin -->
+          <rect x="38" y="524" width="42" height="42" fill="#b23a2b"/>
+          <text x="59" y="555" text-anchor="middle" font-family="'Shippori Mincho', serif" font-size="28" fill="#f8f2e4">声</text>
 
-          <!-- printed texture over everything, the way a woodblock sits on paper -->
-          <rect x="0" y="0" width="520" height="640" fill="url(#grain)" opacity=".3" style="mix-blend-mode:multiply"/>
+          <!-- printed texture over everything -->
+          <rect x="0" y="0" width="560" height="600" fill="url(#grain)" opacity=".26" style="mix-blend-mode:multiply"/>
         </svg>
         <figcaption><span>Shu · ai · sumi</span><span>Koe, print no. 1</span></figcaption>
       </figure>

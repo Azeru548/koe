@@ -191,6 +191,7 @@ const PUBLIC_ASSETS = {
   "/logo-mark.png": "logo-mark.png",
   "/favicon-32.png": "favicon-32.png",
   "/apple-touch-icon.png": "apple-touch-icon.png",
+  "/oiran.png": "oiran.png",           // landing hero artwork
 };
 for (const [route, file] of Object.entries(PUBLIC_ASSETS)) {
   app.get(route, (req, res) => res.sendFile(path.join(__dirname, "assets", file), { maxAge: "7d" }));

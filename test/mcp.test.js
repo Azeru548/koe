@@ -124,7 +124,8 @@ test("GET / serves the landing page", async () => {
   assert.match(html, /<h1[^>]*id="hero-title"/);
   assert.match(html, /a voice\./);
   // the hero artwork is inline, so the page needs no external image request
-  assert.match(html, /<svg viewBox="0 0 520 640"/);
+  assert.match(html, /<svg viewBox="0 0 560 600"/);
+  assert.match(html, /href="\/oiran\.png\?v=\d+"/);
   // and it links onward to the setup page rather than replacing it
   assert.match(html, /href="\/mcp"/);
   assert.match(html, /koe\.kennedyazeru\.space\/mcp/);
