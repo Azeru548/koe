@@ -459,9 +459,10 @@ h2 {
   text-transform: uppercase; color: var(--ink-300);
 }
 
-/* the landing topbar drops its links on small screens; so does this one */
+/* the nav stays usable at every width — it wraps instead of disappearing */
 @media (max-width: 760px) {
-  .nav { display: none; }
+  .topbar { flex-wrap: wrap; row-gap: 10px; }
+  .nav { gap: 14px; font-size: 12.5px; }
 }
 </style>
 </head>
@@ -475,6 +476,7 @@ h2 {
   </a>
   <nav class="nav" aria-label="Primary">
     <a href="/">Home</a>
+    <a href="/docs">Docs</a>
     <a href="#setup">Quickstart</a>
     <a href="#faq">FAQ</a>
     <a href="/studio">Studio</a>

@@ -90,7 +90,7 @@ function keyMatches(candidate) {
 //   tenant → a valid signed key         (per-key limits; free keys via POST /api/register)
 //   anon   → no key                     (smaller per-IP limits; powers the UI demo)
 const OPEN_PATHS = new Set([
-  "/health", "/healthz", "/api/register", "/api/limits", "/",
+  "/health", "/healthz", "/api/register", "/api/limits", "/", "/docs",
   "/keys", "/keys/challenge", // public: key issuance + anti-abuse challenge
   "/voices", // public voice catalog — already public in the studio UI
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
@@ -186,6 +186,7 @@ function callerSubject(req) {
 // The public entry point is the landing page; setup lives at /mcp, the studio at /studio.
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "landing.html")));
 app.get("/studio", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+app.get("/docs", (req, res) => res.sendFile(path.join(__dirname, "docs.html")));
 
 // Brand assets are public and cacheable — no key needed.
 const PUBLIC_ASSETS = {

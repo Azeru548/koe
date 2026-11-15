@@ -354,7 +354,9 @@ footer {
   .ledger { grid-template-columns: 1fr; }
   .ledger div { border-right: 0; border-bottom: 1px solid var(--rule); }
   .ledger div:last-child { border-bottom: 0; }
-  nav.nav a:not(.gh) { display: none; }
+  /* the nav stays visible at every width — it only tightens */
+  .topbar { flex-wrap: wrap; row-gap: 10px; }
+  nav.nav { gap: 14px; font-size: 12.5px; }
   section.band { padding: 56px 0; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -375,6 +377,7 @@ footer {
     <nav class="nav" aria-label="Primary">
       <a href="#hear">Hear it</a>
       <a href="#connect">Connect</a>
+      <a href="/docs">Docs</a>
       <a href="/mcp">Setup</a>
       <a href="/studio">Studio</a>
     </nav>

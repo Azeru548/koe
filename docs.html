@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Koe docs — the agent's reference</title>
+<meta name="description" content="Reference for agents using Koe: the MCP endpoint, the six tools, the HTTP API, quota limits and error codes.">
+<meta name="theme-color" content="#ece3d2">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Shippori+Mincho:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --washi: #ece3d2;
+  --washi-hi: #f5eede;
+  --sumi: #1a1712;
+  --sumi-2: #3a332a;
+  --muted: #6f6656;
+  --faint: #8d8371;
+  --rule: #cfc3ab;
+  --rule-hi: #b9ab90;
+  --shu: #b23a2b;
+  --shu-deep: #8d2b1f;
+  --ai: #26384f;
+  --kin: #a9812f;
+  --display: 'Shippori Mincho', 'Source Serif 4', Georgia, serif;
+  --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'DM Mono', 'Fira Mono', monospace;
+  --wrap: 1120px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  color: var(--sumi-2);
+  background-color: var(--washi);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+  opacity: .5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='.055'/%3E%3C/svg%3E");
+}
+
+a { color: var(--sumi); text-decoration: none; }
+:focus-visible { outline: 2px solid var(--shu); outline-offset: 3px; }
+
+.wrap { width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+
+/* ── topbar ── */
+.topbar {
+  position: relative; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; row-gap: 12px;
+  gap: 20px;
+  padding: 20px 0 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.brand { display: flex; align-items: center; gap: 11px; }
+.brand img { height: 26px; width: auto; display: block; }
+.brand-name { font-family: var(--display); font-weight: 600; font-size: 19px; letter-spacing: .06em; color: var(--sumi); }
+.brand-kana { font-family: var(--display); font-size: 12px; color: var(--faint); letter-spacing: .18em; }
+
+nav.nav { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; font-size: 13px; row-gap: 8px; }
+nav.nav a { color: var(--muted); }
+nav.nav a:hover { color: var(--sumi); }
+nav.nav a[aria-current="page"] { color: var(--sumi); border-bottom: 1px solid var(--shu); padding-bottom: 2px; }
+
+/* ── page head ── */
+.doc-head { padding: 56px 0 34px; max-width: 70ch; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 20px;
+}
+.eyebrow::before { content: ""; width: 30px; height: 1px; background: var(--shu); }
+h1 {
+  font-family: var(--display); font-weight: 600;
+  font-size: clamp(38px, 5.2vw, 62px); line-height: 1.04;
+  letter-spacing: -.012em; color: var(--sumi); text-wrap: balance;
+}
+h1 em { font-style: normal; color: var(--shu); }
+.lede { margin-top: 20px; font-size: 16px; line-height: 1.68; color: var(--muted); }
+.lede b { color: var(--sumi-2); font-weight: 500; }
+
+/* ── contents ── */
+.contents {
+  display: flex; flex-wrap: wrap; gap: 10px 22px;
+  margin-top: 30px; padding-top: 20px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+}
+.contents a { color: var(--muted); }
+.contents a:hover { color: var(--shu); }
+
+/* ── sections ── */
+section.doc { padding: 46px 0; border-top: 1px solid var(--rule-hi); }
+section.doc:first-of-type { border-top: 0; }
+h2 {
+  font-family: var(--display); font-weight: 600;
+  font-size: clamp(25px, 3.2vw, 34px); line-height: 1.16;
+  letter-spacing: -.008em; color: var(--sumi); margin-bottom: 10px;
+}
+.sub { max-width: 72ch; color: var(--muted); font-size: 15px; }
+h3 {
+  font-family: var(--display); font-weight: 600; font-size: 18px;
+  color: var(--sumi); margin-top: 30px;
+}
+p { max-width: 74ch; }
+p + p { margin-top: 12px; }
+.doc p { margin-top: 12px; font-size: 15px; color: var(--muted); }
+.doc p b { color: var(--sumi-2); font-weight: 500; }
+ul, ol { margin: 12px 0 0 20px; max-width: 74ch; font-size: 15px; color: var(--muted); }
+li { margin-bottom: 7px; }
+li b { color: var(--sumi-2); font-weight: 500; }
+
+code { font-family: var(--mono); font-size: .92em; overflow-wrap: anywhere; }
+p code, li code, td code {
+  background: rgba(38,56,79,.07); color: #1b2a3c;
+  padding: 1px 6px; border-left: 2px solid var(--ai);
+}
+pre {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.7;
+  background: rgba(26,23,18,.055);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--sumi);
+  padding: 16px 18px; margin-top: 16px;
+  overflow-x: auto; color: var(--sumi-2);
+}
+
+/* ── tables ── */
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule-hi); background: var(--washi-hi); margin-top: 18px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--faint); font-weight: 500;
+  background: rgba(185,171,144,.12);
+}
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; }
+
+/* ── callout ── */
+.callout {
+  margin-top: 18px; padding: 16px 18px;
+  border: 1px solid var(--rule-hi); background: var(--washi-hi);
+  border-left: 3px solid var(--shu);
+  font-size: 14px; color: var(--sumi-2);
+}
+.callout b { color: var(--sumi); }
+
+/* ── footer ── */
+footer {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--rule-hi);
+  padding: 34px 0 44px; margin-top: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%2326384f' stroke-opacity='.13' stroke-width='1'%3E%3Cpath d='M0 40a20 20 0 0 1 40 0M20 40a20 20 0 0 1 40 0M40 40a20 20 0 0 1 40 0M60 40a20 20 0 0 1 40 0M80 40a20 20 0 0 1 40 0M100 40a20 20 0 0 1 40 0'/%3E%3Cpath d='M-10 30a20 20 0 0 1 40 0M10 30a20 20 0 0 1 40 0M30 30a20 20 0 0 1 40 0M50 30a20 20 0 0 1 40 0M70 30a20 20 0 0 1 40 0M90 30a20 20 0 0 1 40 0'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-position: bottom -8px left;
+}
+.foot-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 20px; font-size: 13px; }
+.foot-links a { color: var(--muted); }
+.foot-links a:hover { color: var(--shu); }
+.colophon { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--faint); text-transform: uppercase; }
+
+@media (max-width: 760px) {
+  .doc-head { padding: 40px 0 26px; }
+  nav.nav { gap: 16px; font-size: 12.5px; }
+  td:first-child { white-space: normal; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Koe home">
+      <img src="/logo-mark.png" alt="">
+      <span class="brand-name">Koe</span>
+      <span class="brand-kana">声</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="/">Home</a>
+      <a href="/docs" aria-current="page">Docs</a>
+      <a href="/mcp">Setup</a>
+      <a href="/studio">Studio</a>
+    </nav>
+  </header>
+</div>
+
+<main>
+  <div class="wrap">
+    <div class="doc-head">
+      <p class="eyebrow">Documentation · for agents</p>
+      <h1>The reference an <em>agent</em> needs.</h1>
+      <p class="lede">Everything below is what a client actually calls: one endpoint, a bearer key, six tools and one HTTP surface. If you are wiring Koe up by hand for the first time, the <a href="/mcp">setup page</a> does the key and the copy-paste config for you.</p>
+      <nav class="contents" aria-label="Contents">
+        <a href="#connect">1 · Connect</a>
+        <a href="#tools">2 · Tools</a>
+        <a href="#http">3 · HTTP API</a>
+        <a href="#limits">4 · Limits</a>
+        <a href="#errors">5 · Errors</a>
+        <a href="#voices">6 · Voices</a>
+      </nav>
+    </div>
+
+    <section class="doc" id="connect" aria-labelledby="connect-title">
+      <h2 id="connect-title">Connect</h2>
+      <p class="sub">Koe speaks Streamable HTTP with plain JSON responses — no SSE stream to keep open, so it survives behind a proxy.</p>
+      <pre>POST https://koe.kennedyazeru.space/mcp
+Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
+      <p><code>POST /mcp</code> always needs a live key; there is no anonymous fallback on that route. Keys are free and self-serve:</p>
+      <ul>
+        <li><b>In a browser:</b> open <a href="/mcp">/mcp</a> and press <i>Create key</i> — the page solves the proof-of-work and shows the key once.</li>
+        <li><b>Programmatically:</b> <code>GET /keys/challenge</code>, then <code>POST /keys</code> with <code>{ challenge, nonce }</code> where <code>sha256(challenge + nonce)</code> starts with four zero hex characters.</li>
+        <li><b>Limit:</b> three keys per IP per UTC day. A key is a row in the studio's database — opaque, revocable, and the identity for all quota.</li>
+      </ul>
+      <div class="callout"><b>Keys are passwords.</b> Send them in a header, never in a URL you share, and never paste a live key into a public repo.</div>
+    </section>
+
+    <section class="doc" id="tools" aria-labelledby="tools-title">
+      <h2 id="tools-title">The six tools</h2>
+      <p class="sub">Tool results come back as a single text block holding JSON. Failures set <code>isError</code> and the text starts with <code>Error:</code>.</p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Tool</th><th>What it does</th></tr>
+          <tr><td><code>studio_status</code></td><td>Health of the studio: uptime, which engines are live, queue depth, whether a key is required, how long audio lives. Call it first when a generation fails.</td></tr>
+          <tr><td><code>list_voices</code></td><td>The curated catalog, filtered by <code>engine</code> (<code>edge</code>, <code>piper</code>, <code>kokoro</code>) and an optional <code>lang</code> prefix. Voice ids are never shared between engines.</td></tr>
+          <tr><td><code>generate_voiceover</code></td><td>The main call: <code>text</code>, plus optional <code>voice</code>, <code>engine</code>, <code>rate</code>, <code>pitch</code>, <code>file_name</code>, <code>timeout_seconds</code>, <code>cleanup</code>. Returns the finished audio and, over MCP, a short-lived signed <code>downloadUrl</code>.</td></tr>
+          <tr><td><code>get_voiceover_status</code></td><td>One job by id, for when a long script is still generating after the call returned.</td></tr>
+          <tr><td><code>list_recent_voiceovers</code></td><td>Your ten newest jobs — tenant-isolated, so you only ever see your own.</td></tr>
+          <tr><td><code>get_usage</code></td><td>Requests and words used this hour and today, the limits, and when the windows reset.</td></tr>
+        </table>
+      </div>
+      <h3>A working call</h3>
+      <pre>generate_voiceover(
+  text:  "Welcome back. Today we're looking at the whole pipeline.",
+  voice: "en-US-AndrewNeural",
+  rate:  1.05
+)</pre>
+      <p>Paragraph breaks split the script into separate parts that are merged back into one file, so a blank line is a deliberate breath, not a formatting accident. Anything over 3,000 characters is split at sentence boundaries for you.</p>
+    </section>
+
+    <section class="doc" id="http" aria-labelledby="http-title">
+      <h2 id="http-title">HTTP API</h2>
+      <p class="sub">Same instance, same key, for scripts and non-MCP runtimes. Every route except the public ones takes <code>x-api-key</code>, <code>Authorization: Bearer</code>, or <code>?key=</code>.</p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Endpoint</th><th>Purpose</th></tr>
+          <tr><td><code>POST /tts</code></td><td><code>{ text, voice?, rate?, pitch?, engine? }</code> → <code>{ jobId, parts, wordCount }</code> immediately; synthesis runs in the background.</td></tr>
+          <tr><td><code>GET /job/:id</code></td><td>The job object and its status: <code>queued</code>, <code>generating (n/m)</code>, <code>done</code>, <code>failed</code>.</td></tr>
+          <tr><td><code>GET /download/:id</code></td><td>ZIP of the parts. <code>409</code> until done, <code>410</code> once the audio has expired.</td></tr>
+          <tr><td><code>POST /tts-preview</code></td><td>Streams a short MP3 directly (600 characters max). Edge only.</td></tr>
+          <tr><td><code>GET /voices</code></td><td>The catalog: <code>?engine=</code> and <code>&amp;lang=</code> filters. Public.</td></tr>
+          <tr><td><code>GET /usage</code></td><td>This caller's window and resets.</td></tr>
+          <tr><td><code>GET /healthz</code></td><td>Alias <code>/health</code>. Never needs a key; <code>503</code> if the database is unreachable.</td></tr>
+        </table>
+      </div>
+      <pre>curl -s -X POST https://koe.kennedyazeru.space/tts \
+  -H "x-api-key: $KOE_KEY" -H "content-type: application/json" \
+  -d '{"text":"A short line of narration.","voice":"en-US-JennyNeural"}'
+# → { "jobId": "1794…-56ajg", "parts": 1, "wordCount": 5 }</pre>
+    </section>
+
+    <section class="doc" id="limits" aria-labelledby="limits-title">
+      <h2 id="limits-title">Limits</h2>
+      <p class="sub">The free tier is bounded per key, per job and instance-wide. Nothing here requires a card, and a rejected request never burns quota.</p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Scope</th><th>Limit</th></tr>
+          <tr><td>Free key</td><td>60 requests / hour · 2,000 words / hour · 20,000 words / day</td></tr>
+          <tr><td>Anonymous</td><td>20 requests / hour · 500 words / hour · 3,000 words / day</td></tr>
+          <tr><td>One job</td><td>6,000 words · 40,000 characters</td></tr>
+          <tr><td>Instance</td><td>2 concurrent jobs · 20-job queue · 30,000 words / day</td></tr>
+          <tr><td>Audio</td><td>Deleted after 15 minutes; job metadata after an hour</td></tr>
+        </table>
+      </div>
+      <p>Straight from <a href="/api/limits">/api/limits</a>, live from <code>get_usage</code>. The instance shares one upstream endpoint, so serialize big jobs rather than fanning out.</p>
+    </section>
+
+    <section class="doc" id="errors" aria-labelledby="errors-title">
+      <h2 id="errors-title">Error codes</h2>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Code</th><th>Meaning and fix</th></tr>
+          <tr><td><code>400</code></td><td>Bad input: empty text, unknown engine, a voice id from another engine, or a job over 6,000 words.</td></tr>
+          <tr><td><code>401</code></td><td>Missing or unknown key. Mint a new one at <a href="/mcp">/mcp</a>.</td></tr>
+          <tr><td><code>403</code></td><td>Another tenant's job, or a failed issuance gate (expired or reused challenge).</td></tr>
+          <tr><td><code>409</code></td><td>The job exists but is not finished; poll <code>GET /job/:id</code>.</td></tr>
+          <tr><td><code>410</code></td><td>Audio expired (15 minutes) or the instance restarted. Regenerate.</td></tr>
+          <tr><td><code>413</code></td><td>Script over 40,000 characters. Split it per scene.</td></tr>
+          <tr><td><code>429</code></td><td>Rate or queue limit. The body carries <code>retryAfterSeconds</code> and a <code>reason</code>: <code>hourly_requests</code>, <code>hourly_words</code>, <code>daily_words</code>, <code>global_daily_words</code>, <code>queue_full</code>, <code>mint_cap</code>.</td></tr>
+          <tr><td><code>503</code></td><td>Kill switch, missing engine, or upstream cool-down after repeated failures. Retry after the indicated wait.</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="doc" id="voices" aria-labelledby="voices-title">
+      <h2 id="voices-title">Voices</h2>
+      <p class="sub">Twenty-nine curated neural voices across nineteen locales, plus two optional engines. Ask <code>list_voices</code> rather than hard-coding a list.</p>
+      <ul>
+        <li><b>edge</b> — Microsoft's neural voices. Supports rate and pitch, MP3, the best quality of the three.</li>
+        <li><b>piper</b> — fully offline, one voice, WAV, ignores rate and pitch. Only if <code>studio_status</code> reports it available.</li>
+        <li><b>kokoro</b> — optional local sidecar, 54 voices, MP3, rate only. Answers <code>503</code> when the sidecar is not running; use edge instead.</li>
+      </ul>
+      <p>Voice ids are engine-specific. Passing an edge id to kokoro (or the reverse) is a <code>400</code> whose body lists the first 20 valid ids — useful when you need to recover in one retry.</p>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <nav class="foot-links" aria-label="Footer">
+        <a href="/">Home</a>
+        <a href="/mcp">Setup &amp; key</a>
+        <a href="/studio">Studio</a>
+        <a href="/health">Health</a>
+      </nav>
+      <span class="colophon">声 · free for now · no account, no card</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -131,6 +131,15 @@ test("GET / serves the landing page", async () => {
   assert.match(html, /koe\.kennedyazeru\.space\/mcp/);
 });
 
+test("GET /docs serves the agent reference without a key", async () => {
+  const res = await fetch(`${base}/docs`);
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.match(html, /<title>Koe docs/);
+  assert.match(html, /generate_voiceover/, "the tool list must be on the page");
+  assert.match(html, /href="\/mcp"/, "docs must link back to setup");
+});
+
 test("GET /studio serves the studio page", async () => {
   const res = await fetch(`${base}/studio`);
   assert.equal(res.status, 200);
