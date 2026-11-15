@@ -339,11 +339,11 @@ Counters persist to `KOE_STATS_FILE` (default `.koe-stats.json`; `/data/stats.js
 
 [`skills/koe-voiceover/SKILL.md`](skills/koe-voiceover/SKILL.md) packages this
 server as a portable `SKILL.md`: when to reach for a voiceover, how to get a free
-key, the tool table, script-formatting rules and the error table. Point it at the
-hosted endpoint or your own instance. Zip the folder to publish it to a skill
-marketplace.
+key, the tool table, script-formatting rules and the error table. Zip the folder
+to publish it to a skill marketplace.
 
 ## Licence
 
-ISC © Azeru548 — see [LICENSE](LICENSE). Use it, modify it, self-host it,
-redistribute it.
+Proprietary. © Azeru548, all rights reserved. See [LICENSE](LICENSE): this
+source is not open source and may not be copied, modified or redistributed
+without permission.

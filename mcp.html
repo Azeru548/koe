@@ -382,7 +382,6 @@ details code { font-size: 12.5px; background: rgba(24,22,19,0.05); padding: 1px 
     <a href="/studio">Studio</a>
     <a href="#setup">Quickstart</a>
     <a href="#faq">FAQ</a>
-    <a class="gh" href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">GitHub ↗</a>
   </nav>
 </header>
 
@@ -394,7 +393,7 @@ details code { font-size: 12.5px; background: rgba(24,22,19,0.05); padding: 1px 
       <p class="upstream">Runs on Microsoft's free consumer endpoint, so it is occasionally throttled and has no SLA. <a href="#faq">What that means</a>.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#setup">Connect your agent</a>
-        <a class="btn btn-ghost" href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">Self-host it</a>
+        <a class="btn btn-ghost" href="/studio">Open the studio</a>
       </div>
       <p class="trust">No account · No card · Audio deleted after 15 minutes</p>
     </div>
@@ -565,7 +564,7 @@ details code { font-size: 12.5px; background: rgba(24,22,19,0.05); padding: 1px 
         <p>Prefer a local process, or need a file path in your project? The repo ships the same tools over stdio. It talks to this studio and saves audio to your disk.</p>
         <div class="code"><button class="copy" type="button" aria-label="Copy the local setup commands">Copy</button><pre><span class="tok-cmd">cd</span> mcp &amp;&amp; <span class="tok-cmd">npm</span> install
 <span class="tok-cmd">TTS_STUDIO_URL</span>=<span class="tok-origin"></span> <span class="tok-cmd">node</span> index.js</pre></div>
-        <p class="note">Add it to <code>claude_desktop_config.json</code> with <code>command: "node"</code> and <code>args: ["/path/to/mcp/index.js"]</code>. On Windows PowerShell, set the URL with <code>$env:TTS_STUDIO_URL="..."</code> or put it in the config's <code>env</code>. It mints and stores its own free key in <code>~/.koe/credentials.json</code>. Full reference: <a href="https://github.com/Azeru548/koe/blob/main/AGENTS.md" target="_blank" rel="noopener">AGENTS.md</a>.</p>
+        <p class="note">Add it to <code>claude_desktop_config.json</code> with <code>command: "node"</code> and <code>args: ["/path/to/mcp/index.js"]</code>. On Windows PowerShell, set the URL with <code>$env:TTS_STUDIO_URL="..."</code> or put it in the config's <code>env</code>. It mints and stores its own free key in <code>~/.koe/credentials.json</code>.</p>
       </div>
     </div>
   </section>
@@ -616,7 +615,7 @@ details code { font-size: 12.5px; background: rgba(24,22,19,0.05); padding: 1px 
         <tr><td>Voices</td><td colspan="2">29 curated across 19 locales; any official Microsoft voice name also works</td></tr>
       </table>
     </div>
-    <p class="sub" style="margin-top:10px">Need more? Self-host the same repo with your own limits. The whole thing is open source.</p>
+    <p class="sub" style="margin-top:10px">That is the whole free tier: 60 requests and 2,000 words per key per hour, reset every hour. Nothing here needs a card.</p>
   </section>
 
   <section id="faq" aria-labelledby="faq-title">
@@ -666,8 +665,8 @@ details code { font-size: 12.5px; background: rgba(24,22,19,0.05); padding: 1px 
 </main>
 
 <footer class="footer">
-  <span>Koe TTS Studio · free and open source. Be kind to the upstream endpoint.</span>
-  <span><a href="/studio">Studio</a> · <a href="/health">Health</a> · <a href="/api/limits">Limits JSON</a> · <a href="https://github.com/Azeru548/koe" target="_blank" rel="noopener">GitHub</a></span>
+  <span>Koe TTS Studio · free for now. Be kind to the upstream endpoint.</span>
+  <span><a href="/studio">Studio</a> · <a href="/health">Health</a> · <a href="/api/limits">Limits JSON</a></span>
 </footer>
 
 <script>

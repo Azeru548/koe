@@ -45,9 +45,8 @@ in the client's MCP config, not in a script you might commit. If a call answers
 `401 {"error":"invalid_key"}` the key was revoked or issued by an older build —
 mint a new one.
 
-Prefer the local stdio server (`mcp/index.js` from the repo) when the agent can
-write files: it saves the audio to disk and returns absolute paths. The hosted
-endpoint cannot write to your disk, so it returns a signed download URL instead.
+The hosted endpoint cannot write to your disk, so it returns a signed download
+URL instead — fetch it promptly, because the audio is deleted server-side.
 
 ## Tools
 
@@ -105,8 +104,8 @@ for short clips. **Download promptly**: server-side audio is deleted after
 Per key: **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Instance-wide:
 **2 concurrent jobs**, 20-job queue, 30,000 words/day. Previews: 600 characters.
 
-Serialize large jobs — this is a small self-hosted box, not a fleet. Do not fan
-out parallel generations.
+Serialize large jobs — this is one small shared instance, not a fleet. Do not
+fan out parallel generations.
 
 ## Reacting to failures
 
@@ -123,10 +122,3 @@ out parallel generations.
 
 When a generate call fails and the cause is unclear, call `studio_status` first:
 it separates "server unreachable" from "quota" from "engine missing".
-
-## Self-hosting
-
-The whole studio is in this repo and runs on one small box, with an ISC licence:
-`docker` + a single SQLite file for keys and counters. See `README.md` and
-`DEPLOY.md`. Point `TTS_STUDIO_URL` (stdio server) or the MCP URL (hosted) at
-your own instance to escape the shared quotas.
