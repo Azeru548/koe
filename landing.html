@@ -295,6 +295,9 @@ h2 {
 .step { padding: 30px 30px 30px 0; border-right: 1px solid var(--rule); }
 .step:last-child { border-right: 0; padding-right: 0; }
 .step:not(:first-child) { padding-left: 30px; }
+/* one small isometric object per step, same palette and linework as the elevation */
+.step-icon { display: block; width: 58px; height: auto; margin-bottom: 20px; }
+.step-icon svg { display: block; width: 100%; height: auto; }
 .step-num {
   font-family: var(--display); font-size: 15px; color: var(--shu);
   letter-spacing: .1em; display: block; margin-bottom: 16px;
@@ -579,17 +582,68 @@ footer {
 
       <div class="steps">
         <div class="step">
+          <span class="step-icon" aria-hidden="true">
+            <svg viewBox="0 0 128 128" role="img" aria-label="A free key on a card">
+                  <g transform="translate(47.33 23.03) scale(55.0000)">
+                  <polygon points="1.732,1.000 0.606,1.650 0.606,1.490 1.732,0.840" fill="#e0d2b6" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="-1.126,0.650 0.606,1.650 0.606,1.490 -1.126,0.490" fill="#eee4cf" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="0.000,-0.160 1.732,0.840 0.606,1.490 -1.126,0.490" fill="#f8f2e4" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="0.017,0.006 1.438,0.826 1.212,0.956 -0.208,0.136" fill="#1a1712" stroke="#1a1712" stroke-width="0.014" stroke-opacity="0.75"/>
+                  <polygon points="-0.139,0.336 0.797,0.876 0.606,0.986 -0.329,0.446" fill="#17140f" stroke="#1a1712" stroke-width="0.014" stroke-opacity="0.75"/>
+                  <polygon points="0.000,0.524 -0.037,0.542 -0.077,0.557 -0.122,0.567 -0.169,0.574 -0.216,0.576 -0.264,0.574 -0.311,0.567 -0.356,0.557 -0.396,0.542 -0.433,0.524 -0.464,0.503 -0.489,0.479 -0.508,0.454 -0.519,0.427 -0.523,0.399 -0.519,0.371 -0.508,0.344 -0.489,0.319 -0.464,0.295 -0.433,0.274 -0.396,0.256 -0.356,0.241 -0.311,0.231 -0.264,0.224 -0.216,0.222 -0.169,0.224 -0.122,0.231 -0.077,0.241 -0.037,0.256 0.000,0.274 0.031,0.295 0.056,0.319 0.075,0.344 0.086,0.371 0.090,0.399 0.086,0.427 0.075,0.454 0.056,0.479 0.031,0.503" fill="#b23a2b" stroke="#1a1712" stroke-width="0.012" stroke-opacity="0.85"/>
+                  <polygon points="0.537,0.946 0.606,0.986 0.416,1.096 0.346,1.056" fill="#17140f" stroke="#1a1712" stroke-width="0.014" stroke-opacity="0.75"/>
+                  <polygon points="0.364,0.846 0.433,0.886 0.294,0.966 0.225,0.926" fill="#17140f" stroke="#1a1712" stroke-width="0.014" stroke-opacity="0.75"/>
+                  </g>
+                </svg>
+          </span>
           <span class="step-num">壱</span>
           <h3>Take a free key</h3>
           <p>Open the setup page and press <em>Create key</em>. It solves the proof-of-work challenge for you and shows the key once. Three per IP per day.</p>
         </div>
         <div class="step">
+          <span class="step-icon" aria-hidden="true">
+            <svg viewBox="0 0 128 128" role="img" aria-label="Two blocks joined by a red link">
+                  <g transform="translate(34.23 41.31) scale(55.0000)">
+                  <polygon points="0.520,0.550 -0.217,0.975 -0.217,-0.175 0.520,-0.600" fill="#e0d2b6" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="-0.953,0.550 -0.217,0.975 -0.217,-0.175 -0.953,-0.600" fill="#eee4cf" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="-0.216,-1.025 0.520,-0.600 -0.217,-0.175 -0.953,-0.600" fill="#f8f2e4" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="2.035,1.425 1.299,1.850 1.299,0.700 2.035,0.275" fill="#2c261d" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="0.563,1.425 1.299,1.850 1.299,0.700 0.563,0.275" fill="#221e17" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="1.299,-0.150 2.035,0.275 1.299,0.700 0.563,0.275" fill="#17140f" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="1.108,0.500 0.840,0.655 0.840,0.475 1.108,0.320" fill="#c2492f" stroke="#1a1712" stroke-width="0.018" stroke-opacity="0.75"/>
+                  <polygon points="-0.026,0.155 0.840,0.655 0.840,0.475 -0.026,-0.025" fill="#8d2b1f" stroke="#1a1712" stroke-width="0.018" stroke-opacity="0.75"/>
+                  <polygon points="0.242,-0.180 1.108,0.320 0.840,0.475 -0.026,-0.025" fill="#b23a2b" stroke="#1a1712" stroke-width="0.018" stroke-opacity="0.75"/>
+                  <polygon points="-0.026,-0.501 -0.058,-0.485 -0.094,-0.472 -0.133,-0.463 -0.174,-0.457 -0.217,-0.455 -0.259,-0.457 -0.300,-0.463 -0.339,-0.472 -0.375,-0.485 -0.407,-0.501 -0.434,-0.520 -0.457,-0.540 -0.473,-0.563 -0.483,-0.587 -0.486,-0.611 -0.483,-0.635 -0.473,-0.659 -0.457,-0.682 -0.434,-0.702 -0.407,-0.721 -0.375,-0.737 -0.339,-0.750 -0.300,-0.759 -0.259,-0.765 -0.217,-0.767 -0.174,-0.765 -0.133,-0.759 -0.094,-0.750 -0.058,-0.737 -0.026,-0.721 0.001,-0.702 0.024,-0.682 0.040,-0.659 0.050,-0.635 0.053,-0.611 0.050,-0.587 0.040,-0.563 0.024,-0.540 0.001,-0.520" fill="#f8f2e4" stroke="#1a1712" stroke-width="0.014" stroke-opacity="0.85"/>
+                  </g>
+                </svg>
+          </span>
           <span class="step-num">弐</span>
           <h3>Point the agent at Koe</h3>
           <p>Add the URL and send the key as a bearer header. One endpoint, every MCP client.</p>
           <code>https://koe.kennedyazeru.space/mcp</code>
         </div>
         <div class="step">
+          <span class="step-icon" aria-hidden="true">
+            <svg viewBox="0 0 128 128" role="img" aria-label="A ribbon microphone on a stand">
+                  <g transform="translate(56.86 66.48) scale(55.0000)">
+                  <polygon points="0.996,1.025 0.346,1.400 0.346,1.240 0.996,0.865" fill="#e0d2b6" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="-0.736,0.775 0.346,1.400 0.346,1.240 -0.736,0.615" fill="#eee4cf" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="-0.087,0.240 0.996,0.865 0.346,1.240 -0.736,0.615" fill="#f8f2e4" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="0.268,0.745 0.139,0.820 0.139,-0.120 0.268,-0.195" fill="#2c261d" stroke="#1a1712" stroke-width="0.018" stroke-opacity="0.75"/>
+                  <polygon points="0.000,0.740 0.139,0.820 0.139,-0.120 0.000,-0.200" fill="#221e17" stroke="#1a1712" stroke-width="0.018" stroke-opacity="0.75"/>
+                  <polygon points="0.130,-0.275 0.268,-0.195 0.139,-0.120 0.000,-0.200" fill="#17140f" stroke="#1a1712" stroke-width="0.018" stroke-opacity="0.75"/>
+                  <polygon points="0.849,-0.140 0.225,0.220 0.225,-0.680 0.849,-1.040" fill="#e0d2b6" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="-0.554,-0.230 0.225,0.220 0.225,-0.680 -0.554,-1.130" fill="#eee4cf" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="0.069,-1.490 0.849,-1.040 0.225,-0.680 -0.554,-1.130" fill="#f8f2e4" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  <polygon points="0.783,-0.218 0.298,0.062 0.298,-0.018 0.783,-0.298" fill="#17140f" stroke="#1a1712" stroke-width="0" stroke-opacity="0.75"/>
+                  <polygon points="0.783,-0.368 0.298,-0.088 0.298,-0.168 0.783,-0.448" fill="#17140f" stroke="#1a1712" stroke-width="0" stroke-opacity="0.75"/>
+                  <polygon points="0.783,-0.518 0.298,-0.238 0.298,-0.318 0.783,-0.598" fill="#17140f" stroke="#1a1712" stroke-width="0" stroke-opacity="0.75"/>
+                  <polygon points="0.783,-0.668 0.298,-0.388 0.298,-0.468 0.783,-0.748" fill="#17140f" stroke="#1a1712" stroke-width="0" stroke-opacity="0.75"/>
+                  <polygon points="0.783,-0.818 0.298,-0.538 0.298,-0.618 0.783,-0.898" fill="#17140f" stroke="#1a1712" stroke-width="0" stroke-opacity="0.75"/>
+                  <polygon points="0.783,-0.098 0.003,0.352 0.003,0.252 0.783,-0.198" fill="#b23a2b" stroke="#1a1712" stroke-width="0.022" stroke-opacity="0.75"/>
+                  </g>
+                </svg>
+          </span>
           <span class="step-num">参</span>
           <h3>Ask for a voiceover</h3>
           <p><code>generate_voiceover</code> takes the script, voice and rate; it returns an MP3, or a signed URL when the audio lives on the server.</p>
