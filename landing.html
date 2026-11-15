@@ -141,6 +141,24 @@ nav.nav a.gh:hover { background: var(--washi-hi); border-color: var(--sumi); }
   border-radius: 40% 60% 55% 45% / 60% 40% 60% 40%;
 }
 
+/* the CTA is set inside the headline block, the way a print poster carries
+   its call in the type — a red block with softly cut corners, tipped a degree */
+.h1-cta {
+  display: inline-flex; align-items: center; gap: .6em;
+  margin-top: 22px;
+  font-family: var(--font); font-weight: 600;
+  font-size: clamp(12px, 1.5vw, 14.5px);
+  letter-spacing: .13em; text-transform: uppercase;
+  color: #fdf8ee; background: var(--shu);
+  padding: 14px 22px 13px;
+  border-radius: 3px 20px 4px 18px / 17px 4px 19px 5px;
+  transform: rotate(-1.1deg);
+  box-shadow: 2px 2px 0 var(--shu-deep);
+  transition: background .18s, transform .18s, box-shadow .18s;
+}
+.h1-cta::after { content: "→"; font-size: 1.05em; line-height: 1; }
+.h1-cta:hover { background: var(--shu-deep); transform: rotate(-1.1deg) translateY(-1px); box-shadow: 2px 3px 0 rgba(141,43,31,.55); }
+
 .lede {
   margin-top: 26px; max-width: 51ch;
   font-size: 16px; line-height: 1.68; color: var(--muted);
@@ -201,6 +219,9 @@ h2 {
   max-width: 22ch;
 }
 .sub { margin-top: 14px; max-width: 56ch; color: var(--muted); font-size: 15px; }
+
+/* rising sun, printed as line work — the emblem above a section head */
+.sunburst { display: block; width: 116px; height: auto; margin-bottom: 20px; }
 
 /* sample player */
 .hear { display: grid; grid-template-columns: .9fr 1.1fr; gap: 54px; align-items: center; }
@@ -358,10 +379,10 @@ footer {
         <h1 id="hero-title">
           <span class="line">Give your</span>
           <span class="line">agent <em>a voice.</em></span>
+          <span class="line"><a class="h1-cta" href="#connect">Connect your agent</a></span>
         </h1>
         <p class="lede">Koe is a <b>hosted MCP server</b> that turns a script into a finished voiceover. Twenty-nine curated neural voices, one URL, no account and no API bill — point Claude, Cursor or any MCP client at it and the work comes back as audio.</p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="#connect">Connect your agent</a>
           <a class="btn btn-ghost" href="#hear">Hear a sample</a>
         </div>
         <p class="trust"><span>No account</span><span>No card</span><span>Audio deleted after 15 min</span></p>
@@ -464,6 +485,21 @@ footer {
 
   <div class="wrap">
     <section class="band" id="connect">
+      <svg class="sunburst" viewBox="0 0 120 74" aria-hidden="true">
+        <g stroke="#b23a2b" stroke-width="1" stroke-linecap="round" opacity=".5">
+          <path d="M60 8V34" transform="rotate(-78 60 64)"/>
+          <path d="M60 8V34" transform="rotate(-58 60 64)"/>
+          <path d="M60 8V34" transform="rotate(-39 60 64)"/>
+          <path d="M60 8V34" transform="rotate(-20 60 64)"/>
+          <path d="M60 8V34"/>
+          <path d="M60 8V34" transform="rotate(20 60 64)"/>
+          <path d="M60 8V34" transform="rotate(39 60 64)"/>
+          <path d="M60 8V34" transform="rotate(58 60 64)"/>
+          <path d="M60 8V34" transform="rotate(78 60 64)"/>
+        </g>
+        <path d="M36 64a24 24 0 0 1 48 0Z" fill="#b23a2b"/>
+        <path d="M26 64h68" stroke="#1a1712" stroke-width="1" opacity=".45"/>
+      </svg>
       <p class="kicker">弐 · The hand-off</p>
       <h2>Three moves to a finished voiceover.</h2>
       <p class="sub">No install, no SDK, no key purchase. The endpoint is stateless and speaks plain JSON over Streamable HTTP, which is why it survives behind a proxy and an ephemeral container disk.</p>
