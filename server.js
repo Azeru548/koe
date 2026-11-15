@@ -94,6 +94,7 @@ const OPEN_PATHS = new Set([
   "/keys", "/keys/challenge", // public: key issuance + anti-abuse challenge
   "/voices", // public voice catalog — already public in the studio UI
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
+  "/oiran.png", // landing hero artwork — must load before anyone has a key
   "/stats.html", // the dashboard SHELL is public; its data comes from admin-only /stats.json
 ]);
 

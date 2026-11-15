@@ -142,7 +142,9 @@ test("GET /studio serves the studio page", async () => {
 });
 
 test("brand assets are served publicly", async () => {
-  for (const route of ["/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png"]) {
+  // /oiran.png is the landing hero: an <image href> that must load before the
+  // visitor has a key, or the plate renders empty.
+  for (const route of ["/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png", "/oiran.png"]) {
     const res = await fetch(`${base}${route}`);
     assert.equal(res.status, 200, route);
     assert.match(res.headers.get("content-type") || "", /image\/png/, route);
