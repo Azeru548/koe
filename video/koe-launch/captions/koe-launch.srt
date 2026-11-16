@@ -1,0 +1,36 @@
+
+1
+00:00:00,190 --> 00:00:02,330
+Stop paying for voiceovers.
+
+2
+00:00:02,490 --> 00:00:03,860
+This is Koe.
+
+3
+00:00:04,020 --> 00:00:07,670
+Paste a script. Get a finished voiceover in seconds.
+
+4
+00:00:07,830 --> 00:00:11,210
+Twenty-nine voices. Twenty-nine languages.
+
+5
+00:00:11,370 --> 00:00:14,730
+Pick one. Set the pace. Hit generate.
+
+6
+00:00:14,890 --> 00:00:18,950
+Podcasts. Ads. Explainers. Whole books.
+
+7
+00:00:19,110 --> 00:00:22,690
+No account. No card. No API bill.
+
+8
+00:00:22,850 --> 00:00:24,960
+Your words, actually spoken.
+
+9
+00:00:25,120 --> 00:00:26,730
+Koe. Free.
