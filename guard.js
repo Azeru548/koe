@@ -457,7 +457,10 @@ function waitForSlot(slotPromise, deadlineAt, now = Date.now()) {
       else Promise.resolve(slotPromise).then(() => releaseSlot(), () => {});
       resolve({ granted: false, reason: "wait_timeout", waitedMs: budget });
     }, budget);
-    timer.unref?.();
+    // Deliberately NOT unref'd: this wait is the only thing keeping the caller's
+    // request alive. Unref'ing it let the event loop drain mid-wait, so the
+    // process could exit (or a test runner cancel the test) instead of the
+    // caller getting its "no slot" answer.
     Promise.resolve(slotPromise).then(() => {
       if (settled) return;          // already timed out; the handler above releases it
       settled = true;
