@@ -19,6 +19,7 @@ const crypto = require("crypto");
 const { execFile } = require("child_process");
 const { TTS_BACKEND, MAX_BUFFER } = require("./backend");
 const { EDGE_VOICES } = require("../voices");
+const { readableError } = require("./errors");
 
 const EDGE_TIMEOUT_MS = 5 * 60 * 1000;
 const CONTENT_TYPE = "audio/mpeg";
@@ -51,8 +52,9 @@ function runDockerEdgeTTS({ text, voice, rate, pitch, hostDir, containerDir, fil
 
     execFile("docker", args, { maxBuffer: MAX_BUFFER, timeout: EDGE_TIMEOUT_MS }, (err, stdout, stderr) => {
       if (err) {
+        // Full stderr goes to the operator log; the caller gets one line.
         console.error(`[TTS ERROR docker] voice=${voice}\n${stderr}`);
-        return reject(new Error(stderr || err.message));
+        return reject(new Error(readableError(stderr, err)));
       }
       resolve();
     });
@@ -75,7 +77,7 @@ function runNativeEdgeTTS({ text, voice, rate, pitch, outPath }) {
         if (err.code === "ENOENT") {
           return reject(new Error("edge-tts CLI not found on this host (pip install edge-tts)"));
         }
-        return reject(new Error(stderr || err.message));
+        return reject(new Error(readableError(stderr, err)));
       }
       resolve();
     });

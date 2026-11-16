@@ -250,6 +250,8 @@ The server's job JSON (returned by `GET /job/:id`):
 
 `status` walks through: `"queued"` → `"generating (i/n)"` while parts run → `"done"` or `"failed"` (then `error` holds the message). `progress` (0–100) appears once the first part finishes. Treat anything not `done`/`failed` as still running.
 
+`error` is one readable line — the exception, not the Python traceback the CLI printed; the full stderr stays in the server log. If you need to debug an engine, read the log, not the API response.
+
 Every job also carries `deadlineAt` (when it will give up if it has not finished). While it is `queued` it additionally carries `queue` — the live `{ active, queued, concurrency, queueMax, saturated, load }` — so a caller can tell "waiting for a worker" from "working". The internal `usage` bookkeeping is never returned.
 
 After the audio TTL, `file` becomes `null`, `audioDeletedAt` is set, and `GET /download/:id` returns `410`. The job object itself is pruned after `jobTtlSeconds` (default 1 hour). The job's `tenant` id is never exposed in API responses.
