@@ -53,3 +53,7 @@ ops/koe.env
 /videos/**/check[0-9]*.json
 /videos/**/audio-check.json
 /videos/**/audio-final.json
+
+# Python bytecode (the Kitten sidecar is Python)
+__pycache__/
+*.pyc
