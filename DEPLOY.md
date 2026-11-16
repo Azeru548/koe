@@ -329,9 +329,36 @@ The older server-rendered `/stats?key=...` report remains available as a fallbac
 
 ## 8. Operations
 
+### Kitten sidecar (optional, 512 MB)
+
+A second local engine that fits where Kokoro does not. The image is built from
+this repo (`ops/kitten/` — a stdlib HTTP wrapper around the ONNX model), not
+pulled from a registry, so `rebuild.sh` needs the checkout that has it.
+
+```bash
+cd ~/koe
+docker compose up -d --build kitten   # serves 127.0.0.1:8881
+docker compose logs -f kitten        # first boot downloads the weights (~25 MB)
+docker compose down kitten           # stop it
+```
+
+- `KITTEN_MODEL` (default `KittenML/kitten-tts-nano-0.8-int8`), `KITTEN_MEM_LIMIT`
+  (default `512m`), `KITTEN_BASE_URL` for the app (default `http://127.0.0.1:8881`).
+- Output is WAV, one synthesis at a time inside the container.
+- `engine: "kitten"` answers `503 {"error":"tts_unavailable","engine":"kitten"}`
+  while the sidecar is down — nothing else is affected and no quota is spent.
+- Voice ids: `bella` `jasper` `luna` `bruno` `rosie` `hugo` `kiki` `leo`.
+- **Licence:** the KittenTTS code is Apache-2.0, but the weights are licensed
+  separately per model repository — check the card of the checkpoint you set in
+  `KITTEN_MODEL` before shipping it commercially.
+
+Reaching it from the app container follows the same rule as Kokoro (§8): the
+`koe` container is bridge-networked, so use `KITTEN_BASE_URL=http://kitten:8881`
+on the compose network rather than `127.0.0.1`.
+
 ### Kokoro sidecar (optional)
 
-The third engine runs in its **own container**. The app is fully functional without it — edge and piper are unaffected, and only `engine: "kokoro"` requests answer `503 {"error":"tts_unavailable","engine":"kokoro"}` (within 10s, before any quota is charged).
+The Kokoro engine runs in its **own container**. The app is fully functional without it — edge and piper are unaffected, and only `engine: "kokoro"` requests answer `503 {"error":"tts_unavailable","engine":"kokoro"}` (within 10s, before any quota is charged).
 
 ```bash
 cd ~/koe                     # the checkout that holds docker-compose.yml
@@ -345,14 +372,14 @@ docker compose pull && docker compose up -d   # after bumping tag + digest
 The image is pinned by **digest** (`msgflux/fastkokoro:0.7-cpu@sha256:35b4…`, never `:latest`), bound to `127.0.0.1:8880` only, and capped at `cpus: "2.0"` / `mem_limit: ${KOKORO_MEM_LIMIT:-1g}` so it can never starve the app container. The healthcheck probes `GET /health` inside the container with a 180s start period for the first-boot model download.
 
 **Pick the instance for the engine mix.** The app itself is small (Node plus a
-few `edge-tts` subprocesses, all network-bound); Kokoro is the part that decides
-the memory bill:
+few `edge-tts` subprocesses, all network-bound); the sidecars decide the memory
+bill:
 
-| Host | RAM | Kokoro sidecar | `KOE_GLOBAL_CONCURRENCY` |
-| --- | --- | --- | --- |
-| t3.micro | 1 GiB | **Don't run it.** `engine: "kokoro"` stays a clean 503; edge and piper work. | 3–4 |
-| t3.small | 2 GiB | Yes, with `KOKORO_MEM_LIMIT=1g` (the default) | 3–4 |
-| t3.medium | 4 GiB | Yes, `KOKORO_MEM_LIMIT=2g` | 6 |
+| Host | RAM | Kokoro (MP3, 82M) | Kitten (WAV, 15–80M) | `KOE_GLOBAL_CONCURRENCY` |
+| --- | --- | --- | --- | --- |
+| t3.micro | 1 GiB | **Don't run it.** `engine: "kokoro"` stays a clean 503. | Only if you accept ~512 MB for it | 3–4 |
+| t3.small | 2 GiB | Yes, `KOKORO_MEM_LIMIT=1g` (default) | **Or** Kitten, `KITTEN_MEM_LIMIT=512m` — not both | 3–4 |
+| t3.medium | 4 GiB | Yes, `KOKORO_MEM_LIMIT=2g` | Yes, `512m` | 6 |
 
 Two rules that matter:
 
@@ -370,7 +397,13 @@ into `docker run`, so a restart alone will not pick them up:
 ```bash
 KOE_GLOBAL_CONCURRENCY=4
 KOKORO_MEM_LIMIT=1g      # only matters when docker compose is used
+KITTEN_MEM_LIMIT=512m
 ```
+
+**On 2 GiB, run one sidecar, not two.** Kokoro's fp32 ONNX peaks around
+1.2 GB RSS; Kitten's int8 nano around 250–400 MB. 1g + 512m + Node + Docker does
+not fit in 2 GiB, and the host OOM-killer does not respect either `mem_limit`.
+Kitten is the one to pick if you want a local engine on t3.small.
 
 Resizing does not change any of this by itself: after a resize, run
 `bash ~/koe-ops/rebuild.sh` so the container is recreated with the new limits.
@@ -392,10 +425,10 @@ Verify from the app's side:
 
 ```bash
 curl -s localhost:3000/healthz | jq '.engines'
-# → { "edge": true, "piper": true, "kokoro": true }
+# → { "edge": true, "piper": true, "kokoro": true, "kitten": false }
 ```
 
-`kokoro: false` means the sidecar is down or still warming up — a normal state, not a fault. `GET /healthz` stays `200` either way, because a missing optional engine must never fail the watchdog.
+`kokoro: false` / `kitten: false` means that sidecar is down or still warming up — a normal state, not a fault. `GET /healthz` stays `200` either way, because a missing optional engine must never fail the watchdog.
 
 The `koe` container is bridge-networked, so `127.0.0.1:8880` is the container's own loopback and never reaches the sidecar. The obvious-looking fix does **not** work: `--add-host=host.docker.internal:host-gateway` with `KOKORO_BASE_URL=http://host.docker.internal:8880` gets `ECONNREFUSED`, because the sidecar's port is bound to `127.0.0.1` on the host and a container arriving over the bridge gateway lands on a non-loopback interface. Verified directly on the live instance — do not reintroduce it.
 

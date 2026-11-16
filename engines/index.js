@@ -8,7 +8,8 @@
 //
 //    edge    Microsoft neural voices via the edge-tts CLI   (DEFAULT)
 //    piper   offline Piper via the piper CLI
-//    kokoro  Kokoro-82M via the fastkokoro sidecar over HTTP
+//    kokoro  Kokoro-82M via the fastkokoro sidecar over HTTP (MP3)
+//    kitten  Kitten TTS via the ops/kitten sidecar over HTTP (WAV)
 //
 //  google (engines/google.js) is a deliberate stub and is NOT registered,
 //  so no HTTP route or MCP tool can select it.
@@ -24,12 +25,14 @@
 const edge = require("./edge");
 const piper = require("./piper");
 const kokoro = require("./kokoro");
+const kitten = require("./kitten");
 
 // name -> adapter. Order is documentation only; selection is by name.
 const REGISTRY = new Map([
   [edge.name, edge],
   [piper.name, piper],
   [kokoro.name, kokoro],
+  [kitten.name, kitten],
 ]);
 
 // Accepted values for the `engine` parameter, in catalog order.

@@ -69,5 +69,49 @@ services:
       # First boot downloads the model and warms up.
       start_period: 180s
 
+  kitten:
+    # Kitten TTS through ops/kitten/server.py — a stdlib HTTP wrapper around the
+    # 15M–80M ONNX models. Build it from this repo: there is no pinned upstream
+    # image, and the wrapper is part of the deployment.
+    build:
+      context: ./ops/kitten
+    image: koe-kitten:local
+
+    container_name: koe-kitten
+    restart: unless-stopped
+
+    # Much cheaper than Kokoro: 512 MB is plenty for the int8 nano model plus
+    # onnxruntime, with the synthesis lock keeping it to one job at a time.
+    # Override with KITTEN_MEM_LIMIT. Never run this AND kokoro on a 2 GB host:
+    # 1g + 512m + the app does not fit.
+    cpus: "1.0"
+    mem_limit: ${KITTEN_MEM_LIMIT:-512m}
+
+    ports:
+      - "127.0.0.1:8881:8881"
+
+    environment:
+      KITTEN_MODEL: ${KITTEN_MODEL:-KittenML/kitten-tts-nano-0.8-int8}
+      KITTEN_PORT: "8881"
+      HF_HOME: /models
+
+    volumes:
+      # The weights download once; later restarts reuse the volume.
+      - kitten-models:/models
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8881/health', timeout=4)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
 volumes:
   kokoro-models:
+  kitten-models:

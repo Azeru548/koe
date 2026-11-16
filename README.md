@@ -1,6 +1,6 @@
 # Koe TTS Studio + MCP
 
-A self-hosted text-to-speech studio (Microsoft neural voices via edge-tts, optional offline Piper, and optional local Kokoro) and an **MCP server** so agents can generate voiceovers on demand — free, no ElevenLabs.
+A self-hosted text-to-speech studio (Microsoft neural voices via edge-tts, optional offline Piper, Kokoro and Kitten) and an **MCP server** so agents can generate voiceovers on demand — free, no ElevenLabs.
 
 It is built to be a **free public product**:
 
@@ -153,7 +153,7 @@ Local usage: `npm install && node server.js` → <http://localhost:3000>. `/` re
 | `POST /api/register` | public (gated) | Thin alias of `POST /keys` (same gate, same body) |
 | `GET /api/limits` | public | Public limit policy (no secrets) |
 | `GET /usage` | key | This caller's usage vs limits |
-| `GET /voices` | public | Voice catalog per engine: `?engine=edge\|piper\|kokoro&lang=en` |
+| `GET /voices` | public | Voice catalog per engine: `?engine=edge\|piper\|kokoro\|kitten&lang=en` |
 | `GET /healthz` | public | Backend, engines, queue, limits, TTLs, and DB reachability |
 | `GET /health` | public | Alias of `/healthz` |
 | `GET /` | public | Redirects to `/mcp` |
@@ -182,6 +182,7 @@ All three sit behind one registry (`engines/index.js`) and one interface — `sy
 | **`edge`** *(default)* | `edge-tts` CLI (Microsoft neural, cloud) | MP3 | rate **and** pitch | `engine: "edge"` |
 | `piper` | `piper` CLI (offline on the host) | WAV | neither | `engine: "piper"` |
 | `kokoro` | **separate sidecar container** (Kokoro-82M, ONNX) | MP3 | rate only (clamped to 1.0–2.0), **pitch ignored** | `engine: "kokoro"` |
+| `kitten` | **separate sidecar container** (Kitten 15M–80M, ONNX int8) | WAV | rate only (0.5–2.0), **pitch ignored** | `engine: "kitten"` |
 
 `edge` is the default and behaves exactly as it always has; `KOE_DEFAULT_ENGINE` can override the default but is intentionally left unset.
 
@@ -198,6 +199,35 @@ The app works fine without it — edge and piper are untouched, and only `engine
 Point the studio at a sidecar on another host with `KOKORO_BASE_URL` (default `http://127.0.0.1:8880`).
 
 Note the sidecar ignores pitch entirely, and rates below `1.0` are clamped up to `1.0` (it accepts `speed` only in `1.0–2.0`) — a warning is logged once if either happens.
+
+#### Kitten sidecar (tiny, WAV)
+
+Kitten TTS is the cheap local engine: the int8 nano checkpoint is ~25 MB and the
+whole sidecar fits in 512 MB, so it runs comfortably where Kokoro does not.
+
+```bash
+docker compose up -d --build kitten   # builds ops/kitten, serves 127.0.0.1:8881
+docker compose logs -f kitten         # first boot downloads the weights
+```
+
+Same rules as Kokoro: the app works without it, and only `engine: "kitten"`
+requests answer `503 {"error":"tts_unavailable","engine":"kitten"}` while it is
+down (before any quota is charged). `GET /healthz` reports `engines.kitten`.
+
+- Base URL: `KITTEN_BASE_URL` (default `http://127.0.0.1:8881`).
+- Output is **WAV**, so jobs zip and merge exactly like piper's.
+- `rate` is passed to the sidecar as `speed` and clamped to 0.5–2.0; **pitch is
+  ignored** (warned once).
+- One synthesis at a time inside the container, which is what keeps it inside
+  its memory limit.
+
+**Kitten voices** — the eight speakers every checkpoint ships. The sidecar is
+authoritative (`GET /voices`); this is the fallback list:
+
+`bella` `jasper` `luna` `bruno` `rosie` `hugo` `kiki` `leo`
+
+Ids are lowercase and never shared with edge, piper or Kokoro — passing a Kokoro
+id to `engine: "kitten"` is a `400` with the valid ids in the body.
 
 #### Kokoro voices
 
@@ -290,7 +320,7 @@ No key is required in the config. On first use the MCP asks `GET /keys/challenge
 | Tool | What it does |
 | --- | --- |
 | `studio_status` | Pings `/health` and shows backend, engines, queue, limits, and your usage. Call first if something fails. |
-| `list_voices` | Voices by engine (`edge`/`piper`/`kokoro`) and optional language filter (`en`, `fr`, …). |
+| `list_voices` | Voices by engine (`edge`/`piper`/`kokoro`/`kitten`) and optional language filter (`en`, `fr`, …). |
 | `generate_voiceover` | Narrates `text`, polls the job, then either saves and **merges parts into one MP3/WAV** locally (stdio) or returns a **signed download URL + inline audio** (hosted). Retries briefly on queue-full/cool-down. |
 | `get_voiceover_status` | Job status by id (e.g. after a timeout). |
 | `list_recent_voiceovers` | Your last 10 jobs (tenant-isolated). |
@@ -321,6 +351,7 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `PORT` | `3000` | HTTP port |
 | `TTS_BACKEND` | auto | `native` or `docker` |
 | `KOKORO_BASE_URL` | `http://127.0.0.1:8880` | Where the optional Kokoro sidecar lives; the engine is unavailable when it does not answer |
+| `KITTEN_BASE_URL` | `http://127.0.0.1:8881` | Where the optional Kitten sidecar lives; same rule |
 | `KOE_SECRET` | generated | **Set this in production.** Signs download links, hashed anon subjects and key ids (keys themselves are DB rows) |
 | `KOE_DB_PATH` | `./koe.db` | SQLite file holding issued keys and every counter (`keys`, `usage`, `mint_ips`, `global_usage`). One connection per process; restarts resume from it |
 | `API_KEY` | *(none)* | Admin key: unlimited, sees all jobs |
@@ -379,7 +410,7 @@ Counters persist to `KOE_STATS_FILE` (default `.koe-stats.json`; `/data/stats.js
 
 - edge-tts is free but unofficial (Microsoft's consumer endpoint); occasional throttling is expected. The circuit breaker pauses new work briefly instead of hammering it.
 - Very long scripts are split into ~3000-char parts by the studio; the MCP merges them back into a single file (MP3s concatenated, WAVs re-muxed properly).
-- Tests: `npm test` (78 tests: guard limits, key auth and hashing, tenant isolation, validation, ephemeral cleanup, analytics privacy/accounting, engine adapters, Kokoro sidecar behaviour, hosted MCP handshake and signed audio links). CI runs them on push and on the Docker build.
+- Tests: `npm test` (115 tests: guard limits, key auth and hashing, tenant isolation, validation, ephemeral cleanup, analytics privacy/accounting, engine adapters, Kokoro sidecar behaviour, hosted MCP handshake and signed audio links). CI runs them on push and on the Docker build.
 
 ## Agent skill
 

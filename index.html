@@ -536,6 +536,7 @@ input[type="range"]:disabled { opacity: .4; cursor: not-allowed; }
             <option value="edge">Microsoft Neural</option>
             <option value="piper">Piper Offline</option>
             <option value="kokoro">Kokoro Offline</option>
+            <option value="kitten">Kitten Offline</option>
           </select>
         </label>
         <label class="slider-field" id="rateCtrl" for="rateSlider">
@@ -657,6 +658,20 @@ const KOKORO_REGIONS = {
 };
 let KOKORO_VOICES = [];
 let kokoroVoicesLoaded = false;
+let KITTEN_VOICES = [];
+let kittenVoicesLoaded = false;
+async function loadKittenVoices() {
+  if (kittenVoicesLoaded) return;
+  kittenVoicesLoaded = true;
+  try {
+    const res = await fetch(`${SERVER}/voices?engine=kitten`, { headers: authHeaders(), signal: AbortSignal.timeout(8000) });
+    const data = await res.json().catch(() => ({}));
+    KITTEN_VOICES = (data.voices || []).map(v => ({
+      id: v.id, name: v.name || v.id, lang: v.lang,
+      region: v.lang === "en-US" ? "English (US)" : "Other", gender: v.gender || "", style: "Kitten", color: "#b45309"
+    }));
+  } catch { /* offline list stays empty; the engine option remains visible */ }
+}
 async function loadKokoroVoices() {
   if (kokoroVoicesLoaded) return;
   kokoroVoicesLoaded = true;
@@ -824,7 +839,7 @@ async function refreshUsage() {
 }
 const NUM_BARS = 96;
 let selectedVoice = null;
-let selectedByEngine = { edge: null, piper: null };
+let selectedByEngine = { edge: null, piper: null, kitten: null };
 let currentLang   = "all";
 let currentEngine = "edge";
 let jobs          = [];
@@ -833,6 +848,7 @@ let pollIntervals = {};
 
 function getVoices() {
   if (currentEngine === "kokoro") return KOKORO_VOICES;
+  if (currentEngine === "kitten") return KITTEN_VOICES;
   return currentEngine === "piper" ? PIPER_VOICES : EDGE_VOICES;
 }
 
@@ -844,6 +860,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadStoredJobs();
   ensureApiKey().then(refreshUsage);
   loadKokoroVoices(); // warm the catalog so switching engines is instant
+  loadKittenVoices();
   setInterval(checkServer, 30000);
   setInterval(refreshUsage, 60000);
   onEngineChange();
@@ -889,6 +906,26 @@ function onEngineChange() {
       if (currentEngine !== "kokoro") return;
       selectedVoice = KOKORO_VOICES.find(v => v.id === selectedByEngine.kokoro) || KOKORO_VOICES[0] || null;
       if (selectedVoice) selectedByEngine.kokoro = selectedVoice.id;
+      buildLangFilter();
+      renderVoices();
+      updateSelectedBar();
+    });
+  } else if (currentEngine === "kitten") {
+    enginePill.textContent = "Kitten Offline";
+    enginePill.className = "status engine";
+    piperNotice.classList.remove("show");
+    voicePanelTitle.textContent = "Kitten voice";
+    // Kitten honours rate (the sidecar's speed argument, 0.5–2.0) and has no
+    // pitch control at all.
+    document.getElementById("rateCtrl").classList.remove("ctrl-disabled");
+    document.getElementById("pitchCtrl").classList.add("ctrl-disabled");
+    document.getElementById("pitchSlider").disabled = true;
+    rateSlider.disabled = false;
+    rateSlider.min = "0.5";
+    loadKittenVoices().then(() => {
+      if (currentEngine !== "kitten") return;
+      selectedVoice = KITTEN_VOICES.find(v => v.id === selectedByEngine.kitten) || KITTEN_VOICES[0] || null;
+      if (selectedVoice) selectedByEngine.kitten = selectedVoice.id;
       buildLangFilter();
       renderVoices();
       updateSelectedBar();
@@ -1000,7 +1037,7 @@ function initials(name) {
 // Jobs store the raw voice id after a server poll; map it back to the catalog name.
 function voiceName(value) {
   if (!value) return "";
-  const match = [...EDGE_VOICES, ...PIPER_VOICES, ...KOKORO_VOICES].find(v => v.id === value || v.name === value);
+  const match = [...EDGE_VOICES, ...PIPER_VOICES, ...KOKORO_VOICES, ...KITTEN_VOICES].find(v => v.id === value || v.name === value);
   return match ? match.name : value;
 }
 
@@ -1091,7 +1128,7 @@ function updateStats() {
 async function quickPreview(voiceId) {
   // There is no /tts-preview-kokoro route — previewing with an edge voice
   // endpoint would silently use the wrong engine, so say so instead.
-  if (currentEngine === "kokoro") { toast("Kokoro previews aren't available yet — generate a job to hear it.", "info"); return; }
+  if (currentEngine === "kokoro" || currentEngine === "kitten") { toast(`${currentEngine === "kokoro" ? "Kokoro" : "Kitten"} previews aren't available yet — generate a job to hear it.`, "info"); return; }
   const voices = getVoices();
   const v = voices.find(x => x.id === voiceId);
   if (!v) return;
@@ -1141,7 +1178,7 @@ async function quickPreview(voiceId) {
 
 async function previewVoice() {
   if (!selectedVoice) { toast("Pick a voice first.", "error"); return; }
-  if (currentEngine === "kokoro") { toast("Kokoro previews aren't available yet — generate a job to hear it.", "info"); return; }
+  if (currentEngine === "kokoro" || currentEngine === "kitten") { toast(`${currentEngine === "kokoro" ? "Kokoro" : "Kitten"} previews aren't available yet — generate a job to hear it.`, "info"); return; }
 
   const rate  = parseFloat(document.getElementById("rateSlider").value);
   const pitch = parseInt(document.getElementById("pitchSlider").value, 10);
@@ -1360,7 +1397,7 @@ function renderJobs() {
     const isDone   = j.status === "done";
     const isFailed = j.status === "failed";
     const inProg   = !isDone && !isFailed;
-    const engineLabel = j.engine === "piper" ? "Piper" : j.engine === "kokoro" ? "Kokoro" : "Edge";
+    const engineLabel = j.engine === "piper" ? "Piper" : j.engine === "kokoro" ? "Kokoro" : j.engine === "kitten" ? "Kitten" : "Edge";
     return `
     <div class="job-card" id="jc_${j.id}">
       <div class="job-card-top">

@@ -32,6 +32,14 @@ async function engineAvailable(name) {
   }
 }
 
+// Engines served by a sidecar container rather than this process. Two things
+// follow from that and are shared here instead of being kokoro-only:
+//   1. when the sidecar is not running the answer is the documented 503
+//      {"error":"tts_unavailable","engine":<name>}, never a generic error;
+//   2. their voice ids are validated against the sidecar catalog, so an edge
+//      or piper id can never be silently accepted by a sidecar engine.
+const SIDECAR_ENGINES = new Set(["kokoro", "kitten"]);
+
 const app = express();
 app.disable("x-powered-by");
 
@@ -695,24 +703,24 @@ app.post("/tts", async (req, res) => {
   // there is nothing to refund. Kokoro's 503 has its own documented shape.
   if (!(await engineAvailable(engine))) {
     guard.logReject("engine_unavailable", req.ctx.rawKey, req.ctx.ip, `engine=${engine}`);
-    if (engine === "kokoro") {
-      return res.status(503).json({ error: "tts_unavailable", engine: "kokoro" });
+    if (SIDECAR_ENGINES.has(engine)) {
+      return res.status(503).json({ error: "tts_unavailable", engine });
     }
     return res.status(503).json({
       error: `Engine '${engine}' is not available on this server (backend: ${TTS_BACKEND})`,
     });
   }
 
-  // Kokoro validates voice ids against its own catalog. An edge/piper id is
-  // a 400 carrying the first 20 valid kokoro ids — never aliased across
-  // engines. edge and piper deliberately keep accepting any well-formed id
+  // Sidecar engines validate voice ids against their own catalog. An edge id
+  // is a 400 carrying the first 20 valid ids — never aliased across engines.
+  // edge and piper deliberately keep accepting any well-formed id
   // (documented behaviour: any official Microsoft voice name works).
-  if (engine === "kokoro") {
-    const catalog = await engines.getEngine("kokoro").listVoices();
-    if (!catalog.some((v) => v.id === String(voice))) {
+  if (SIDECAR_ENGINES.has(engine)) {
+    const catalog = await engines.getEngine(engine).listVoices();
+    if (!catalog.some((v) => String(v.id).toLowerCase() === String(voice).toLowerCase())) {
       return res.status(400).json({
-        error: `Invalid voice '${voice}' for engine 'kokoro'.`,
-        engine: "kokoro",
+        error: `Invalid voice '${voice}' for engine '${engine}'.`,
+        engine,
         validVoices: catalog.slice(0, 20).map((v) => v.id),
         validVoiceCount: catalog.length,
       });

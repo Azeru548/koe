@@ -71,7 +71,7 @@ Pings the studio's `/healthz` (alias `/health`). **Call this first whenever a ge
   "jobs": 9,
   "time": "2026-10-19T14:30:17.135Z",
   "backend": "native",
-  "engines": { "edge": true, "piper": false, "kokoro": false },
+  "engines": { "edge": true, "piper": false, "kokoro": false, "kitten": false },
   "authRequired": true,
   "adminKeyConfigured": false,
   "keyRequired": true,
@@ -92,7 +92,7 @@ Pings the studio's `/healthz` (alias `/health`). **Call this first whenever a ge
 
 Reading it:
 - `backend: "native"` = the server runs the `edge-tts`/`piper` CLIs directly (the production Docker image). `"docker"` = local Docker images.
-- `engines.edge` / `engines.piper` / `engines.kokoro` = which engines are actually usable. If `engines.piper` is `false`, requests with `engine: "piper"` will 503. If `engines.kokoro` is `false`, the optional sidecar is not running and `engine: "kokoro"` answers `503 {"error":"tts_unavailable"}` — edge and piper are unaffected, so this alone is not a problem.
+- `engines.edge` / `engines.piper` / `engines.kokoro` = which engines are actually usable. If `engines.piper` is `false`, requests with `engine: "piper"` will 503. If `engines.kokoro` is `false`, the optional sidecar is not running and `engine: "kokoro"` answers `503 {"error":"tts_unavailable"}` — edge and piper are unaffected, so this alone is not a problem. `engines.kitten` works exactly the same way for the Kitten sidecar.
 - `keyRequired: true` = the server requires a free key. The MCP registers one automatically; `client.keyMode` is `env` (explicit `TTS_API_KEY`), `stored`, `auto`, or `none`.
 - `queue` / `limits` = current queue depth and the public rate policy. `queue.load` is `idle` / `busy` / `saturated`, and `queue.saturated` is true when every worker is busy *and* the waiting room is full — the case where new jobs will be refused. `ephemeral` = how long audio and jobs live.
 - `backend` is auto-detected by asking the docker daemon (`docker info`), not just by whether the `docker` CLI exists: a host where the CLI is installed but the socket is denied runs `native` instead of failing every job with a permission error.
@@ -106,12 +106,12 @@ Lists the curated voice catalog (same list the studio UI shows).
 
 | Param | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `engine` | `"edge" \| "piper" \| "kokoro"` | `"edge"` | `edge` = Microsoft neural voices (cloud, many languages). `piper` = offline voice on the server host. `kokoro` = local Kokoro sidecar (offline, MP3). |
+| `engine` | `"edge" \| "piper" \| "kokoro" \| "kitten"` | `"edge"` | `edge` = Microsoft neural voices (cloud, many languages). `piper` = offline voice on the server host. `kokoro` = local Kokoro sidecar (offline, MP3). `kitten` = local Kitten sidecar (offline, WAV, tiny). |
 | `lang` | string, optional | — | Prefix filter: `"en"`, `"en-GB"`, `"fr"`, `"pt-BR"`, ... Case-insensitive. |
 
 Returns an array of `{ "id", "name", "lang", "gender", "style" }`. The `id` is what you pass as `voice` to `generate_voiceover`. An unmatched filter returns an `isError` result telling you to list unfiltered.
 
-**Note:** edge and piper voices come from a static catalog (`mcp/index.js`); **kokoro** voices are fetched from the server (`GET /voices?engine=kokoro`), which asks the sidecar and falls back to a built-in list when it is down. Any valid Microsoft voice *name* also works as the `voice` string for **edge** — the server passes it straight to `edge-tts` — but stick to catalog ids unless you have a specific reason not to.
+**Note:** edge and piper voices come from a static catalog (`mcp/index.js`); **kokoro** and **kitten** voices are fetched from the server (`GET /voices?engine=kokoro|kitten`), which asks the sidecar and falls back to a built-in list when it is down. Any valid Microsoft voice *name* also works as the `voice` string for **edge** — the server passes it straight to `edge-tts` — but stick to catalog ids unless you have a specific reason not to.
 
 **Voice ids are never shared between engines.** Passing an edge voice with `engine: "kokoro"` is a `400` whose body carries the first 20 valid kokoro ids (`validVoices`), and the reverse. Always `list_voices` for the engine you actually intend to use.
 
@@ -123,7 +123,7 @@ The main tool. Submits a TTS job, polls it to completion, downloads the result, 
 | --- | --- | --- | --- |
 | `text` | string, required | — | The script. Paragraph breaks allowed; blank-line-separated paragraphs are synthesized as separate parts (see §4). |
 | `voice` | string | `"en-US-GuyNeural"` | Voice id from `list_voices`. |
-| `engine` | `"edge" \| "piper" \| "kokoro"` | `"edge"` | `edge` supports rate/pitch and is much higher quality. `kokoro` needs the sidecar (`docker compose up -d`); it is MP3, honours rate only (clamped to 1.0–2.0) and **ignores pitch**. |
+| `engine` | `"edge" \| "piper" \| "kokoro" \| "kitten"` | `"edge"` | `edge` supports rate/pitch and is much higher quality. `kokoro` needs the sidecar (`docker compose up -d`); it is MP3, honours rate only (clamped to 1.0–2.0) and **ignores pitch**. `kitten` is the tiny local sidecar: WAV, rate honoured (0.5–2.0), **pitch ignored**. |
 | `rate` | number 0.5–2 | `1` | Speed multiplier. 1 = normal, 1.25 = brisk, 0.85 = deliberate. |
 | `pitch` | integer −100–100 | `0` | Pitch shift in Hz. |
 | `file_name` | string, optional | `voiceover-<jobId>` | Output name without folder; `.mp3`/`.wav` suffix optional (it is added for you). Folders/special chars are sanitized. |
@@ -148,7 +148,7 @@ Success result:
 ```
 
 - `files` — absolute local paths. Usually one file. If merging failed (rare WAV-format mismatch), you get several `*.partNN.wav` files and a `note` explaining it.
-- `format` — `"mp3"` for edge and kokoro, `"wav"` for piper.
+- `format` — `"mp3"` for edge and kokoro, `"wav"` for piper and kitten.
 - `expiresInSeconds` — how long the studio keeps its server-side copy; the local file never expires.
 - Output location: `VOICEOVER_DIR` env var, else `./voiceovers` relative to the **agent's working directory**.
 
@@ -291,7 +291,7 @@ Base URL: local `http://localhost:3000`, or your hosted URL.
 | `/api/register` | POST | same as `/keys` (thin alias — same gate, same body) | `201 { key, tenant, limits }`; `403 pow_challenge_invalid` / `pow_failed` if the gate is skipped or wrong; `429` at the daily mint cap |
 | `/api/limits` | GET | — | Public rate policy (no secrets) |
 | `/usage` | GET | — | This caller's usage vs limits (admin → `{ unlimited: true }`) |
-| `/voices` | GET | — | Voice catalog: `?engine=edge\|piper\|kokoro` and optional `&lang=en`. Public. Kokoro falls back to the built-in list when the sidecar is down |
+| `/voices` | GET | — | Voice catalog: `?engine=edge\|piper\|kokoro\|kitten` and optional `&lang=en`. Public. Kokoro and kitten fall back to their built-in lists when the sidecar is down |
 | `/stats.html` | GET | — | Operator dashboard page (loads without a key; its data needs the admin key) |
 | `/stats.json` | GET | — | The same numbers as JSON — admin key required |
 | `/tts` | POST | `{ text, voice?, rate?, pitch?, engine? }` (same semantics as the MCP tool) | `{ jobId, parts, wordCount }` — immediately; synthesis runs in the background |
@@ -306,7 +306,7 @@ Base URL: local `http://localhost:3000`, or your hosted URL.
 | `/` | GET | — | Redirects to `/mcp` |
 | `/studio` | GET | — | The studio web UI |
 
-Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job over `KOE_MAX_JOB_WORDS` (2,000 words)**, `401` `{"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown job, `409` job not ready, `410` audio expired, `413` script over 40,000 chars, `429` rate/queue/global limit (read `retryAfterSeconds` and the `reason` field: `hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `queue_full`, `mint_cap`), `503` `{"error":"temporarily_disabled"}` (kill switch), engine unavailable, upstream cool-down, or — for a missing Kokoro sidecar — `503 {"error":"tts_unavailable","engine":"kokoro"}` (checked before quota is charged, so nothing is consumed). Request body limit is 10 MB.
+Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job over `KOE_MAX_JOB_WORDS` (2,000 words)**, `401` `{"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown job, `409` job not ready, `410` audio expired, `413` script over 40,000 chars, `429` rate/queue/global limit (read `retryAfterSeconds` and the `reason` field: `hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `queue_full`, `mint_cap`), `503` `{"error":"temporarily_disabled"}` (kill switch), engine unavailable, upstream cool-down, or — for a missing Kokoro/Kitten sidecar — `503 {"error":"tts_unavailable","engine":"kokoro"|"kitten"}` (checked before quota is charged, so nothing is consumed). Request body limit is 10 MB.
 
 ---
 
@@ -433,6 +433,16 @@ Edge (Microsoft neural) — ids valid for `voice`:
 | `hi-IN-SwaraNeural` | Swara | hi-IN | F | Friendly |
 
 Piper (offline): `en_US-lessac-medium` (male, en-US). Check `studio_status` for availability.
+
+### Kitten voices (`engine: "kitten"`)
+
+Offline via the optional sidecar (`docker compose up -d --build kitten`), WAV
+output, **rate honoured (0.5–2.0), no pitch**. Eight English speakers:
+`bella` `jasper` `luna` `bruno` `rosie` `hugo` `kiki` `leo`
+
+The sidecar is authoritative (`GET /voices`); the list above is the fallback
+used while it is down. Kitten ids are not valid for any other engine, and other
+engines' ids are not valid for kitten.
 
 ### Kokoro voices (`engine: "kokoro"`)
 

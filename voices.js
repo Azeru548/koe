@@ -104,10 +104,34 @@ function isKokoroVoice(voice, knownIds) {
   return list.includes(String(voice || ""));
 }
 
+// ── Kitten TTS ─────────────────────────────────────────────────
+// The eight speakers every Kitten checkpoint shares (0.8 and the 2-series
+// tiny models). Ids are lowercase and deliberately distinct from Kokoro
+// (`af_heart`) and Piper (`en_US-lessac-medium`), because voice ids are never
+// aliased across engines. The sidecar is authoritative; this is the fallback
+// used when it cannot be reached, and the list the studio renders meanwhile.
+const KITTEN_VOICES = [
+  { id: "bella",  name: "Bella",  lang: "en-US", gender: "Female", style: "Kitten" },
+  { id: "jasper", name: "Jasper", lang: "en-US", gender: "Male",   style: "Kitten" },
+  { id: "luna",   name: "Luna",   lang: "en-US", gender: "Female", style: "Kitten" },
+  { id: "bruno",  name: "Bruno",  lang: "en-US", gender: "Male",   style: "Kitten" },
+  { id: "rosie",  name: "Rosie",  lang: "en-US", gender: "Female", style: "Kitten" },
+  { id: "hugo",   name: "Hugo",   lang: "en-US", gender: "Male",   style: "Kitten" },
+  { id: "kiki",   name: "Kiki",   lang: "en-US", gender: "Female", style: "Kitten" },
+  { id: "leo",    name: "Leo",    lang: "en-US", gender: "Male",   style: "Kitten" },
+];
+
+function isKittenVoice(voice, knownIds) {
+  const list = knownIds || KITTEN_VOICES.map((v) => v.id);
+  return list.includes(String(voice || "").toLowerCase());
+}
+
 function voicesFor(engine) {
   // NOTE: unknown engines fall through to EDGE_VOICES — pre-existing
   // behaviour, kept deliberately so nothing changes for edge callers.
-  return engine === "piper" ? PIPER_VOICES : EDGE_VOICES;
+  if (engine === "piper") return PIPER_VOICES;
+  if (engine === "kitten") return KITTEN_VOICES;
+  return EDGE_VOICES;
 }
 
 module.exports = {
@@ -115,7 +139,9 @@ module.exports = {
   PIPER_VOICES,
   KOKORO_FALLBACK_VOICES,
   KOKORO_LOCALES,
+  KITTEN_VOICES,
   voicesFor,
   describeKokoroVoice,
   isKokoroVoice,
+  isKittenVoice,
 };

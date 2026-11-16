@@ -72,9 +72,9 @@ function createHostedMcp({ client }) {
 
   server.tool(
     "list_voices",
-    "List the available voices for an engine. 'edge' = Microsoft neural voices (cloud, many languages); 'piper' = offline on the studio host; 'kokoro' = the local Kokoro sidecar (offline, MP3). Voice ids are never shared between engines — always list the engine you intend to use. Pass an id to generate_voiceover.",
+    "List the available voices for an engine. 'edge' = Microsoft neural voices (cloud, many languages); 'piper' = offline on the studio host; 'kokoro' = the local Kokoro sidecar (offline, MP3); 'kitten' = the local Kitten sidecar (offline, WAV, tiny). Voice ids are never shared between engines — always list the engine you intend to use. Pass an id to generate_voiceover.",
     {
-      engine: z.enum(["edge", "piper", "kokoro"]).default("edge").describe("Which engine's voices to list"),
+      engine: z.enum(["edge", "piper", "kokoro", "kitten"]).default("edge").describe("Which engine's voices to list"),
       lang: z.string().optional().describe("Optional language prefix filter, e.g. 'en', 'en-GB', 'fr'"),
     },
     async ({ engine, lang }) => {
