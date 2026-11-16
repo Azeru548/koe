@@ -1,38 +1,54 @@
-# Koe — launch film, storyboard v3
+# Koe — launch film, v3
 
-**39.15 seconds**, 1920×1080, 30 fps. Eleven beats, hard cuts carried by colour wipes.
-Every cut is timed to the measured length of one Koe-generated voice line
-(`vo.json`, `assets/audio/NN.mp3`): each wipe lands **0.60–0.95 s after that line's
-last syllable**, never on it. The arc: **a loop that only writes → the silence that
-follows → Koe hears it → what it gives you → what it costs (nothing) → where it lands.**
+**29.00 seconds**, 1920×1080, 30 fps. Nine shots, one continuous read per shot, cuts on the beat.
 
-| # | Time | Voice line (starts) | Picture (shapes / objects) | Type |
-|---|------|--------------------|----------------------------|------|
-| 1 | 0.00–3.90 | Every agent, everywhere, ends the same way. (0.30) | Hairline grid; floating terminal card with three dots, mono log lines stamped one by one, blinking cursor | 112px sans, three stacked lines rising out of masks |
-| 2 | 3.90–7.45 | Done. Finished. All tests passing. (4.15) | Three status pills with check marks landing like stamps over a 300px outline `DONE` | Pills 60px; ghost display word |
-| 3 | 7.45–9.90 | And nobody hears a word of it. (7.65) | Muted speaker glyph with a vermilion slash drawn across it; a waveform that collapses flat; `no audio` | Icon carries the beat, 92px aside |
-| 4 | 9.90–13.25 | Koe reads that text, and speaks it. (10.10) | Vermilion field; wordmark slams in; a text card flips into a waveform card under a slow ring | 430px Shippori `Koe` |
-| 5 | 13.25–17.05 | One URL. No setup, no SDK. (13.45) | URL bar presses play, fills a progress bar, counts a timecode; `npm install` / `SDK` / `API key` tags float off | 104px sans over a 146px bar |
-| 6 | 17.05–21.30 | Twenty-nine neural voices, in twenty-nine languages. (17.25) | 29 voice chips flick on; a big `29` counts up; a language band scrolls along the bottom | Display `29` 400px, kin |
-| 7 | 21.30–24.00 | Pick the one that sounds like your product. (21.50) | Five voice rows scroll to a stop; one highlights in kin with a live equalizer, the rest dim | Rows 30px mono |
-| 8 | 24.00–28.00 | No account. No card. No API bill. (24.20) | Three stamps land over crossed-out objects: login form, credit card, invoice for $41.00 — vermilion slash through each | 130px sans stamps |
-| 9 | 28.00–31.90 | Paste a script, get a finished voiceover in seconds. (28.20) | Script card → travelling arrow → MP3 card: waveform fills, duration `0:14`, status flips to `done — 0.9s` | Card 28px mono, payoff 74px |
-| 10 | 31.90–35.85 | Drop it in your demo, your video, your podcast. (32.10) | Three destination frames drop in and float: demo window, video timeline with a highlighted clip, podcast mic | Frame labels 26px mono |
-| 11 | 35.85–39.15 | Koe. Free. (36.05) | End card: portrait panel, wordmark, claim, URL, red `FREE` chip; slow drift, fade to black from 38.70 | 320px Shippori, 58px claim |
+## The idea
 
-**Cuts** (wipe starts): 3.68 · 7.23 · 9.68 · 13.03 · 16.83 · 21.08 · 23.78 · 27.78 · 31.68 · 35.63.
-Gaps between voice lines run 0.68–1.02 s, so the piece breathes at one rhythm.
+The old cut opened on a riddle ("every agent ends the same way") and never said what
+the product was. This one opens on the argument: **stop paying for voiceovers.** Nine
+shots, ~2.5 s each, each one a hard state change — no shot holds longer than it takes
+to read it.
 
-Colour rhythm: washi · washi · sumi · shu · washi · sumi · washi · washi · ai · ai · washi.
+## Beats
+
+`T` in `index.html` is the single source of timing; the table below mirrors it.
+
+| # | in → out | line | picture |
+|---|---|---|---|
+| 1 | 0.00–2.40 | Stop paying for voiceovers. | Dark. Type slams in three masked lines; a $0.18/word price tag drops in and is slashed out by a red bar; ring drifts behind. |
+| 2 | 2.40–3.93 | This is Koe. | Washi. Red record disc punches in and rotates; "Koe" slams up through a mask; ring bursts outward. |
+| 3 | 3.93–7.74 | Paste a script. Get a finished voiceover in seconds. | Navy. Script card slides in, three lines reveal, gold arrow shoots right, MP3 card pops with a waveform that grows then settles; progress fills to "done". |
+| 4 | 7.74–11.28 | Twenty-nine voices. Twenty-nine languages. | Washi. "29" counts up while 45 voice bars rise; then a second 29 and fifteen language chips fly in from the right; dashed ring rotates. |
+| 5 | 11.28–14.80 | Pick one. Set the pace. Hit generate. | Vermilion. Three control rows slide in on separate beats — dot picker pulses, slider knob travels, button presses with a ripple. |
+| 6 | 14.80–19.02 | Podcasts. Ads. Explainers. Whole books. | Washi. Four lines slam in one per word on alternating colour; four miniature frames pop in beside them and their waveforms breathe. |
+| 7 | 19.02–22.76 | No account. No card. No API bill. | Dark. Three lines land, a signup form and a credit card float in and get struck through in red, then dim. |
+| 8 | 22.76–25.03 | Your words. Actually spoken. | Vermilion. Two lines, then a 28-bar waveform erupts between them. |
+| 9 | 25.03–29.00 | Koe. Free. | Washi end card: portrait, wordmark, "Free. Nothing to sign up for.", URL, chip, music credit. Fade from 28.55. |
+
+## Motion
+
+- **A motion field sits over every cut** — six outlined shapes drifting and rotating
+  across the full 29 s with `mix-blend-mode: difference`. It never resets, so the frame
+  is never fully still, even on a held end card.
+- Every shot also gets its own transform push (1.04–1.06 scale) so nothing is a static card.
+- Eight wipes, one per cut, 0.16 s in and 0.20 s out, alternating red / gold / ink.
+- Inner beats land every ~0.5–0.9 s inside the longer shots (dots, slider, arrow,
+  waveform, slams), so the effective cut rhythm is under two seconds.
 
 ## Audio
 
-- **Voice**: one MP3 per line, all synthesised by Koe itself (`en-US-AndrewNeural`,
-  rate 1.05), 29.45 s of speech placed at the start times above.
-- **Music bed**: “Slow Cinematic Music.wav” by DeVern — Freesound sound 384202,
-  **CC0 1.0**, no attribution required. Trimmed to 39.15 s, faded in 0.6 s and out 1.6 s.
-  Ducking is driven by the real voice envelope (45 ms attack, 0.55 s release) so the
-  bed **lifts in every gap between lines** and settles again as the next line lands.
-- **Whooshes**: synthesised from seeded noise with a filter sweep, ~0.5 s, one per cut.
-- The bed, the ducking and the whooshes are pre-mixed into `assets/audio/bed.wav` so
-  the render stays frame-exact.
+- **Voice**: `en-US-EmmaNeural`, rate 1.12, generated by Koe itself — nine lines,
+  one continuous read each, 23.1 s of speech. Lines: 1.90, 1.13, 3.41, 3.14, 3.12,
+  3.82, 3.34, 1.87, 1.37 s.
+- **Music**: “Path To Victory (Upbeat, Energetic, Optimistic)” by UNIVERSFIELD,
+  Freesound 704530, **CC BY 4.0** — credited on the end card and in CREDITS.md.
+  117 BPM, chosen for tempo and spectral energy over the old slow-cinematic bed.
+- Bed, ducking (7 dB under each line) and eight whooshes are pre-mixed offline into
+  `assets/audio/bed.wav` by `tools/mix_bed.py`, so the mix is identical on every render.
+
+## Rebuild
+
+```
+python3 tools/mix_bed.py          # regenerates assets/audio/bed.wav from the track + vo.json
+npx hyperframes@0.9.54 render -w 1 -o renders/koe-launch.mp4
+```

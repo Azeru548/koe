@@ -20,549 +20,460 @@
       *{margin:0;padding:0;box-sizing:border-box}
       html,body{width:1920px;height:1080px;overflow:hidden;background:var(--sumi)}
       #root{position:relative;width:100%;height:100%;overflow:hidden;background:var(--washi);color:var(--sumi);font-family:var(--sans)}
-      .clip{position:absolute;inset:0}
+      .clip{position:absolute;inset:0;overflow:hidden}
       .line{display:block;overflow:hidden}
       .line>span{display:block}
 
-      .grid-lines{position:absolute;inset:0;opacity:.1;
-        background-image:linear-gradient(to right,rgba(26,23,18,.55) 1px,transparent 1px),
-                         linear-gradient(to bottom,rgba(26,23,18,.55) 1px,transparent 1px);
-        background-size:160px 160px}
-      .kick{position:absolute;left:96px;font:400 22px var(--mono);letter-spacing:.3em;text-transform:uppercase;color:var(--shu)}
+      /* ── the motion field: floats over every cut, never still ── */
+      #field{position:absolute;inset:0;pointer-events:none;opacity:.16;mix-blend-mode:difference;z-index:40}
+      #field i{position:absolute;display:block;border:3px solid #fff}
+      #field .f1{left:-140px;top:-120px;width:640px;height:640px;border-radius:50%}
+      #field .f2{left:1420px;top:640px;width:760px;height:760px;border-radius:50%;border-width:2px}
+      #field .f3{left:1180px;top:-90px;width:300px;height:900px;transform:rotate(18deg);border-width:2px}
+      #field .f4{left:420px;top:820px;width:420px;height:120px}
+      #field .f5{left:820px;top:170px;width:180px;height:180px;border-radius:50%}
+      #field .f6{left:120px;top:560px;width:90px;height:380px;transform:rotate(-12deg);border-width:2px}
 
-      /* ── 1 · the loop ─────────────────────────── */
-      #s1 .kick{top:286px}
-      #s1 .mega{position:absolute;left:92px;top:340px;width:960px;font:500 112px/1.02 var(--sans);letter-spacing:-.04em}
-      .term{position:absolute;right:92px;top:250px;width:850px;border-radius:10px;overflow:hidden;background:var(--sumi);color:var(--washi);box-shadow:0 40px 70px rgba(26,23,18,.2)}
-      .term-bar{height:54px;display:flex;align-items:center;gap:11px;padding:0 22px;background:#241f19;border-bottom:1px solid rgba(236,227,210,.16)}
-      .term-bar i{width:12px;height:12px;border-radius:50%;background:#4a423a}
-      .term-title{margin-left:10px;font:400 19px var(--mono);letter-spacing:.12em;color:rgba(236,227,210,.55)}
-      .term-body{padding:34px 34px 40px;font:400 31px/1.85 var(--mono)}
-      .tl{color:rgba(236,227,210,.82);white-space:nowrap}
-      .tl.ok{color:var(--kin)}
-      .caret{display:inline-block;width:14px;height:22px;background:var(--washi);margin-left:6px;vertical-align:-2px}
+      /* ── 1 · hook ── */
+      #s1{background:var(--sumi);color:var(--washi)}
+      #s1 .hook{position:absolute;left:96px;top:250px;width:1740px;z-index:2}
+      #s1 .hook .line{margin-bottom:-18px}
+      #s1 .hook span{font:600 176px/.92 var(--sans);letter-spacing:-.055em;text-transform:uppercase}
+      #s1 .hook .hl{color:var(--shu)}
+      #s1 .tagprice{position:absolute;right:150px;top:180px;width:300px;height:330px;border:3px solid var(--washi);border-radius:14px;transform:rotate(9deg);display:flex;flex-direction:column;justify-content:space-between;padding:26px}
+      #s1 .tagprice b{font:500 54px var(--mono);letter-spacing:-.02em}
+      #s1 .tagprice s{font:400 26px var(--mono);color:rgba(236,227,210,.55)}
+      #s1 .tagprice em{font-style:normal;font:400 22px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:rgba(236,227,210,.68)}
+      #s1 .cut{position:absolute;left:-60px;top:560px;width:2040px;height:16px;background:var(--shu);transform-origin:left center;z-index:1}
+      #s1 .ring1{position:absolute;right:-220px;bottom:-320px;width:860px;height:860px;border:3px solid rgba(236,227,210,.25);border-radius:50%}
 
-      /* ── 2 · the output ───────────────────────── */
+      /* ── 2 · this is koe ── */
       #s2{background:var(--washi)}
-      .ghostword{position:absolute;right:-40px;top:110px;font:700 300px/1 var(--display);color:rgba(26,23,18,.07)}
-      #s2 .pills{position:absolute;left:96px;top:400px;display:flex;flex-direction:column;gap:30px}
-      .pill{display:flex;align-items:center;gap:24px;padding:18px 44px 18px 18px;border:3px solid var(--sumi);background:var(--washi);width:max-content}
-      .pill b{display:grid;place-items:center;width:66px;height:66px;border-radius:50%;background:var(--kin);color:var(--washi);font:600 34px/1 var(--sans)}
-      .pill span{font:500 60px/1 var(--sans);letter-spacing:-.02em}
+      #s2 .disc{position:absolute;left:150px;top:190px;width:470px;height:470px;border-radius:50%;background:var(--shu)}
+      #s2 .hole{position:absolute;left:330px;top:370px;width:110px;height:110px;border-radius:50%;background:var(--washi)}
+      #s2 .burst{position:absolute;left:210px;top:390px;width:420px;height:420px;border:4px solid var(--sumi);border-radius:50%}
+      #s2 .word{position:absolute;left:600px;top:330px;font:700 300px/.8 var(--display);letter-spacing:-.04em}
 
-      /* ── 3 · the silence ──────────────────────── */
-      #s3{background:var(--sumi);color:var(--washi)}
-      .spk{position:absolute;left:150px;top:230px;width:300px;height:300px;color:var(--washi)}
-      .slash{position:absolute;left:120px;top:370px;width:420px;height:14px;background:var(--shu);transform-origin:left center}
-      #s3 .flat{position:absolute;left:96px;top:600px;display:flex;align-items:center;gap:9px;height:150px}
-      #s3 .flat b{display:block;width:10px;height:150px;background:var(--washi);opacity:.75;transform-origin:center}
-      #s3 .label{position:absolute;left:96px;top:820px;font:400 26px var(--mono);letter-spacing:.26em;text-transform:uppercase;color:rgba(236,227,210,.6)}
-      #s3 .say{position:absolute;right:110px;top:300px;width:820px;font:500 92px/1.05 var(--sans);letter-spacing:-.03em;text-align:right}
 
-      /* ── 4 · reveal ───────────────────────────── */
-      #s4{background:var(--shu);color:var(--washi)}
-      #s4 .koe{position:absolute;left:86px;top:150px;font:700 430px/.82 var(--display);letter-spacing:-.02em}
-      #s4 .sub{position:absolute;left:104px;top:640px;font:500 68px/1.1 var(--sans);letter-spacing:-.01em}
-      .card{background:var(--washi);color:var(--sumi);border-radius:10px;box-shadow:0 30px 60px rgba(26,23,18,.22)}
-      #s4 .src{position:absolute;right:110px;top:250px;width:600px;padding:28px 32px;font:400 28px/1.7 var(--mono)}
-      #s4 .src em{font-style:normal;color:var(--shu)}
-      #s4 .out{position:absolute;right:110px;top:640px;width:600px;padding:26px 32px;display:flex;align-items:center;gap:22px}
-      #s4 .out .wave{display:flex;align-items:center;gap:7px;height:110px;color:var(--sumi)}
-      #s4 .out .wave b{display:block;width:8px;height:110px;background:currentColor;transform-origin:center}
-      #s4 .out .time{font:400 28px var(--mono)}
-      #s4 .ring{position:absolute;left:-160px;bottom:-260px;width:760px;height:760px;border:3px solid rgba(236,227,210,.35);border-radius:50%}
+      /* ── 3 · paste a script ── */
+      #s3{background:var(--ai);color:var(--washi)}
+      .kick{position:absolute;left:96px;font:400 22px var(--mono);letter-spacing:.3em;text-transform:uppercase;color:var(--kin)}
+      #s3 .kick{top:120px}
+      .card{background:var(--washi);color:var(--sumi);border-radius:12px;box-shadow:0 34px 64px rgba(0,0,0,.28)}
+      #s3 .script{position:absolute;left:96px;top:250px;width:800px;padding:34px 38px;font:400 30px/1.75 var(--mono)}
+      #s3 .script .sk{color:rgba(26,23,18,.32)}
+      #s3 .script p{white-space:nowrap}
+      #s3 .arrow{position:absolute;left:930px;top:470px;width:170px;height:6px;background:var(--kin);transform-origin:left center}
+      #s3 .arrow::after{content:"";position:absolute;right:-4px;top:-17px;width:38px;height:38px;border-top:6px solid var(--kin);border-right:6px solid var(--kin);transform:rotate(45deg)}
+      #s3 .mp3{position:absolute;right:96px;top:250px;width:700px;padding:34px 38px}
+      #s3 .mp3 .top{display:flex;justify-content:space-between;font:400 26px var(--mono)}
+      #s3 .mp3 .wave{display:flex;align-items:center;gap:7px;height:150px;margin:28px 0 22px}
+      #s3 .mp3 .wave b{display:block;width:8px;height:150px;background:var(--shu);transform-origin:center;border-radius:4px}
+      #s3 .mp3 .bar{height:9px;background:rgba(26,23,18,.16);border-radius:5px;overflow:hidden}
+      #s3 .mp3 .fill{height:100%;width:0;background:var(--sumi)}
+      #s3 .mp3 .foot{display:flex;justify-content:space-between;margin-top:18px;font:400 24px var(--mono);color:rgba(26,23,18,.7)}
 
-      /* ── 5 · one url ──────────────────────────── */
-      #s5{background:var(--washi)}
-      #s5 .head{position:absolute;left:96px;top:230px;font:500 104px/1.05 var(--sans);letter-spacing:-.04em}
-      .urlbar{position:absolute;left:96px;top:520px;width:1440px;height:146px;border:3px solid var(--sumi);border-radius:73px;display:flex;align-items:center;gap:26px;padding:0 26px 0 46px;overflow:hidden}
-      .lock{flex:none;width:28px;height:32px;border:3px solid var(--sumi);border-radius:5px;position:relative;margin-right:6px}
-      .lock::before{content:"";position:absolute;left:4px;top:-17px;width:14px;height:17px;border:3px solid var(--sumi);border-bottom:0;border-radius:8px 8px 0 0}
-      .url{font:400 46px var(--mono);letter-spacing:-.01em;white-space:nowrap}
-      .play{width:86px;height:86px;border-radius:50%;background:var(--shu);display:grid;place-items:center;margin-left:auto;flex:none}
-      .play::after{content:"";border-left:26px solid var(--washi);border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:7px}
-      .progress{position:absolute;left:140px;top:634px;height:9px;width:0;background:var(--kin);border-radius:5px}
-      .tc{position:absolute;left:96px;top:720px;font:400 30px var(--mono);letter-spacing:.08em;color:rgba(26,23,18,.62)}
-      .tagchip{position:absolute;padding:10px 20px;border:2px solid var(--sumi);border-radius:30px;font:400 22px var(--mono);letter-spacing:.08em}
-      #s5-t1{right:150px;top:280px}
-      #s5-t2{right:300px;top:340px}
-      #s5-t3{right:170px;top:400px}
+      /* ── 4 · 29 voices / 29 languages ── */
+      #s4{background:var(--washi)}
+      #s4 .n1{position:absolute;left:90px;top:150px;font:600 420px/.8 var(--sans);letter-spacing:-.06em;color:var(--shu)}
+      #s4 .v{position:absolute;left:110px;top:560px;font:600 96px/1 var(--sans);letter-spacing:-.03em;text-transform:uppercase}
+      #s4 .grid{position:absolute;left:96px;top:760px;display:grid;grid-template-columns:repeat(15,1fr);gap:12px;width:900px}
+      #s4 .grid b{height:30px;background:var(--sumi);border-radius:4px}
+      #s4 .n2{position:absolute;right:100px;top:250px;font:600 300px/.8 var(--sans);letter-spacing:-.06em}
+      #s4 .langs{position:absolute;right:100px;top:590px;width:760px;display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-end}
+      #s4 .langs span{font:400 30px var(--mono);padding:10px 20px;border:2px solid var(--sumi);border-radius:40px}
+      #s4 .ring2{position:absolute;left:150px;top:120px;width:700px;height:700px;border:3px dashed rgba(178,58,43,.5);border-radius:50%}
 
-      /* ── 6 · voices ───────────────────────────── */
-      #s6{background:var(--sumi);color:var(--washi)}
-      #s6 .big{position:absolute;right:110px;top:190px;font:600 400px/.8 var(--display);color:var(--kin);letter-spacing:-.03em}
-      #s6 .caption{position:absolute;left:96px;top:230px;width:900px;font:500 76px/1.12 var(--sans);letter-spacing:-.03em}
-      #s6 .grid{position:absolute;left:96px;top:520px;display:grid;grid-template-columns:repeat(15,1fr);gap:11px;width:1080px}
-      #s6 .chip{height:38px;background:rgba(236,227,210,.9)}
-      .marquee{position:absolute;left:0;bottom:0;width:100%;height:96px;background:var(--shu);color:var(--washi);display:flex;align-items:center;overflow:hidden}
-      .marquee div{white-space:nowrap;font:500 32px var(--mono);letter-spacing:.14em}
+      /* ── 5 · three moves ── */
+      #s5{background:var(--shu);color:var(--washi)}
+      #s5 .kick{top:110px;color:rgba(236,227,210,.75)}
+      #s5 .roww{position:absolute;left:96px;width:1728px;height:250px;display:flex;align-items:center;gap:46px}
+      #s5 .roww .num{font:400 34px var(--mono);opacity:.7;width:90px}
+      #s5 .roww .txt{font:600 104px/1 var(--sans);letter-spacing:-.04em;text-transform:uppercase}
+      #s5 .r1{top:250px}
+      #s5 .r2{top:480px}
+      #s5 .r3{top:710px}
+      #s5 .dots{display:flex;gap:14px;margin-left:auto}
+      #s5 .dots b{width:36px;height:36px;border-radius:50%;border:3px solid var(--washi)}
+      #s5 .dots b.on{background:var(--washi);transform:scale(1.35)}
+      #s5 .slider{position:relative;margin-left:auto;width:300px;height:8px;background:rgba(236,227,210,.4);border-radius:4px}
+      #s5 .slider b{position:absolute;left:0;top:-16px;width:40px;height:40px;border-radius:50%;background:var(--washi)}
+      #s5 .btn{margin-left:auto;padding:22px 44px;background:var(--washi);color:var(--shu);font:500 34px var(--mono);letter-spacing:.18em;text-transform:uppercase;border-radius:8px}
+      #s5 .ripple{position:absolute;right:230px;top:770px;width:120px;height:120px;border:4px solid var(--washi);border-radius:50%;opacity:0}
 
-      /* ── 7 · pick ─────────────────────────────── */
-      #s7{background:var(--washi)}
-      #s7 .head{position:absolute;left:96px;top:250px;font:500 84px/1.1 var(--sans);letter-spacing:-.03em;width:900px}
-      .rows{position:absolute;right:110px;top:230px;width:820px;border-top:2px solid rgba(26,23,18,.2)}
-      .row{display:flex;align-items:center;gap:20px;height:96px;padding:0 26px;border-bottom:2px solid rgba(26,23,18,.2);font:400 30px var(--mono)}
-      .row .dot{width:12px;height:12px;border-radius:50%;background:rgba(26,23,18,.35)}
-      .row .eq{display:flex;align-items:center;gap:5px;height:40px;margin-left:auto}
-      .row .eq b{display:block;width:5px;height:40px;background:var(--sumi);transform-origin:center}
-      .row.hot{background:var(--kin)}
-      .row.hot .dot{background:var(--sumi)}
+      /* ── 6 · where it lands ── */
+      #s6{background:var(--washi)}
+      #s6 .kick{top:110px;color:var(--shu)}
+      #s6 .stack{position:absolute;left:96px;top:210px}
+      #s6 .stack .line{margin-bottom:2px}
+      #s6 .stack span{font:600 148px/.95 var(--sans);letter-spacing:-.05em;text-transform:uppercase}
+      #s6 .stack .b{color:var(--shu)}
+      #s6 .boxes{position:absolute;right:96px;top:150px;width:520px;display:flex;flex-direction:column;gap:22px;align-items:flex-end}
+      #s6 .bx{width:420px;height:150px;border:3px solid var(--sumi);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px}
+      #s6 .bx .l{height:14px;background:rgba(26,23,18,.28);border-radius:4px}
+      #s6 .bx .l.s{width:60%}
+      #s6 .bx .w{display:flex;align-items:flex-end;gap:6px;height:52px;margin-top:auto}
+      #s6 .bx .w b{flex:1;background:var(--sumi);border-radius:3px}
 
-      /* ── 8 · no costs ─────────────────────────── */
-      #s8{background:var(--washi)}
-      #s8 .stack{position:absolute;left:92px;top:280px}
-      .stamp{display:block;font:600 130px/1.05 var(--sans);letter-spacing:-.05em}
-      .stamp em{font-style:normal;color:var(--shu)}
-      .obj{position:relative;overflow:visible}
-      #s8 .objs{position:absolute;right:110px;top:230px;width:640px;display:flex;flex-direction:column;gap:34px;align-items:flex-end}
-      .form{width:520px;padding:26px;border:3px solid var(--sumi);border-radius:12px;display:flex;flex-direction:column;gap:14px}
-      .form .input{height:34px;border:2px solid rgba(26,23,18,.5);border-radius:6px}
-      .form .btn{height:44px;width:170px;background:var(--sumi);border-radius:6px}
-      .cc{width:520px;height:210px;border:3px solid var(--sumi);border-radius:16px;padding:22px;display:flex;flex-direction:column;justify-content:space-between}
-      .cc .chiprect{width:56px;height:40px;border:2px solid var(--sumi);border-radius:5px;background:var(--kin);opacity:.5}
-      .cc .digits{font:400 26px var(--mono);letter-spacing:.18em}
-      .inv{width:520px;padding:20px 24px;border:3px solid var(--sumi);border-radius:10px;font:400 24px/1.8 var(--mono)}
-      .inv .total{display:flex;justify-content:space-between;border-top:2px solid rgba(26,23,18,.4);margin-top:8px;padding-top:8px;font-weight:600}
-      .x{position:absolute;left:-30px;top:50%;width:110%;height:11px;background:var(--shu);transform-origin:left center}
+      /* ── 7 · no costs ── */
+      #s7{background:var(--sumi);color:var(--washi)}
+      #s7 .kick{top:110px;color:var(--kin)}
+      #s7 .stack{position:absolute;left:96px;top:250px}
+      #s7 .stack .line{margin-bottom:-6px}
+      #s7 .stack span{font:600 150px/.95 var(--sans);letter-spacing:-.05em;text-transform:uppercase}
+      #s7 .x{position:absolute;height:14px;background:var(--shu);transform-origin:left center}
+      #s7-x1{right:140px;top:300px;width:470px;z-index:3}
+      #s7-x2{right:130px;top:548px;width:480px;z-index:3}
+      #s7 .objs{position:absolute;right:120px;top:200px}
+      #s7 .form{width:430px;padding:24px;border:3px solid rgba(236,227,210,.75);border-radius:12px;display:flex;flex-direction:column;gap:16px}
+      #s7 .form .inp{height:32px;border:2px solid rgba(236,227,210,.5);border-radius:6px}
+      #s7 .form .sub{height:44px;width:180px;background:var(--washi);border-radius:6px}
+      #s7 .cc{width:430px;height:200px;margin-top:36px;border:3px solid rgba(236,227,210,.75);border-radius:16px;padding:22px;display:flex;flex-direction:column;justify-content:space-between}
+      #s7 .cc .chip{width:58px;height:42px;border-radius:5px;background:var(--kin);opacity:.65}
+      #s7 .cc .num{font:400 28px var(--mono);letter-spacing:.16em;opacity:.85}
 
-      /* ── 9 · script to mp3 ────────────────────── */
-      #s9{background:var(--ai);color:var(--washi)}
-      #s9 .head{position:absolute;left:96px;top:190px;font:500 74px/1.1 var(--sans);letter-spacing:-.03em;width:1000px}
-      #s9 .script{position:absolute;left:96px;top:430px;width:760px;padding:30px 34px;font:400 28px/1.7 var(--mono)}
-      #s9 .arrow{position:absolute;left:900px;top:560px;width:150px;height:5px;background:var(--kin);transform-origin:left center}
-      #s9 .arrow::after{content:"";position:absolute;right:-3px;top:-16px;width:34px;height:34px;border-top:5px solid var(--kin);border-right:5px solid var(--kin);transform:rotate(45deg)}
-      #s9 .mp3{position:absolute;right:96px;top:410px;width:680px;padding:30px 34px}
-      #s9 .mp3 .top{display:flex;align-items:center;justify-content:space-between;font:400 26px var(--mono)}
-      #s9 .mp3 .wave{display:flex;align-items:center;gap:6px;height:130px;margin:24px 0 20px;color:var(--sumi)}
-      #s9 .mp3 .wave b{display:block;width:7px;height:130px;background:currentColor;transform-origin:center}
-      #s9 .mp3 .bar{height:8px;background:rgba(26,23,18,.18);border-radius:4px;overflow:hidden}
-      #s9 .mp3 .fill{height:100%;width:0;background:var(--shu)}
-      #s9 .mp3 .foot{display:flex;justify-content:space-between;margin-top:16px;font:400 24px var(--mono);color:rgba(26,23,18,.7)}
+      /* ── 8 · your words ── */
+      #s8{background:var(--shu);color:var(--washi)}
+      #s8 .stack{position:absolute;left:96px;top:230px;z-index:2}
+      #s8 .stack .line{margin-bottom:-4px}
+      #s8 .stack span{font:600 118px/.95 var(--sans);letter-spacing:-.045em;text-transform:uppercase}
+      #s8 .wave{position:absolute;right:70px;top:250px;width:430px;height:560px;display:flex;align-items:center;justify-content:center;gap:8px;z-index:1}
+      #s8 .wave b{display:block;width:12px;height:460px;background:var(--washi);border-radius:6px;transform-origin:center;opacity:.9}
 
-      /* ── 10 · where it lands ──────────────────── */
-      #s10{background:var(--ai);color:var(--washi)}
-      #s10 .head{position:absolute;left:96px;top:170px;font:500 70px/1.1 var(--sans);letter-spacing:-.03em}
-      #s10 .frames{position:absolute;left:96px;top:400px;display:flex;gap:40px}
-      .frame{width:520px;height:340px;border:3px solid rgba(236,227,210,.75);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px}
-      .frame .fbar{display:flex;gap:9px}
-      .frame .fbar i{width:11px;height:11px;border-radius:50%;background:rgba(236,227,210,.6)}
-      .frame .blk{background:rgba(236,227,210,.28);border-radius:5px}
-      .frame .strip{display:flex;gap:8px;height:120px}
-      .frame .strip b{flex:1;background:rgba(236,227,210,.35);border-radius:4px}
-      .frame .strip b.on{background:var(--kin)}
-      .frame .mic{width:110px;height:110px;border-radius:50%;border:3px solid rgba(236,227,210,.8);align-self:center;position:relative}
-      .frame .mic::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:36px;height:52px;border-radius:18px;background:var(--washi)}
+      /* ── 9 · end card ── */
+      #s9{background:var(--washi)}
+      #s9 .portrait{position:absolute;left:96px;top:150px;width:470px;height:780px;overflow:hidden;background:var(--sumi)}
+      #s9 .portrait img{width:100%;height:100%;object-fit:cover}
+      #s9 .koe{position:absolute;left:640px;top:180px;font:700 300px/.82 var(--display);letter-spacing:-.03em}
+      #s9 .free{position:absolute;left:650px;top:520px;font:600 96px/1 var(--sans);letter-spacing:-.03em}
+      #s9 .free em{font-style:normal;color:var(--shu)}
+      #s9 .url{position:absolute;left:650px;top:660px;font:400 34px var(--mono);letter-spacing:.06em}
+      #s9 .pill{position:absolute;left:650px;top:740px;padding:16px 30px;background:var(--sumi);color:var(--washi);font:400 22px var(--mono);letter-spacing:.26em;text-transform:uppercase}
+      #s9 .credit{position:absolute;left:650px;top:850px;font:400 20px var(--mono);color:rgba(26,23,18,.55);letter-spacing:.04em}
+      #s9 .mark{position:absolute;right:-160px;top:60px;width:900px;height:900px;border:3px solid rgba(26,23,18,.14);border-radius:50%}
+      #s9 .mark::after{content:"";position:absolute;left:130px;top:130px;right:130px;bottom:130px;border:3px solid rgba(26,23,18,.12);border-radius:50%}
 
-      /* ── 11 · end card ────────────────────────── */
-      #s11{background:var(--washi)}
-      #s11 .portrait{position:absolute;left:96px;top:180px;width:430px;height:720px;overflow:hidden;background:var(--sumi)}
-      #s11 .portrait img{width:100%;height:100%;object-fit:cover}
-      #s11 .logotype{position:absolute;left:600px;top:200px;font:700 320px/.82 var(--display);letter-spacing:-.02em}
-      #s11 .claim{position:absolute;left:606px;top:590px;font:500 58px/1.2 var(--sans);letter-spacing:-.02em}
-      #s11 .url2{position:absolute;left:606px;top:790px;font:400 30px var(--mono);letter-spacing:.08em}
-      #s11 .pillfree{position:absolute;left:606px;top:862px;padding:16px 30px;background:var(--shu);color:var(--washi);font:400 22px var(--mono);letter-spacing:.26em;text-transform:uppercase}
-      #s11 .shots{position:absolute;right:96px;top:190px;text-align:right}
-      #s11 .shots span{display:block;font:400 20px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:rgba(26,23,18,.55);margin-bottom:14px}
-
-      .wipe{background:var(--shu)}
-      .wipe.dark{background:var(--sumi)}
+      .wipe{background:var(--shu);z-index:60}
       .wipe.kin{background:var(--kin)}
-      .wipe.ai{background:var(--ai)}
+      .wipe.sumi{background:var(--sumi)}
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="koe-launch" data-start="0" data-duration="39.15" data-width="1920" data-height="1080">
-      <audio id="a01" src="assets/audio/01.mp3" data-start="0.30" data-duration="3.05"></audio>
-      <audio id="a02" src="assets/audio/02.mp3" data-start="4.15" data-duration="2.74"></audio>
-      <audio id="a03" src="assets/audio/03.mp3" data-start="7.65" data-duration="1.70"></audio>
-      <audio id="a04" src="assets/audio/04.mp3" data-start="10.10" data-duration="2.33"></audio>
-      <audio id="a05" src="assets/audio/05.mp3" data-start="13.45" data-duration="3.07"></audio>
-      <audio id="a06" src="assets/audio/06.mp3" data-start="17.25" data-duration="3.50"></audio>
-      <audio id="a07" src="assets/audio/07.mp3" data-start="21.50" data-duration="2.02"></audio>
-      <audio id="a08" src="assets/audio/08.mp3" data-start="24.20" data-duration="3.24"></audio>
-      <audio id="a09" src="assets/audio/09.mp3" data-start="28.20" data-duration="3.22"></audio>
-      <audio id="a10" src="assets/audio/10.mp3" data-start="32.10" data-duration="3.24"></audio>
-      <audio id="a11" src="assets/audio/11.mp3" data-start="36.05" data-duration="1.34"></audio>
-      <audio id="bed" src="assets/audio/bed.wav" data-start="0" data-duration="39.15"></audio>
+    <div id="root" data-composition-id="koe-launch" data-start="0" data-duration="29.00" data-width="1920" data-height="1080">
+      <audio id="a01" src="assets/audio/01.mp3" data-start="0.25" data-duration="1.90"></audio>
+      <audio id="a02" src="assets/audio/02.mp3" data-start="2.55" data-duration="1.13"></audio>
+      <audio id="a03" src="assets/audio/03.mp3" data-start="4.08" data-duration="3.41"></audio>
+      <audio id="a04" src="assets/audio/04.mp3" data-start="7.89" data-duration="3.14"></audio>
+      <audio id="a05" src="assets/audio/05.mp3" data-start="11.43" data-duration="3.12"></audio>
+      <audio id="a06" src="assets/audio/06.mp3" data-start="14.95" data-duration="3.82"></audio>
+      <audio id="a07" src="assets/audio/07.mp3" data-start="19.17" data-duration="3.34"></audio>
+      <audio id="a08" src="assets/audio/08.mp3" data-start="22.91" data-duration="1.87"></audio>
+      <audio id="a09" src="assets/audio/09.mp3" data-start="25.18" data-duration="1.37"></audio>
+      <audio id="bed" src="assets/audio/bed.wav" data-start="0" data-duration="29.00"></audio>
 
-      <!-- ══ 1 · the loop ══ -->
-      <section id="s1" class="clip" data-start="0" data-duration="3.90" data-track-index="0">
-        <div class="grid-lines" id="s1-grid"></div>
-        <div class="kick" id="s1-kick">01 — the loop</div>
-        <h1 class="mega">
-          <span class="line"><span id="s1-l1">Every agent,</span></span>
-          <span class="line"><span id="s1-l2">everywhere,</span></span>
-          <span class="line"><span id="s1-l3">ends the same way.</span></span>
+      <!-- ══ 1 · hook (0 → 2.40) ══ -->
+      <section id="s1" class="clip" data-start="0" data-duration="2.40" data-track-index="0">
+        <div class="ring1" id="s1-ring"></div>
+        <h1 class="hook">
+          <span class="line"><span id="s1-a">Stop</span></span>
+          <span class="line"><span id="s1-b">paying for</span></span>
+          <span class="line"><span id="s1-c" class="hl">voiceovers.</span></span>
         </h1>
-        <div class="term" id="s1-term">
-          <div class="term-bar"><i></i><i></i><i></i><span class="term-title" data-layout-ignore>claude — tools</span></div>
-          <div class="term-body">
-            <p class="tl" id="s1-t1">&gt; read src/audio.ts</p>
-            <p class="tl" id="s1-t2">&gt; write src/audio.ts</p>
-            <p class="tl" id="s1-t3">&gt; run test — 42 passing</p>
-            <p class="tl ok" id="s1-t4">✓ done in 4.1s<span class="caret" id="s1-caret"></span></p>
-          </div>
+        <div class="tagprice" id="s1-price">
+          <em>premium voice</em>
+          <b id="s1-num">$0.18</b>
+          <s>per word</s>
+        </div>
+        <div class="cut" id="s1-cut"></div>
+      </section>
+
+      <!-- ══ 2 · this is koe (2.40 → 3.93) ══ -->
+      <section id="s2" class="clip" data-start="2.40" data-duration="1.53" data-track-index="0">
+        <div class="disc" id="s2-disc"></div>
+        <div class="hole" id="s2-hole"></div>
+        <div class="burst" id="s2-burst"></div>
+        <div class="word" id="s2-word">Koe</div>
+      </section>
+
+      <!-- ══ 3 · paste a script (3.93 → 7.74) ══ -->
+      <section id="s3" class="clip" data-start="3.93" data-duration="3.81" data-track-index="0">
+        <div class="kick" id="s3-kick" data-layout-ignore>01 — in</div>
+        <div class="card script" id="s3-script">
+          <p id="s3-l1">Every launch needs a voice.</p>
+          <p id="s3-l2">This one took nine seconds.</p>
+          <p class="sk" id="s3-l3">▍</p>
+        </div>
+        <div class="arrow" id="s3-arrow"></div>
+        <div class="card mp3" id="s3-mp3">
+          <div class="top"><span id="s3-name">voiceover.mp3</span><span id="s3-time">0.9s</span></div>
+          <div class="wave" id="s3-wave"></div>
+          <div class="bar"><div class="fill" id="s3-fill"></div></div>
+          <div class="foot"><span>29 voices</span><span id="s3-state">rendering</span></div>
         </div>
       </section>
 
-      <!-- ══ 2 · the output ══ -->
-      <section id="s2" class="clip" data-start="3.90" data-duration="3.55" data-track-index="0">
-        <div class="ghostword" data-layout-ignore>DONE</div>
-        <div class="pills">
-          <div class="pill" id="s2-p1"><b>✓</b><span>Done.</span></div>
-          <div class="pill" id="s2-p2"><b>✓</b><span>Finished.</span></div>
-          <div class="pill" id="s2-p3"><b>✓</b><span>All tests passing.</span></div>
+      <!-- ══ 4 · 29 / 29 (7.74 → 11.28) ══ -->
+      <section id="s4" class="clip" data-start="7.74" data-duration="3.54" data-track-index="0">
+        <div class="ring2" id="s4-ring"></div>
+        <div class="n1" id="s4-n1">29</div>
+        <div class="v" id="s4-v">voices</div>
+        <div class="grid" id="s4-grid"></div>
+        <div class="n2" id="s4-n2">29</div>
+        <div class="langs" id="s4-langs"></div>
+      </section>
+
+      <!-- ══ 5 · three moves (11.28 → 14.80) ══ -->
+      <section id="s5" class="clip" data-start="11.28" data-duration="3.52" data-track-index="0">
+        <div class="kick" data-layout-ignore>02 — out</div>
+        <div class="roww r1" id="s5-r1">
+          <span class="num">01</span><span class="txt">Pick one</span>
+          <span class="dots" id="s5-dots"><b></b><b></b><b class="on"></b><b></b><b></b></span>
         </div>
-      </section>
-
-      <!-- ══ 3 · the silence ══ -->
-      <section id="s3" class="clip" data-start="7.45" data-duration="2.45" data-track-index="0">
-        <svg class="spk" viewBox="0 0 200 200" aria-hidden="true">
-          <path d="M28 74 h34 L108 32 v136 L62 126 H28 z" fill="currentColor" />
-          <path d="M138 64 a48 48 0 0 1 0 72" stroke="currentColor" stroke-width="10" fill="none" stroke-linecap="round" />
-          <path d="M164 42 a84 84 0 0 1 0 116" stroke="currentColor" stroke-width="10" fill="none" stroke-linecap="round" />
-        </svg>
-        <div class="slash" id="s3-slash"></div>
-        <div class="flat" id="s3-flat"></div>
-        <div class="label" data-layout-ignore>no audio</div>
-        <div class="say" id="s3-say">nobody<br />hears it</div>
-      </section>
-
-      <!-- ══ 4 · reveal ══ -->
-      <section id="s4" class="clip" data-start="9.90" data-duration="3.35" data-track-index="0">
-        <div class="ring" id="s4-ring"></div>
-        <div class="koe"><span class="line"><span id="s4-koe">Koe</span></span></div>
-        <div class="sub" id="s4-sub">reads it. speaks it.</div>
-        <div class="src card" id="s4-src">
-          &gt; fix the flaky test<br />
-          &gt; <em>and say it out loud</em>
+        <div class="roww r2" id="s5-r2">
+          <span class="num">02</span><span class="txt">Set the pace</span>
+          <span class="slider"><b id="s5-knob"></b></span>
         </div>
-        <div class="out card" id="s4-out">
-          <div class="wave" id="s4-wave"></div>
-          <span class="time" id="s4-time">0:03</span>
+        <div class="roww r3" id="s5-r3">
+          <span class="num">03</span><span class="txt">Hit generate</span>
+          <span class="btn" id="s5-btn">generate</span>
         </div>
+        <div class="ripple" id="s5-ripple"></div>
       </section>
 
-      <!-- ══ 5 · one url ══ -->
-      <section id="s5" class="clip" data-start="13.25" data-duration="3.80" data-track-index="0">
-        <div class="head">
-          <span class="line"><span id="s5-h1">One URL.</span></span>
-          <span class="line"><span id="s5-h2">No setup, no SDK.</span></span>
-        </div>
-        <div class="urlbar" id="s5-bar">
-          <div class="lock"></div>
-          <div class="url" id="s5-url">koe.kennedyazeru.space</div>
-          <div class="play" id="s5-play"></div>
-        </div>
-        <div class="progress" id="s5-prog"></div>
-        <div class="tc" id="s5-tc" data-layout-ignore>0:00 / 0:14 — 29 voices</div>
-        <div class="tagchip" id="s5-t1" data-layout-ignore>npm install</div>
-        <div class="tagchip" id="s5-t2" data-layout-ignore>SDK</div>
-        <div class="tagchip" id="s5-t3" data-layout-ignore>API key</div>
-      </section>
-
-      <!-- ══ 6 · voices ══ -->
-      <section id="s6" class="clip" data-start="17.05" data-duration="4.25" data-track-index="0">
-        <div class="big" id="s6-big">29</div>
-        <div class="caption" id="s6-cap">neural voices,<br />twenty-nine languages.</div>
-        <div class="grid" id="s6-grid"></div>
-        <div class="marquee"><div id="s6-marq">en · es · fr · de · ja · pt · it · hi · ar · ko · zh · tr · ru · nl · pl · sv · da · fi · no · cs · el · he · id · ms · th · vi · uk · ro · hu · 29 voices ·</div></div>
-      </section>
-
-      <!-- ══ 7 · pick ══ -->
-      <section id="s7" class="clip" data-start="21.30" data-duration="2.70" data-track-index="0">
-        <div class="head">pick the one that<br />sounds like you.</div>
-        <div class="rows" id="s7-rows"></div>
-      </section>
-
-      <!-- ══ 8 · no costs ══ -->
-      <section id="s8" class="clip" data-start="24.00" data-duration="4.00" data-track-index="0">
+      <!-- ══ 6 · where it lands (14.80 → 19.02) ══ -->
+      <section id="s6" class="clip" data-start="14.80" data-duration="4.22" data-track-index="0">
+        <div class="kick" data-layout-ignore>03 — anywhere</div>
         <div class="stack">
-          <div id="s8-a"><span class="stamp">No account.</span></div>
-          <div id="s8-b"><span class="stamp">No <em>card</em>.</span></div>
-          <div id="s8-c"><span class="stamp">No <em>API bill</em>.</span></div>
+          <span class="line"><span id="s6-a">Podcasts.</span></span>
+          <span class="line"><span id="s6-b" class="b">Ads.</span></span>
+          <span class="line"><span id="s6-c">Explainers.</span></span>
+          <span class="line"><span id="s6-d" class="b">Whole books.</span></span>
+        </div>
+        <div class="boxes" id="s6-boxes"></div>
+      </section>
+
+      <!-- ══ 7 · no costs (19.02 → 22.76) ══ -->
+      <section id="s7" class="clip" data-start="19.02" data-duration="3.74" data-track-index="0">
+        <div class="kick" data-layout-ignore>04 — nothing to buy</div>
+        <div class="stack">
+          <span class="line"><span id="s7-a">No account.</span></span>
+          <span class="line"><span id="s7-b">No card.</span></span>
+          <span class="line"><span id="s7-c">No API bill.</span></span>
         </div>
         <div class="objs">
-          <div class="obj" id="s8-o1">
-            <div class="form"><div class="input"></div><div class="input"></div><div class="btn"></div></div>
-            <div class="x" id="s8-x1"></div>
-          </div>
-          <div class="obj" id="s8-o2">
-            <div class="cc"><div class="chiprect"></div><div class="digits">•••• •••• •••• 4200</div></div>
-            <div class="x" id="s8-x2"></div>
-          </div>
-          <div class="obj" id="s8-o3">
-            <div class="inv" data-layout-ignore><div>input tokens · 812</div><div>output tokens · 204</div><div class="total"><span>due today</span><span>$41.00</span></div></div>
-            <div class="x" id="s8-x3"></div>
-          </div>
+          <div class="form" id="s7-form"><div class="inp"></div><div class="inp"></div><div class="sub"></div></div>
+          <div class="cc" id="s7-cc"><div class="chip"></div><div class="num">•••• •••• •••• 4021</div></div>
         </div>
+        <div class="x" id="s7-x1"></div>
+        <div class="x" id="s7-x2"></div>
       </section>
 
-      <!-- ══ 9 · script to mp3 ══ -->
-      <section id="s9" class="clip" data-start="28.00" data-duration="3.90" data-track-index="0">
-        <div class="head">paste a script.<br />get a finished voiceover.</div>
-        <div class="script card" id="s9-script">
-          In nineteen years of<br />
-          running this shop, I have<br />
-          never once seen a ledger<br />
-          balance itself.
+      <!-- ══ 8 · your words (22.76 → 25.03) ══ -->
+      <section id="s8" class="clip" data-start="22.76" data-duration="2.27" data-track-index="0">
+        <div class="stack">
+          <span class="line"><span id="s8-a">Your words.</span></span>
+          <span class="line"><span id="s8-b">Actually spoken.</span></span>
         </div>
-        <div class="arrow" id="s9-arrow"></div>
-        <div class="mp3 card" id="s9-mp3">
-          <div class="top"><span>voiceover.mp3</span><span>0:14</span></div>
-          <div class="wave" id="s9-wave"></div>
-          <div class="bar"><div class="fill" id="s9-fill"></div></div>
-          <div class="foot" data-layout-ignore><span id="s9-status">rendering…</span><span>29 voices</span></div>
-        </div>
+        <div class="wave" id="s8-wave"></div>
       </section>
 
-      <!-- ══ 10 · where it lands ══ -->
-      <section id="s10" class="clip" data-start="31.90" data-duration="3.95" data-track-index="0">
-        <div class="head">drop it in your demo, your video, your podcast.</div>
-        <div class="frames">
-          <div class="frame" id="s10-f1">
-            <div class="fbar"><i></i><i></i><i></i></div>
-            <div class="blk" style="height:120px"></div>
-            <div class="blk" style="height:34px;width:70%"></div>
-            <div class="blk" style="height:34px;width:45%"></div>
-          </div>
-          <div class="frame" id="s10-f2">
-            <div class="fbar"><i></i><i></i><i></i></div>
-            <div class="strip"><b></b><b class="on"></b><b></b><b></b><b></b></div>
-            <div class="blk" style="height:26px;width:80%"></div>
-          </div>
-          <div class="frame" id="s10-f3">
-            <div class="fbar"><i></i><i></i><i></i></div>
-            <div class="mic"></div>
-            <div class="blk" style="height:26px;width:60%;margin:0 auto"></div>
-          </div>
-        </div>
+      <!-- ══ 9 · end card (25.03 → 29.00) ══ -->
+      <section id="s9" class="clip" data-start="25.03" data-duration="3.97" data-track-index="0">
+        <div class="mark" id="s9-mark"></div>
+        <div class="portrait" id="s9-portrait"><img src="assets/oiran.png" alt="" /></div>
+        <div class="koe" id="s9-koe">Koe</div>
+        <div class="free" id="s9-free">Free. <em>Nothing to sign up for.</em></div>
+        <div class="url" id="s9-url">koe.kennedyazeru.space</div>
+        <div class="pill" id="s9-pill" data-layout-ignore>paste · listen · ship</div>
+        <div class="credit" id="s9-credit" data-layout-ignore>music: “Path To Victory” — UNIVERSFIELD, CC BY 4.0</div>
       </section>
 
-      <!-- ══ 11 · end card ══ -->
-      <section id="s11" class="clip" data-start="35.85" data-duration="3.30" data-track-index="0">
-        <div class="portrait" id="s11-portrait"><img src="assets/oiran.png" alt="Koe" data-layout-allow-overflow /></div>
-        <div class="logotype"><span class="line"><span id="s11-koe">Koe</span></span></div>
-        <div class="claim" id="s11-claim">Your agent already writes.<br />Now it speaks.</div>
-        <div class="url2" id="s11-url">koe.kennedyazeru.space</div>
-        <div class="pillfree" id="s11-pill">free</div>
-        <div class="shots" id="s11-shots" data-layout-ignore><span>29 voices</span><span>mp3 / wav / m4a</span><span>no key needed</span></div>
-      </section>
+      <!-- ══ motion field ══ -->
+      <div id="field">
+        <i class="f1"></i><i class="f2"></i><i class="f3"></i><i class="f4"></i><i class="f5"></i><i class="f6"></i>
+      </div>
 
       <!-- ══ wipes ══ -->
-      <div class="wipe clip" id="w1" data-start="3.68" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe dark clip" id="w2" data-start="7.23" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe clip" id="w3" data-start="9.68" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe kin clip" id="w4" data-start="13.03" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe dark clip" id="w5" data-start="16.83" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe clip" id="w6" data-start="21.08" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe kin clip" id="w7" data-start="23.78" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe ai clip" id="w8" data-start="27.78" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe dark clip" id="w9" data-start="31.68" data-duration="0.40" data-track-index="1"></div>
-      <div class="wipe clip" id="w10" data-start="35.63" data-duration="0.40" data-track-index="1"></div>
+      <div class="wipe clip" id="w1" data-start="0" data-duration="29.00" data-track-index="5"></div>
+      <div class="wipe kin clip" id="w2" data-start="0" data-duration="29.00" data-track-index="6"></div>
+      <div class="wipe sumi clip" id="w3" data-start="0" data-duration="29.00" data-track-index="7"></div>
+      <div class="wipe clip" id="w4" data-start="0" data-duration="29.00" data-track-index="8"></div>
+      <div class="wipe kin clip" id="w5" data-start="0" data-duration="29.00" data-track-index="9"></div>
+      <div class="wipe sumi clip" id="w6" data-start="0" data-duration="29.00" data-track-index="10"></div>
+      <div class="wipe clip" id="w7" data-start="0" data-duration="29.00" data-track-index="11"></div>
+      <div class="wipe kin clip" id="w8" data-start="0" data-duration="29.00" data-track-index="12"></div>
     </div>
 
     <script>
-      window.__timelines = window.__timelines || {};
       const $ = (s) => document.querySelector(s);
+      const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-      /* beat schedule — one source of truth, so cuts and voice always agree */
-      const T = { s1: 0.00, s2: 3.90, s3: 7.45, s4: 9.90, s5: 13.25, s6: 17.05,
-                  s7: 21.30, s8: 24.00, s9: 28.00, s10: 31.90, s11: 35.85 };
-      const at = (scene, offset) => T[scene] + offset;
+      /* ---------- beat table: the single source of timing ---------- */
+      const T = { s1: 0.00, s2: 2.40, s3: 3.93, s4: 7.74, s5: 11.28, s6: 14.80, s7: 19.02, s8: 22.76, s9: 25.03 };
+      const at = (scene, offset = 0) => T[scene] + offset;
+      const END = 29.00;
+      const FADE = 28.55;
 
-      /* ---------- generated objects ---------- */
-      const grid = $("#s6-grid");
-      for (let i = 0; i < 29; i++) {
-        const d = document.createElement("div");
-        d.className = "chip";
-        d.setAttribute("data-layout-ignore", "");
-        if (i % 9 === 4) d.style.background = "var(--shu)";
-        if (i % 13 === 6) d.style.background = "var(--kin)";
-        grid.appendChild(d);
-      }
-      const HEIGHTS = [0.30, 0.55, 0.82, 0.42, 1.00, 0.66, 0.38, 0.90, 0.50, 0.95, 0.34, 0.72, 0.58, 0.26,
-                       0.44, 0.88, 0.36, 0.62, 0.98, 0.48, 0.74, 0.32, 0.86, 0.54, 0.28, 0.68];
-      const mkWave = (host, n, offset = 0) => {
-        for (let i = 0; i < n; i++) {
-          const b = document.createElement("b");
-          b.setAttribute("data-layout-ignore", "");
-          b.style.height = (HEIGHTS[(i + offset) % HEIGHTS.length] * 100).toFixed(0) + "%";
-          host.appendChild(b);
-        }
-      };
-      mkWave($("#s3-flat"), 22, 3);
-      mkWave($("#s4-wave"), 14, 0);
-      mkWave($("#s9-wave"), 26, 5);
-
-      const rows = $("#s7-rows");
-      const VOICES = [
-        ["en-US", "Andrew · warm"],
-        ["en-GB", "Ryan · chat"],
-        ["en-AU", "Natasha · natural"],
-        ["es-MX", "Dalia · friendly"],
-        ["ja-JP", "Nanami · polite"],
-      ];
-      VOICES.forEach(([lang, name], i) => {
-        const r = document.createElement("div");
-        r.className = "row" + (i === 1 ? " hot" : "");
-        r.innerHTML = `<span class="dot"></span><span>${lang}</span><span>${name}</span>` +
-          `<span class="eq">${'<b></b>'.repeat(6)}</span>`;
-        rows.appendChild(r);
+      /* ---------- generated content ---------- */
+      const WAVE = [0.35,0.62,0.9,0.48,0.72,1,0.55,0.8,0.4,0.66,0.92,0.5,0.78,0.42,0.6,0.86,0.46,0.7,0.95,0.52,0.64,0.88,0.44,0.74,0.58,0.96,0.5,0.68];
+      $("#s3-wave").innerHTML = WAVE.map((h) => `<b style="height:${Math.round(h * 150)}px"></b>`).join("");
+      $("#s8-wave").innerHTML = WAVE.map((h) => `<b style="height:${Math.round(h * 460)}px"></b>`).join("");
+      $("#s4-grid").innerHTML = Array.from({ length: 45 }, () => "<b></b>").join("");
+      const LANGS = ["en-US","en-GB","es-MX","fr-FR","de-DE","it-IT","pt-BR","ja-JP","ko-KR","zh-CN","hi-IN","ar-SA","en-AU","en-IN","en-CA"];
+      $("#s4-langs").innerHTML = LANGS.map((l) => `<span>${l}</span>`).join("");
+      const BOX = ["podcast","ad spot","explainer","audiobook"];
+      $("#s6-boxes").innerHTML = BOX.map(() => `<div class="bx"><div class="l"></div><div class="l s"></div><div class="w"></div></div>`).join("");
+      $$("#s6-boxes .bx .w").forEach((w) => {
+        w.innerHTML = [30, 52, 22, 44, 36, 50, 26].map((h) => `<b style="height:${h}px"></b>`).join("");
       });
 
       const tl = gsap.timeline({ paused: true });
 
       /* ---------- initial states ---------- */
-      ["#s1-l2", "#s1-l3", "#s4-koe", "#s5-h1", "#s5-h2", "#s11-koe"].forEach((s) => gsap.set(s, { yPercent: 112 }));
-      gsap.set("#s1-kick", { opacity: 0 });
-      gsap.set(["#s1-t1", "#s1-t2", "#s1-t3", "#s1-t4"], { opacity: 0, x: -12 });
-      gsap.set("#s1-term", { opacity: 0, y: 40, scale: 0.97, transformOrigin: "50% 50%" });
-      gsap.set("#s2 .pill", { opacity: 0, scale: 1.25, transformOrigin: "0% 50%" });
-      gsap.set(".ghostword", { opacity: 0 });
-      gsap.set("#s3-say", { opacity: 0, y: 30 });
-      gsap.set("#s3-flat b", { scaleY: 0.9 });
-      gsap.set("#s3-slash", { scaleX: 0, rotate: -34 });
-      gsap.set("#s3 .label", { opacity: 0 });
-      gsap.set("#s4-sub", { opacity: 0, y: 20 });
-      gsap.set(["#s4-src", "#s4-out"], { opacity: 0, y: 36 });
-      gsap.set("#s4-wave b", { scaleY: 0.08 });
-      gsap.set("#s4-ring", { opacity: 0, scale: 0.9 });
-      gsap.set("#s5-bar", { opacity: 0, y: 40, scaleX: 0.96, transformOrigin: "0% 50%" });
-      gsap.set("#s5-tc", { opacity: 0 });
-      gsap.set(["#s5-t1", "#s5-t2", "#s5-t3"], { opacity: 0 });
-      gsap.set("#s5-play", { scale: 0.4 });
-      gsap.set("#s6-big", { opacity: 0, scale: 0.8, transformOrigin: "100% 70%" });
-      gsap.set("#s6-cap", { opacity: 0, y: 26 });
-      gsap.set("#s6-grid .chip", { opacity: 0, scaleY: 0.15, transformOrigin: "50% 100%" });
-      gsap.set("#s7-rows .row", { opacity: 0, x: 60 });
-      gsap.set(["#s8-a", "#s8-b", "#s8-c"], { opacity: 0, scale: 1.2, transformOrigin: "0% 50%", filter: "blur(8px)" });
-      gsap.set(["#s8-x1", "#s8-x2", "#s8-x3"], { scaleX: 0, rotate: -14, transformOrigin: "left center" });
-      gsap.set(["#s8-o1", "#s8-o2", "#s8-o3"], { opacity: 0, x: 40 });
-      gsap.set("#s9-script", { opacity: 0, y: 34 });
-      gsap.set("#s9-arrow", { scaleX: 0 });
-      gsap.set("#s9-mp3", { opacity: 0, y: 34 });
-      gsap.set("#s9-wave b", { scaleY: 0.06 });
-      gsap.set("#s9-fill", { width: 0 });
-      gsap.set("#s10 .frame", { opacity: 0, y: -60 });
-      gsap.set("#s11-portrait", { opacity: 0, y: 80, scale: 1.05, transformOrigin: "50% 100%" });
-      gsap.set(["#s11-claim", "#s11-url", "#s11-pill"], { opacity: 0, y: 24 });
-      gsap.set("#s11-shots span", { opacity: 0, x: 26 });
-      gsap.set(["#w1", "#w2", "#w3", "#w4", "#w5", "#w6", "#w7", "#w8", "#w9", "#w10"], { yPercent: 101 });
+      gsap.set(["#s1-a", "#s1-b", "#s1-c", "#s2-word", "#s6-a", "#s6-b", "#s6-c", "#s6-d",
+                "#s7-a", "#s7-b", "#s7-c", "#s8-a", "#s8-b", "#s9-koe"], { yPercent: 115 });
+      gsap.set("#s1-price", { opacity: 0, y: -120, rotate: 14 });
+      gsap.set("#s1-cut", { scaleX: 0, rotate: -3.5 });
+      gsap.set("#s1-ring", { scale: 0.8, opacity: 0 });
+      gsap.set(["#s2-disc", "#s2-hole"], { opacity: 0, scale: 1.28, transformOrigin: "50% 50%" });
+      gsap.set("#s2-burst", { scale: 0.2, opacity: 0 });
+      gsap.set("#s3-kick", { opacity: 0 });
+      gsap.set("#s3-script", { opacity: 0, x: -90 });
+      gsap.set(["#s3-l1", "#s3-l2", "#s3-l3"], { opacity: 0, y: 14 });
+      gsap.set("#s3-arrow", { scaleX: 0 });
+      gsap.set("#s3-mp3", { opacity: 0, y: 70, scale: 0.96 });
+      gsap.set("#s3-wave b", { scaleY: 0.04 });
+      gsap.set("#s4-n1", { opacity: 0, y: 80 });
+      gsap.set("#s4-v", { opacity: 0, x: -40 });
+      gsap.set("#s4-grid b", { opacity: 0, scaleY: 0.1, transformOrigin: "50% 100%" });
+      gsap.set(["#s4-n2", "#s4-langs span"], { opacity: 0, x: 70 });
+      gsap.set("#s4-ring", { opacity: 0, scale: 0.85 });
+      gsap.set(["#s5-r1", "#s5-r2", "#s5-r3"], { opacity: 0, x: -140 });
+      gsap.set("#s5-ripple", { opacity: 0, scale: 0.3 });
+      gsap.set("#s6 .bx", { opacity: 0, x: 90, rotate: 3 });
+      gsap.set("#s7-form", { opacity: 0, x: 80 });
+      gsap.set("#s7-cc", { opacity: 0, x: 80 });
+      gsap.set(["#s7-x1", "#s7-x2"], { scaleX: 0, rotate: -6, transformOrigin: "left center" });
+      gsap.set("#s8-wave b", { scaleY: 0.02, transformOrigin: "50% 50%" });
+      gsap.set("#s9-portrait", { opacity: 0, y: 90, scale: 1.06, transformOrigin: "50% 100%" });
+      gsap.set(["#s9-free", "#s9-url", "#s9-pill", "#s9-credit"], { opacity: 0, y: 26 });
+      gsap.set("#s9-mark", { opacity: 0, scale: 1.06, transformOrigin: "50% 50%" });
+      gsap.set(["#w1", "#w2", "#w3", "#w4", "#w5", "#w6", "#w7", "#w8"], { yPercent: 101 });
 
-      /* ================= 1 · the loop (0 → 3.9) ================= */
-      tl.to("#s1-grid", { backgroundPosition: "0px 90px, 90px 0px", duration: 3.9, ease: "none" }, at("s1", 0));
-      tl.to("#s1-kick", { opacity: 1, duration: 0.3 }, at("s1", 0.05));
-      tl.to("#s1-l2", { yPercent: 0, duration: 0.45, ease: "expo.out" }, at("s1", 0.20));
-      tl.to("#s1-l3", { yPercent: 0, duration: 0.45, ease: "expo.out" }, at("s1", 0.34));
-      tl.to("#s1-term", { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "expo.out" }, at("s1", 0.60));
-      tl.to("#s1-t1", { opacity: 1, x: 0, duration: 0.2 }, at("s1", 0.90));
-      tl.to("#s1-t2", { opacity: 1, x: 0, duration: 0.2 }, at("s1", 1.25));
-      tl.to("#s1-t3", { opacity: 1, x: 0, duration: 0.2 }, at("s1", 1.65));
-      tl.to("#s1-t4", { opacity: 1, x: 0, duration: 0.2 }, at("s1", 2.10));
-      tl.fromTo("#s1-caret", { opacity: 1 }, { opacity: 0, duration: 0.4, repeat: 5, ease: "steps(1)" }, at("s1", 2.30));
-      tl.to("#s1", { scale: 1.03, duration: 3.9, ease: "power1.in" }, at("s1", 0));
+      gsap.set(["#field .f1", "#field .f2", "#field .f6"], { transformOrigin: "50% 50%" });
 
-      /* ================= 2 · the output ================= */
-      tl.to(".ghostword", { opacity: 1, duration: 0.4 }, at("s2", 0.10));
-      tl.to("#s2-p1", { opacity: 1, scale: 1, duration: 0.28, ease: "back.out(2.4)" }, at("s2", 0.35));
-      tl.to("#s2-p2", { opacity: 1, scale: 1, duration: 0.28, ease: "back.out(2.4)" }, at("s2", 1.10));
-      tl.to("#s2-p3", { opacity: 1, scale: 1, duration: 0.28, ease: "back.out(2.4)" }, at("s2", 1.85));
-      tl.to("#s2", { scale: 1.05, duration: 3.55, ease: "power1.in" }, at("s2", 0));
+      /* ================= 1 · hook ================= */
+      tl.to("#s1-ring", { opacity: 1, scale: 1, duration: 1.2, ease: "power2.out" }, at("s1", 0));
+      tl.to("#s1-a", { yPercent: 0, duration: 0.34, ease: "expo.out" }, at("s1", 0.04));
+      tl.to("#s1-b", { yPercent: 0, duration: 0.34, ease: "expo.out" }, at("s1", 0.30));
+      tl.to("#s1-c", { yPercent: 0, duration: 0.36, ease: "expo.out" }, at("s1", 0.58));
+      tl.to("#s1-price", { opacity: 1, y: 0, rotate: 9, duration: 0.42, ease: "back.out(2)" }, at("s1", 0.42));
+      tl.to("#s1-cut", { scaleX: 1, duration: 0.26, ease: "power4.inOut" }, at("s1", 1.02));
+      tl.to("#s1-price", { y: -260, rotate: 22, opacity: 0, duration: 0.5, ease: "power3.in" }, at("s1", 1.28));
+      tl.to("#s1", { scale: 1.05, duration: 2.4, ease: "power1.in" }, at("s1", 0));
 
-      /* ================= 3 · the silence ================= */
-      tl.to("#s3-say", { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, at("s3", 0.10));
-      tl.to("#s3-slash", { scaleX: 1, duration: 0.35, ease: "power4.inOut" }, at("s3", 0.85));
-      tl.to("#s3-flat b", { scaleY: 0.05, duration: 0.5, stagger: 0.02, ease: "power2.inOut" }, at("s3", 1.10));
-      tl.to("#s3 .label", { opacity: 1, duration: 0.3 }, at("s3", 1.45));
-      tl.to("#s3 .flat", { opacity: 0.5, duration: 0.4 }, at("s3", 1.60));
+      /* ================= 2 · this is koe ================= */
+      tl.to(["#s2-disc", "#s2-hole"], { opacity: 1, scale: 1, duration: 0.42, ease: "expo.out" }, at("s2", 0.02));
+      tl.to("#s2-disc", { rotate: 18, duration: 1.53, ease: "power1.in" }, at("s2", 0));
+      tl.to("#s2-word", { yPercent: 0, duration: 0.4, ease: "expo.out" }, at("s2", 0.10));
+      tl.to("#s2-burst", { opacity: 0.9, scale: 1, duration: 0.5, ease: "power3.out" }, at("s2", 0.14));
+      tl.to("#s2-burst", { opacity: 0.25, scale: 1.5, duration: 0.7, ease: "power2.out" }, at("s2", 0.5));
+      tl.to("#s2", { scale: 1.06, duration: 1.53, ease: "power1.in" }, at("s2", 0));
 
-      /* ================= 4 · reveal ================= */
-      tl.to("#s4-ring", { opacity: 1, scale: 1, duration: 1.2, ease: "power2.out" }, at("s4", 0.10));
-      tl.to("#s4-koe", { yPercent: 0, duration: 0.5, ease: "expo.out" }, at("s4", 0.25));
-      tl.to(["#s4-src", "#s4-out"], { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, at("s4", 0.70));
-      tl.to("#s4-wave b", { scaleY: 1, duration: 0.3, stagger: 0.035, ease: "power3.out" }, at("s4", 1.20));
-      tl.to("#s4-sub", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, at("s4", 1.30));
-      tl.to("#s4-wave b", { scaleY: 0.3, duration: 0.4, stagger: 0.02, ease: "sine.inOut" }, at("s4", 2.00));
-      tl.to("#s4", { scale: 1.08, duration: 3.35, ease: "power1.in" }, at("s4", 0));
+      /* ================= 3 · paste a script ================= */
+      tl.to("#s3-kick", { opacity: 1, duration: 0.25 }, at("s3", 0.05));
+      tl.to("#s3-script", { opacity: 1, x: 0, duration: 0.42, ease: "expo.out" }, at("s3", 0.08));
+      tl.to("#s3-l1", { opacity: 1, y: 0, duration: 0.22 }, at("s3", 0.35));
+      tl.to("#s3-l2", { opacity: 1, y: 0, duration: 0.22 }, at("s3", 0.62));
+      tl.to("#s3-l3", { opacity: 1, y: 0, duration: 0.18 }, at("s3", 0.9));
+      tl.to("#s3-arrow", { scaleX: 1, duration: 0.3, ease: "power3.inOut" }, at("s3", 1.05));
+      tl.to("#s3-mp3", { opacity: 1, y: 0, scale: 1, duration: 0.36, ease: "back.out(1.8)" }, at("s3", 1.32));
+      tl.to("#s3-wave b", { scaleY: 1, duration: 0.26, stagger: 0.014, ease: "power3.out" }, at("s3", 1.5));
+      tl.to("#s3-fill", { width: "100%", duration: 1.1, ease: "power1.inOut" }, at("s3", 1.6));
+      tl.call(() => { $("#s3-state").textContent = "done"; }, null, at("s3", 2.8));
+      tl.to("#s3-wave b", { scaleY: 0.55, duration: 0.3, stagger: 0.012, yoyo: true, repeat: 1, ease: "sine.inOut" }, at("s3", 2.9));
+      tl.to("#s3", { scale: 1.04, transformOrigin: "30% 50%", duration: 3.81, ease: "power1.in" }, at("s3", 0));
 
-      /* ================= 5 · one url ================= */
-      tl.to("#s5-h1", { yPercent: 0, duration: 0.45, ease: "expo.out" }, at("s5", 0.10));
-      tl.to("#s5-bar", { opacity: 1, y: 0, scaleX: 1, duration: 0.45, ease: "expo.out" }, at("s5", 0.45));
-      tl.to("#s5-t1", { opacity: 1, duration: 0.2 }, at("s5", 0.80));
-      tl.to("#s5-h2", { yPercent: 0, duration: 0.45, ease: "expo.out" }, at("s5", 1.00));
-      tl.to("#s5-t2", { opacity: 1, duration: 0.2 }, at("s5", 1.00));
-      tl.to("#s5-t3", { opacity: 1, duration: 0.2 }, at("s5", 1.20));
-      tl.to("#s5-tc", { opacity: 1, duration: 0.3 }, at("s5", 1.25));
-      tl.to("#s5-play", { scale: 1, duration: 0.35, ease: "back.out(2.6)" }, at("s5", 1.45));
-      tl.to("#s5-prog", { width: 900, duration: 1.5, ease: "none" }, at("s5", 1.65));
-      const tc = { v: 0 };
-      tl.to(tc, { v: 14, duration: 1.5, ease: "none",
-        onUpdate: () => { $("#s5-tc").textContent = `0:${String(Math.round(tc.v)).padStart(2, "0")} / 0:14 — 29 voices`; } }, at("s5", 1.65));
-      tl.to(["#s5-t1", "#s5-t2", "#s5-t3"], { opacity: 0, y: -40, x: 40, duration: 0.4, stagger: 0.06, ease: "power2.in" }, at("s5", 2.55));
+      /* ================= 4 · 29 / 29 ================= */
+      const n1 = { v: 0 };
+      tl.to(n1, { v: 29, duration: 0.75, ease: "power2.out",
+        onUpdate: () => { $("#s4-n1").textContent = String(Math.round(n1.v)); } }, at("s4", 0.02));
+      tl.to("#s4-n1", { opacity: 1, y: 0, duration: 0.4, ease: "expo.out" }, at("s4", 0.02));
+      tl.to("#s4-v", { opacity: 1, x: 0, duration: 0.35, ease: "expo.out" }, at("s4", 0.16));
+      tl.to("#s4-grid b", { opacity: 1, scaleY: 1, duration: 0.24, stagger: 0.011, ease: "power3.out" }, at("s4", 0.2));
+      tl.to("#s4-ring", { opacity: 1, scale: 1, duration: 1.0, ease: "power2.out" }, at("s4", 0.1));
+      tl.to("#s4-n2", { opacity: 1, x: 0, duration: 0.4, ease: "expo.out" }, at("s4", 1.72));
+      tl.to("#s4-langs span", { opacity: 1, x: 0, duration: 0.24, stagger: 0.035, ease: "power3.out" }, at("s4", 1.78));
+      tl.to("#s4-ring", { rotate: 40, duration: 3.54, ease: "none" }, at("s4", 0));
+      tl.to("#s4", { scale: 1.05, transformOrigin: "60% 40%", duration: 3.54, ease: "power1.in" }, at("s4", 0));
 
-      /* ================= 6 · voices ================= */
-      tl.to("#s6-cap", { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, at("s6", 0.15));
-      tl.to("#s6-big", { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.7)" }, at("s6", 0.35));
-      const counter = { v: 0 };
-      tl.to(counter, { v: 29, duration: 1.0, ease: "power2.out",
-        onUpdate: () => { $("#s6-big").textContent = String(Math.round(counter.v)).padStart(2, "0"); } }, at("s6", 0.40));
-      tl.to("#s6-grid .chip", { opacity: 0.9, scaleY: 1, duration: 0.22, stagger: 0.032, ease: "power3.out" }, at("s6", 0.50));
-      tl.fromTo("#s6-marq", { x: 0 }, { x: -900, duration: 4.0, ease: "none" }, at("s6", 0.10));
-      tl.to("#s6", { scale: 1.06, transformOrigin: "70% 40%", duration: 4.25, ease: "power1.in" }, at("s6", 0));
+      /* ================= 5 · three moves ================= */
+      tl.to("#s5-r1", { opacity: 1, x: 0, duration: 0.34, ease: "expo.out" }, at("s5", 0.05));
+      tl.to("#s5-dots b", { scale: 1.35, duration: 0.2, stagger: 0.06, ease: "back.out(3)" }, at("s5", 0.45));
+      tl.to("#s5-dots b", { scale: 1, duration: 0.2, stagger: 0.06 }, at("s5", 0.6));
+      tl.to("#s5-r2", { opacity: 1, x: 0, duration: 0.34, ease: "expo.out" }, at("s5", 0.72));
+      tl.to("#s5-knob", { x: 180, duration: 0.45, ease: "power2.inOut" }, at("s5", 0.95));
+      tl.to("#s5-r3", { opacity: 1, x: 0, duration: 0.34, ease: "expo.out" }, at("s5", 1.45));
+      tl.to("#s5-btn", { scale: 0.92, duration: 0.09, ease: "power2.in" }, at("s5", 1.92));
+      tl.to("#s5-btn", { scale: 1, duration: 0.22, ease: "back.out(3)" }, at("s5", 2.01));
+      tl.to("#s5-ripple", { opacity: 0.9, scale: 1, duration: 0.1 }, at("s5", 1.98));
+      tl.to("#s5-ripple", { opacity: 0, scale: 3.2, duration: 0.6, ease: "power2.out" }, at("s5", 2.04));
+      tl.to("#s5", { scale: 1.04, transformOrigin: "50% 60%", duration: 3.52, ease: "power1.in" }, at("s5", 0));
 
-      /* ================= 7 · pick ================= */
-      tl.to("#s7-rows .row", { opacity: 1, x: 0, duration: 0.3, stagger: 0.09, ease: "power3.out" }, at("s7", 0.08));
-      tl.to("#s7-rows .row.hot .eq b", {
-        scaleY: 0.35, duration: 0.26, stagger: { each: 0.05, repeat: 3, yoyo: true }, ease: "sine.inOut",
-      }, at("s7", 0.50));
+      /* ================= 6 · where it lands ================= */
+      tl.to("#s6-a", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s6", 0.02));
+      tl.to("#s6-b", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s6", 0.52));
+      tl.to("#s6-c", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s6", 1.02));
+      tl.to("#s6-d", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s6", 1.52));
+      tl.to("#s6 .bx", { opacity: 1, x: 0, rotate: 0, duration: 0.34, stagger: 0.5, ease: "back.out(1.7)" }, at("s6", 0.1));
+      tl.to("#s6 .bx .w b", { scaleY: 0.5, duration: 0.34, stagger: 0.03, yoyo: true, repeat: 1, ease: "sine.inOut" }, at("s6", 2.0));
+      tl.to("#s6", { scale: 1.05, transformOrigin: "40% 50%", duration: 4.22, ease: "power1.in" }, at("s6", 0));
 
-      /* ================= 8 · no costs ================= */
-      tl.to("#s8-a", { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.3, ease: "back.out(2.2)" }, at("s8", 0.10));
-      tl.to("#s8-o1", { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, at("s8", 0.10));
-      tl.to("#s8-x1", { scaleX: 1, duration: 0.28, ease: "power4.inOut" }, at("s8", 0.45));
-      tl.to("#s8-b", { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.3, ease: "back.out(2.2)" }, at("s8", 1.30));
-      tl.to("#s8-o2", { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, at("s8", 1.25));
-      tl.to("#s8-x2", { scaleX: 1, duration: 0.28, ease: "power4.inOut" }, at("s8", 1.65));
-      tl.to("#s8-c", { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.3, ease: "back.out(2.2)" }, at("s8", 2.50));
-      tl.to("#s8-o3", { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, at("s8", 2.45));
-      tl.to("#s8-x3", { scaleX: 1, duration: 0.28, ease: "power4.inOut" }, at("s8", 2.85));
-      tl.to("#s8", { scale: 1.05, transformOrigin: "30% 40%", duration: 4.0, ease: "power1.in" }, at("s8", 0));
+      /* ================= 7 · no costs ================= */
+      tl.to("#s7-a", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s7", 0.02));
+      tl.to("#s7-form", { opacity: 1, x: 0, duration: 0.34, ease: "expo.out" }, at("s7", 0.14));
+      tl.to("#s7-x1", { scaleX: 1, rotate: -6, duration: 0.24, ease: "power4.inOut" }, at("s7", 0.55));
+      tl.to("#s7-b", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s7", 0.62));
+      tl.to("#s7-cc", { opacity: 1, x: 0, duration: 0.34, ease: "expo.out" }, at("s7", 0.72));
+      tl.to("#s7-x2", { scaleX: 1, rotate: -9, duration: 0.24, ease: "power4.inOut" }, at("s7", 1.22));
+      tl.to("#s7-c", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s7", 1.28));
+      tl.to("#s7-form", { opacity: 0.25, duration: 0.3 }, at("s7", 1.3));
+      tl.to("#s7-cc", { opacity: 0.25, duration: 0.3 }, at("s7", 1.95));
+      tl.to("#s7", { scale: 1.05, transformOrigin: "35% 45%", duration: 3.74, ease: "power1.in" }, at("s7", 0));
 
-      /* ================= 9 · script to mp3 ================= */
-      tl.to("#s9-script", { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, at("s9", 0.10));
-      tl.to("#s9-arrow", { scaleX: 1, duration: 0.45, ease: "power3.inOut" }, at("s9", 0.80));
-      tl.to("#s9-mp3", { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, at("s9", 1.10));
-      tl.to("#s9-wave b", { scaleY: 1, duration: 0.25, stagger: 0.02, ease: "power3.out" }, at("s9", 1.40));
-      tl.to("#s9-fill", { width: "100%", duration: 1.3, ease: "power1.inOut" }, at("s9", 1.50));
-      tl.call(() => { $("#s9-status").textContent = "done — 0.9s"; }, null, at("s9", 2.70));
+      /* ================= 8 · your words ================= */
+      tl.to("#s8-a", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s8", 0.02));
+      tl.to("#s8-b", { yPercent: 0, duration: 0.3, ease: "expo.out" }, at("s8", 0.5));
+      tl.to("#s8-wave b", { scaleY: 1, duration: 0.26, stagger: 0.014, ease: "back.out(2)" }, at("s8", 0.55));
+      tl.to("#s8-wave b", { scaleY: 0.4, duration: 0.3, stagger: 0.012, yoyo: true, repeat: 1, ease: "sine.inOut" }, at("s8", 1.5));
+      tl.to("#s8", { scale: 1.05, duration: 2.27, ease: "power1.in" }, at("s8", 0));
 
-      /* ================= 10 · where it lands ================= */
-      tl.to("#s10-f1", { opacity: 1, y: 0, duration: 0.4, ease: "bounce.out" }, at("s10", 0.10));
-      tl.to("#s10-f2", { opacity: 1, y: 0, duration: 0.4, ease: "bounce.out" }, at("s10", 0.45));
-      tl.to("#s10-f3", { opacity: 1, y: 0, duration: 0.4, ease: "bounce.out" }, at("s10", 0.80));
-      /* keep the beat alive while it holds — a slow float, never a freeze */
-      tl.to("#s10 .frame", { y: -12, duration: 1.05, stagger: 0.14, yoyo: true, repeat: 1, ease: "sine.inOut" }, at("s10", 1.20));
-      tl.to("#s10 .blk", { opacity: 0.75, duration: 0.9, stagger: 0.05, yoyo: true, repeat: 1, ease: "sine.inOut" }, at("s10", 1.40));
-      tl.to("#s10 .strip b.on", { scaleX: 1.12, duration: 0.8, yoyo: true, repeat: 1, ease: "sine.inOut", transformOrigin: "50% 50%" }, at("s10", 1.5));
-      tl.to("#s10", { scale: 1.04, duration: 3.95, ease: "power1.in" }, at("s10", 0));
+      /* ================= 9 · end card ================= */
+      tl.to("#s9-portrait", { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "expo.out" }, at("s9", 0.08));
+      tl.to("#s9-mark", { opacity: 1, scale: 1, duration: 0.9, ease: "power2.out" }, at("s9", 0.05));
+      tl.to("#s9-koe", { yPercent: 0, duration: 0.45, ease: "expo.out" }, at("s9", 0.14));
+      tl.to("#s9-free", { opacity: 1, y: 0, duration: 0.36, ease: "power2.out" }, at("s9", 0.55));
+      tl.to("#s9-url", { opacity: 1, y: 0, duration: 0.32, ease: "power2.out" }, at("s9", 0.85));
+      tl.to("#s9-pill", { opacity: 1, y: 0, duration: 0.3, ease: "back.out(2)" }, at("s9", 1.05));
+      tl.to("#s9-credit", { opacity: 1, y: 0, duration: 0.3 }, at("s9", 1.2));
+      tl.to("#s9-portrait img", { scale: 1.08, duration: 3.6, ease: "none" }, at("s9", 0.1));
+      tl.to("#s9-mark", { rotate: 24, duration: 3.6, ease: "none" }, at("s9", 0.2));
+      tl.to("#root", { opacity: 0, duration: 0.45, ease: "power2.in" }, FADE);
 
-      /* ================= 11 · end card ================= */
-      tl.to("#s11-portrait", { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: "expo.out" }, at("s11", 0.15));
-      tl.to("#s11-koe", { yPercent: 0, duration: 0.5, ease: "expo.out" }, at("s11", 0.20));
-      tl.to("#s11-claim", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, at("s11", 0.80));
-      tl.to("#s11-shots span", { opacity: 0.55, x: 0, duration: 0.28, stagger: 0.1 }, at("s11", 1.30));
-      tl.to("#s11-pill", { opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.9)" }, at("s11", 1.40));
-      tl.to("#s11-url", { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, at("s11", 1.70));
-      tl.to("#s11-portrait img", { scale: 1.07, duration: 3.3, ease: "none" }, at("s11", 0.15));
-      tl.to("#root", { opacity: 0, duration: 0.45, ease: "power2.in" }, 38.70);
+      /* ================= the motion field ================= */
+      tl.to("#field .f1", { x: 160, y: 120, rotate: 40, duration: END, ease: "none" }, 0);
+      tl.to("#field .f2", { x: -220, y: -160, rotate: -50, duration: END, ease: "none" }, 0);
+      tl.to("#field .f3", { x: -90, rotate: 30, duration: END, ease: "none" }, 0);
+      tl.to("#field .f4", { x: -520, y: -80, duration: END, ease: "none" }, 0);
+      tl.to("#field .f5", { x: 240, y: 260, duration: END, ease: "none" }, 0);
+      tl.to("#field .f6", { y: -240, rotate: 24, duration: END, ease: "none" }, 0);
 
-      /* ================= wipes ================= */
-      const wipes = [[3.68, "#w1"], [7.23, "#w2"], [9.68, "#w3"], [13.03, "#w4"], [16.83, "#w5"],
-                     [21.08, "#w6"], [23.78, "#w7"], [27.78, "#w8"], [31.68, "#w9"], [35.63, "#w10"]];
+      /* ================= wipes on the cuts ================= */
+      const wipes = [[T.s2, "#w1"], [T.s3, "#w2"], [T.s4, "#w3"], [T.s5, "#w4"],
+                     [T.s6, "#w5"], [T.s7, "#w6"], [T.s8, "#w7"], [T.s9, "#w8"]];
       wipes.forEach(([t, sel]) => {
-        tl.to(sel, { yPercent: 0, duration: 0.18, ease: "power4.in" }, t);
-        tl.to(sel, { yPercent: -101, duration: 0.22, ease: "power4.out" }, t + 0.18);
+        tl.to(sel, { yPercent: 0, duration: 0.15, ease: "power4.in" }, t - 0.16);
+        tl.to(sel, { yPercent: -101, duration: 0.2, ease: "power4.out" }, t - 0.01);
       });
 
       window.__timelines["koe-launch"] = tl;

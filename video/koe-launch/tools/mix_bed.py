@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""Build assets/audio/bed.wav: music bed, ducked against the real voice envelope,
-with a soft synthesized whoosh on every cut. Deterministic — same input, same file.
+"""Build assets/audio/bed.wav — the music bed for the Koe launch film.
 
-Levels (dBFS RMS):
-  under the voice  ~ -31.5   (11 dB under the voice, which sits near -20.5)
-  in the gaps      ~ -24.9   (~6.5 dB lift between lines)
+Deterministic on purpose: the same inputs always produce the same samples, so a
+re-render matches the last one frame for frame. Does three jobs:
+
+  1. trims the licensed track to the film and fades the ends;
+  2. ducks it under every voice line so the track lifts in the gaps;
+  3. adds a synthesized whoosh on each cut.
+
+Run from video/koe-launch:  python3 tools/mix_bed.py
+Inputs:  assets/audio/bed_source_v2.mp3 (track) + assets/audio/v2/vo.json (timing)
+Output:  assets/audio/bed.wav
 """
 import json
 import subprocess
@@ -13,96 +19,108 @@ import wave
 import numpy as np
 
 SR = 48000
-DUR = 39.15
-BASE_GAIN = -14.3   # dB applied to the bed where no voice is present
-DUCK = 8.5          # extra dB of ducking under the voice
-WHOOSH = 0.105      # peak amplitude of each whoosh (~ -19.6 dBFS)
-WIPES = [3.68, 7.23, 9.68, 13.03, 16.83, 21.08, 23.78, 27.78, 31.68, 35.63]
-STARTS = {"01": 0.30, "02": 4.15, "03": 7.65, "04": 10.10, "05": 13.45, "06": 17.25,
-          "07": 21.50, "08": 24.20, "09": 28.20, "10": 32.10, "11": 36.05}
+DUR = 29.00               # film length in seconds
+FADE_IN = 0.25
+FADE_OUT = 1.40
+BASE_GAIN = -8.5         # dB applied to the raw track before ducking
+DUCK_DB = 7.0             # how far the bed drops under a voice line
+DIP_AT = 0.10             # duck ramp length (s)
+WHOOSH_AT = (-0.22, 0.30) # whoosh window relative to each cut (s)
+WHOOSH_PEAK = -19.0       # dBFS peak of a whoosh
+
+SOURCE = "assets/audio/bed_source.mp3"
+VO = "vo.json"
+OUT = "assets/audio/bed.wav"
+
+# Cut times must match T in index.html.
+CUTS = [2.40, 3.93, 7.74, 11.28, 14.80, 19.02, 22.76, 25.03]
 
 
-def pcm(path, ch=2):
-    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ac", str(ch), "-ar", str(SR),
-                          "-f", "f32le", "-"], capture_output=True, check=True).stdout
-    a = np.frombuffer(raw, dtype=np.float32)
-    return a.reshape(-1, ch) if ch > 1 else a
+def decode(path):
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", path, "-ac", "2", "-ar", str(SR), "-f", "f32le", "-"],
+        capture_output=True, check=True,
+    ).stdout
+    return np.frombuffer(raw, dtype=np.float32).reshape(-1, 2).copy()
+
+
+def voice_windows():
+    lines = json.load(open(VO))
+    # Audio starts are copied from index.html so voice and bed cannot drift apart.
+    starts = [0.25, 2.55, 4.08, 7.89, 11.43, 14.95, 19.17, 22.91, 25.18]
+    return [(s, s + l["seconds"]) for s, l in zip(starts, lines)]
+
+
+def whoosh(length, rng):
+    """A noise sweep: rises in pitch, peaks fast, decays. Reads as air moving."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    noise = rng.standard_normal(n)
+    # one-pole lowpass whose cutoff climbs, then a fast exponential envelope
+    cutoff = 0.02 + 0.5 * (t / t[-1]) ** 2
+    y = np.empty(n)
+    acc = 0.0
+    for i in range(n):
+        acc += cutoff[i] * (noise[i] - acc)
+        y[i] = acc
+    env = np.exp(-((t - 0.10) ** 2) / (2 * 0.055 ** 2)) * (1 - t / t[-1]) ** 0.6
+    y = y * env
+    y /= np.max(np.abs(y)) + 1e-9
+    return y.astype(np.float32)
 
 
 def main():
-    n = int(DUR * SR)
-    bed = pcm("assets/audio/bed_source.mp3")
-    if len(bed) < n:
-        bed = np.tile(bed, (int(np.ceil(n / len(bed))), 1))
-    bed = bed[:n].copy()
+    src = decode(SOURCE)[: int(DUR * SR)]
+    if len(src) < int(DUR * SR):
+        raise SystemExit(f"source is only {len(src) / SR:.2f}s, need {DUR}s")
 
-    vo = json.load(open("vo.json"))
-    voice = np.zeros(n, dtype=np.float32)
-    for row in vo:
-        m = pcm(f"assets/audio/{row['id']}.mp3", 1)
-        s = int(STARTS[row["id"]] * SR)
-        e = min(n, s + len(m))
-        voice[s:e] += m[:e - s]
+    x = src * (10 ** (BASE_GAIN / 20))
 
-    blk = int(0.02 * SR)
-    nf = n // blk
-    env = np.array([np.sqrt(np.mean(voice[i * blk:(i + 1) * blk] ** 2)) for i in range(nf)])
-    active = (20 * np.log10(np.maximum(env, 1e-7)) > -45).astype(np.float32)
+    # fade the ends
+    fi, fo = int(FADE_IN * SR), int(FADE_OUT * SR)
+    x[:fi] *= np.linspace(0, 1, fi)[:, None]
+    x[-fo:] *= np.linspace(1, 0, fo)[:, None] ** 1.4
 
-    attack, release = 0.045, 0.55
-    smooth = np.zeros(nf, dtype=np.float32)
-    cur = 0.0
-    for i, a in enumerate(active):
-        k = attack if a > cur else release
-        cur += (a - cur) * (1 - np.exp(-2.0 / (k * 50)))
-        smooth[i] = cur
-    mask = np.repeat(smooth, blk)[:n]
-    mask = np.pad(mask, (0, n - len(mask)), mode="edge")
+    # duck under each voice line, with short ramps so it breathes instead of pumping
+    ramp = int(DIP_AT * SR)
+    gain = np.ones(len(x), dtype=np.float32)
+    for a, b in voice_windows():
+        i, j = int(a * SR), int(b * SR)
+        gain[i:j] = 10 ** (-DUCK_DB / 20)
+        gain[max(0, i - ramp):i] = np.linspace(1, 10 ** (-DUCK_DB / 20), ramp)[: min(ramp, i)]
+        gain[j:j + ramp] = np.linspace(10 ** (-DUCK_DB / 20), 1, ramp)[: max(0, len(gain) - j)]
+    x *= gain[:, None]
 
-    bed_gain = bed * (10 ** ((BASE_GAIN - DUCK * mask) / 20))[:, None]
-
+    # whooshes on the cuts
     rng = np.random.default_rng(7)
-    wn = int(0.5 * SR)
-    t = np.arange(wn) / SR
-    shape = np.minimum(t / 0.11, 1.0) ** 2 * np.exp(-np.maximum(t - 0.11, 0) * 7.0)
-    whoosh = np.zeros(n, dtype=np.float32)
-    for w in WIPES:
-        noise = rng.standard_normal(wn).astype(np.float32)
-        a = np.linspace(0.02, 0.45, wn)
-        y1 = y2 = 0.0
-        lp1 = np.zeros(wn, np.float32)
-        lp2 = np.zeros(wn, np.float32)
-        for k in range(wn):
-            y1 += a[k] * (noise[k] - y1); lp1[k] = y1
-            y2 += (a[k] * 0.25) * (y1 - y2); lp2[k] = y2
-        band = (lp1 - lp2) * shape
-        band /= (np.max(np.abs(band)) + 1e-9)
-        s = int((w - 0.02) * SR)
-        e = min(n, s + wn)
-        if s >= 0:
-            whoosh[s:e] += band[:e - s] * WHOOSH
+    w = whoosh(WHOOSH_AT[1] - WHOOSH_AT[0], rng) * (10 ** (WHOOSH_PEAK / 20))
+    for c in CUTS:
+        i = int((c + WHOOSH_AT[0]) * SR)
+        j = i + len(w)
+        if i < 0:
+            w2, i = w[-i:], 0
+            x[i:i + len(w2)] += w2[:, None]
+        else:
+            x[i:min(j, len(x))] += w[: min(j, len(x)) - i][:, None]
 
-    mix = bed_gain + whoosh[:, None]
-    fi, fo = int(0.6 * SR), int(1.6 * SR)
-    mix[:fi] *= np.linspace(0, 1, fi)[:, None]
-    mix[-fo:] *= (np.linspace(0, 1, fo)[::-1] ** 1.5)[:, None]
+    peak = np.max(np.abs(x))
+    if peak > 0.9:                      # never clip the bed
+        x *= 0.9 / peak
 
-    peak = np.max(np.abs(mix))
-    if peak > 10 ** (-2 / 20):
-        mix *= 10 ** (-2 / 20) / peak
+    with wave.open(OUT, "wb") as f:
+        f.setnchannels(2)
+        f.setsampwidth(2)
+        f.setframerate(SR)
+        f.writeframes((np.clip(x, -1, 1) * 32767).astype("<i2").tobytes())
 
-    with wave.open("assets/audio/bed.wav", "wb") as w:
-        w.setnchannels(2)
-        w.setsampwidth(2)
-        w.setframerate(SR)
-        w.writeframes((np.clip(mix, -1, 1) * 32767).astype(np.int16).tobytes())
+    def rms(a, b):
+        s = x[int(a * SR):int(b * SR)]
+        return 20 * np.log10(np.sqrt(np.mean(s ** 2)) + 1e-12)
 
-    def lv(a, b):
-        seg = mix[int(a * SR):int(b * SR)]
-        return 20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-12)
-
-    print(f"stem: speech {lv(10.4, 12.0):.1f} | gap {lv(12.4, 12.95):.1f} | "
-          f"lift {lv(12.4, 12.95) - lv(10.4, 12.0):.1f} dB | peak {20 * np.log10(np.max(np.abs(mix))):.1f}")
+    under = np.mean([rms(a + 0.15, b - 0.15) for a, b in voice_windows()])
+    gaps = np.mean([rms(b + 0.25, a2 - 0.05) for (a, b), (a2, _) in zip(voice_windows(), voice_windows()[1:])])
+    print(f"bed.wav  {len(x) / SR:.2f}s  peak {20 * np.log10(np.max(np.abs(x))):.1f} dBFS")
+    print(f"speech {under:.1f} | gap {gaps:.1f} | lift {gaps - under:.1f} dB | whooshes {len(CUTS)}")
 
 
 if __name__ == "__main__":
