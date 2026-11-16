@@ -9,6 +9,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const fs = require("fs");
+const http = require("http");
 const net = require("net");
 const os = require("os");
 const path = require("path");
@@ -24,9 +25,46 @@ const DB_PATH = path.join(TMP, "koe.db");
 const ADMIN_KEY = "sweep-test-admin";
 const SWEEP_SEC = 2;
 
+const FAKE_MP3 = Buffer.from("ID3-fake-mp3-from-the-sidecar-0123456789");
+const SIDECAR_VOICES = ["af_heart", "am_adam"];
+
 let child;
+let sidecar;
 let base;
 let logs = "";
+
+// The engine is stubbed, not installed: CI has no edge-tts and no Kokoro
+// container, so a test that synthesises for real would only pass on a dev box.
+// A job succeeds or fails based on what this double returns.
+function startSidecar() {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      if (req.url === "/health") {
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ status: "healthy" }));
+      }
+      if (req.url === "/v1/audio/voices") {
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ voices: SIDECAR_VOICES }));
+      }
+      if (req.url === "/v1/audio/speech" && req.method === "POST") {
+        let raw = "";
+        req.on("data", (d) => { raw += d; });
+        req.on("end", () => {
+          if (raw.includes("FAILME")) {
+            res.writeHead(500, { "content-type": "application/json" });
+            return res.end(JSON.stringify({ error: "synthesis exploded" }));
+          }
+          res.writeHead(200, { "content-type": "audio/mpeg" });
+          res.end(FAKE_MP3);
+        });
+        return;
+      }
+      res.writeHead(404).end();
+    });
+    server.listen(0, "127.0.0.1", () => resolve(server));
+  });
+}
 
 function freePort() {
   return new Promise((resolve) => {
@@ -74,6 +112,8 @@ const scriptPath = (id) => path.join(WORK, `${id}.parts.json`);
 const exists = (p) => fs.existsSync(p);
 
 test.before(async () => {
+  sidecar = await startSidecar();
+  const sidecarPort = sidecar.address().port;
   const port = await freePort();
   base = `http://127.0.0.1:${port}`;
   child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
@@ -88,8 +128,11 @@ test.before(async () => {
       KOE_DB_PATH: DB_PATH,
       KOE_OUTPUT_DIR: OUTPUT,
       KOE_SWEEP_INTERVAL_SEC: String(SWEEP_SEC),
-      KOE_JOB_DEADLINE_SEC: "5",
+      // Comfortably longer than a stubbed job needs, short enough that the
+      // seeded 60s-old row is past it.
+      KOE_JOB_DEADLINE_SEC: "30",
       KOE_CACHE_MAX_MB: "1",
+      KOKORO_BASE_URL: `http://127.0.0.1:${sidecarPort}`,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -100,11 +143,14 @@ test.before(async () => {
 
 test.after(() => {
   if (child && !child.killed) child.kill();
+  if (sidecar) sidecar.close();
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch {}
 });
 
 test("a successful job deletes its script once the audio is ready", async () => {
-  const submitted = await json("POST", "/tts", { text: "A short line for cleanup.", voice: "en-US-EmmaNeural" });
+  const submitted = await json("POST", "/tts", {
+    text: "A short line for cleanup.", voice: "af_heart", engine: "kokoro",
+  });
   assert.equal(submitted.status, 200);
   const id = submitted.data.jobId;
   assert.ok(exists(scriptPath(id)), "the script exists while the job is in flight");
@@ -118,7 +164,9 @@ test("a successful job deletes its script once the audio is ready", async () => 
 });
 
 test("a failed job deletes its script too", async () => {
-  const submitted = await json("POST", "/tts", { text: "This one cannot be spoken.", voice: "xx-XX-BogusNeural" });
+  const submitted = await json("POST", "/tts", {
+    text: "FAILME this one cannot be spoken.", voice: "af_heart", engine: "kokoro",
+  });
   assert.equal(submitted.status, 200);
   const id = submitted.data.jobId;
   assert.ok(exists(scriptPath(id)));
@@ -133,7 +181,7 @@ test("a job reaped after its worker died is failed and its script cleaned up", a
   // A row a dead worker left claimed, older than the 5s deadline, with its
   // script still on disk: the sweep must give up on it, not leave it forever.
   seedJob(DB_PATH, {
-    id, status: "generating (1/2)", voice: "en-US-EmmaNeural", engine: "edge",
+    id, status: "generating (1/2)", voice: "af_heart", engine: "kokoro",
     rate: 1, pitch: 0, parts: 1, wordCount: 3, words: 3, tenant: null, progress: 50,
     createdAt: new Date(Date.now() - 60_000).toISOString(), partsText: [],
   });
