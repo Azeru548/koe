@@ -82,6 +82,15 @@ const cfg = {
   // Upstream failure cool-down
   cooldownSec: intEnv("KOE_COOLDOWN_SEC", 60),
 
+  // Wall-clock ceiling for one job, measured from submission (queue wait
+  // included) to finished audio. Without it a single long script can hold one
+  // of the few workers for tens of minutes while everyone else queues behind
+  // it, and the caller has no way to tell waiting from working.
+  jobDeadlineSec: Math.max(10, intEnv("KOE_JOB_DEADLINE_SEC", 300)),
+  // How long a synchronous preview will wait for a worker before answering
+  // 429 instead of holding the HTTP request open.
+  previewWaitSec: Math.max(1, intEnv("KOE_PREVIEW_WAIT_SEC", 30)),
+
   // Require a free key for everything except health/register/limits/UI.
   requireKey: boolEnv("KOE_REQUIRE_KEY", false),
   stateFile: process.env.KOE_STATE_FILE || path.join(__dirname, ".koe-state.json"),
@@ -95,8 +104,9 @@ function publicLimits() {
     register: { keysPerIpPerDay: cfg.registerIpDay },
     key: keyLimits(),
     anon: anonLimits(),
-    perJob: { maxWords: cfg.maxWordsPerJob, maxChars: cfg.maxCharsPerJob, maxPreviewChars: cfg.maxCharsPerPreview },
+    perJob: { maxWords: cfg.maxWordsPerJob, maxChars: cfg.maxCharsPerJob, maxPreviewChars: cfg.maxCharsPerPreview, maxSeconds: cfg.jobDeadlineSec },
     global: { concurrency: cfg.globalConcurrency, queueMax: cfg.globalQueue, wordsPerDay: cfg.globalWordsDay },
+    queue: { waitSeconds: cfg.jobDeadlineSec, previewWaitSeconds: cfg.previewWaitSec },
     audio: {
       ttlSeconds: cfg.audioTtlSec,
       jobTtlSeconds: cfg.jobTtlSec,
@@ -301,7 +311,8 @@ function charge({ subjectId, kind, words, now = Date.now() }) {
 
     db.addUsage(subjectId, h, d, w, 1);
     db.addGlobal(d, w);
-    return { ok: true };
+    // Hand the exact windows back so a later refund lands where the charge did.
+    return { ok: true, windows: { hour: h, day: d } };
   });
 
   return verdict.ok ? verdict : Object.assign({ ok: false, status: 429 }, verdict);
@@ -310,14 +321,18 @@ function charge({ subjectId, kind, words, now = Date.now() }) {
 // Refund words for a job that failed server-side. Requests are not refunded
 // unless `requests` is explicitly set (e.g. the queue rejected it after charge).
 // Clamped at zero in SQL, so a double refund can never go negative.
-function refund({ subjectId, words = 0, requests = false, now = Date.now() }) {
+function refund({ subjectId, words = 0, requests = false, windows = null, now = Date.now() }) {
   if (!subjectId) return;
   const w = Math.max(0, Math.floor(Number(words) || 0));
   const r = requests ? 1 : 0;
   if (!w && !r) return;
-  const d = dayWindow(now);
+  // Refund into the window the charge was booked against, not into "now": a
+  // job submitted at 10:59 that fails at 11:01 used to leave the 10:00 hour
+  // charged and credit the 11:00 hour with usage the caller never spent.
+  const h = (windows && windows.hour) || hourWindow(now);
+  const d = (windows && windows.day) || dayWindow(now);
   db.transaction(() => {
-    db.subUsage(subjectId, hourWindow(now), d, w, r);
+    db.subUsage(subjectId, h, d, w, r);
     if (w) db.subGlobal(d, w);
   });
 }
@@ -360,22 +375,74 @@ function tryAcquireSlot() {
     return Promise.resolve();
   }
   if (waiters.length >= cfg.globalQueue) return null;
-  return new Promise((resolve) => waiters.push(resolve));
+  const waiter = { resolve: null };
+  const promise = new Promise((resolve) => { waiter.resolve = resolve; waiters.push(waiter); });
+  // A caller that stops waiting must leave the queue, or it would keep a place
+  // occupied (and inflate the depth /healthz reports).
+  promise.cancelWait = () => {
+    const i = waiters.indexOf(waiter);
+    if (i !== -1) waiters.splice(i, 1);
+  };
+  return promise;
 }
 
 function releaseSlot() {
   const next = waiters.shift();
-  if (next) next();       // hand the slot straight to the next waiter
+  if (next) next.resolve();   // hand the slot straight to the next waiter
   else active = Math.max(0, active - 1);
 }
 
 function slotStats() {
-  return { active, queued: waiters.length, concurrency: cfg.globalConcurrency, queueMax: cfg.globalQueue };
+  const full = active >= cfg.globalConcurrency;
+  const saturated = full && waiters.length >= cfg.globalQueue;
+  return {
+    active,
+    queued: waiters.length,
+    concurrency: cfg.globalConcurrency,
+    queueMax: cfg.globalQueue,
+    // Honest state for callers and /healthz: a healthy db and "ok" do not mean
+    // the service can accept work right now.
+    saturated,
+    load: saturated ? "saturated" : full ? "busy" : "idle",
+  };
 }
 
 function queueFull() {
   // Full only when every worker is busy AND the waiting room is at capacity.
   return active >= cfg.globalConcurrency && waiters.length >= cfg.globalQueue;
+}
+
+// Bound a slot wait. `slotPromise` comes from tryAcquireSlot(); this resolves
+// { granted: true } when the worker is handed over, or { granted: false } at the
+// deadline so the caller can fail the job instead of hanging on it. If the slot
+// is granted after we gave up, it is released immediately — a waiter that walked
+// away must never swallow a worker, or the queue would starve behind it.
+function waitForSlot(slotPromise, deadlineAt, now = Date.now()) {
+  if (!slotPromise) return Promise.resolve({ granted: false, reason: "queue_full", waitedMs: 0 });
+  const budget = Math.max(0, Number(deadlineAt) - now);
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      // Leave the queue; if a very late hand-off still lands, pass it on.
+      if (typeof slotPromise.cancelWait === "function") slotPromise.cancelWait();
+      else Promise.resolve(slotPromise).then(() => releaseSlot(), () => {});
+      resolve({ granted: false, reason: "wait_timeout", waitedMs: budget });
+    }, budget);
+    timer.unref?.();
+    Promise.resolve(slotPromise).then(() => {
+      if (settled) return;          // already timed out; the handler above releases it
+      settled = true;
+      clearTimeout(timer);
+      resolve({ granted: true, waitedMs: budget - Math.max(0, deadlineAt - Date.now()) });
+    }, () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ granted: false, reason: "queue_full", waitedMs: 0 });
+    });
+  });
 }
 
 // ── circuit breaker for upstream (edge-tts) failures ────────
@@ -434,6 +501,7 @@ module.exports = {
   refund,
   usageSnapshot,
   tryAcquireSlot,
+  waitForSlot,
   releaseSlot,
   slotStats,
   queueFull,

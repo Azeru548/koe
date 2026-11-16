@@ -17,15 +17,24 @@
 
 const { execFileSync } = require("child_process");
 
+// A CLI that only prints its version proves nothing about the daemon: a
+// container without a docker socket, or a user outside the docker group, still
+// passes `docker --version` and then fails every `docker run` with a permission
+// error — which made the whole studio look broken while /healthz reported the
+// engine as available. Ask the daemon itself.
+function dockerDaemonOk() {
+  try {
+    execFileSync("docker", ["info", "--format", "{{.ServerVersion}}"], { stdio: "ignore", timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function detectBackend() {
   const pref = (process.env.TTS_BACKEND || "").toLowerCase();
-  if (pref === "docker" || pref === "native") return pref;
-  try {
-    execFileSync("docker", ["--version"], { stdio: "ignore", timeout: 5000 });
-    return "docker";
-  } catch {
-    return "native";
-  }
+  if (pref === "docker" || pref === "native") return pref;   // explicit wins
+  return dockerDaemonOk() ? "docker" : "native";
 }
 
 const TTS_BACKEND = detectBackend();
@@ -45,4 +54,4 @@ function cmdAvailable(cmd) {
 // Shared execFile guard: keeps a runaway synthesiser from eating the process.
 const MAX_BUFFER = 1024 * 1024 * 10;
 
-module.exports = { TTS_BACKEND, detectBackend, cmdAvailable, MAX_BUFFER };
+module.exports = { TTS_BACKEND, detectBackend, dockerDaemonOk, cmdAvailable, MAX_BUFFER };

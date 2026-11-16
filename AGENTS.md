@@ -20,7 +20,7 @@ you (agent) ──MCP tools──> mcp/index.js ──HTTPS──> TTS Studio �
 4. Use that file (ffmpeg, Remotion, HyperFrames, an editor, ...) in your video project.
 5. If anything fails, call `studio_status` (and `get_usage` for quota) — it tells you if the server is reachable, asleep, rate-limited, or missing an engine.
 
-**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The whole instance shares **2 concurrent jobs, a 20-job queue, and 30,000 words/day**. One job may be at most **6,000 words / 40,000 characters**. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds` and a `reason`. Counters and keys live in SQLite, so they survive restarts; a rejected or failed request never consumes quota.
+**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The whole instance shares **2 concurrent jobs, a 20-job queue, and 30,000 words/day**. One job may be at most **6,000 words / 40,000 characters**, and at most **300 s of wall clock from submission** (queue wait included) — past that it fails with a clear error instead of holding a worker. A job that never got a slot, or that overran, returns its words **and** its request unit. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds` and a `reason`. Counters and keys live in SQLite, so they survive restarts; a rejected or failed request never consumes quota.
 
 
 ---
@@ -80,7 +80,7 @@ Pings the studio's `/healthz` (alias `/health`). **Call this first whenever a ge
   "db": { "ok": true, "path": "/data/koe.db", "journalMode": "delete" },
   "queue": { "active": 0, "queued": 0, "concurrency": 2, "queueMax": 20 },
   "ephemeral": { "audioTtlSeconds": 900, "jobTtlSeconds": 3600 },
-  "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 6000, "maxChars": 40000, "maxPreviewChars": 600 }, "global": { "concurrency": 2, "queueMax": 20, "wordsPerDay": 30000 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
+  "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 6000, "maxChars": 40000, "maxPreviewChars": 600, "maxSeconds": 300 }, "global": { "concurrency": 2, "queueMax": 20, "wordsPerDay": 30000 }, "queue": { "waitSeconds": 300, "previewWaitSeconds": 30 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
   "studioUrl": "https://koe.kennedyazeru.space",
   "client": {
     "keyMode": "auto",
@@ -94,7 +94,8 @@ Reading it:
 - `backend: "native"` = the server runs the `edge-tts`/`piper` CLIs directly (the production Docker image). `"docker"` = local Docker images.
 - `engines.edge` / `engines.piper` / `engines.kokoro` = which engines are actually usable. If `engines.piper` is `false`, requests with `engine: "piper"` will 503. If `engines.kokoro` is `false`, the optional sidecar is not running and `engine: "kokoro"` answers `503 {"error":"tts_unavailable"}` — edge and piper are unaffected, so this alone is not a problem.
 - `keyRequired: true` = the server requires a free key. The MCP registers one automatically; `client.keyMode` is `env` (explicit `TTS_API_KEY`), `stored`, `auto`, or `none`.
-- `queue` / `limits` = current queue depth and the public rate policy. `ephemeral` = how long audio and jobs live.
+- `queue` / `limits` = current queue depth and the public rate policy. `queue.load` is `idle` / `busy` / `saturated`, and `queue.saturated` is true when every worker is busy *and* the waiting room is full — the case where new jobs will be refused. `ephemeral` = how long audio and jobs live.
+- `backend` is auto-detected by asking the docker daemon (`docker info`), not just by whether the `docker` CLI exists: a host where the CLI is installed but the socket is denied runs `native` instead of failing every job with a permission error.
 - `killSwitch: true` = the operator flipped `KOE_KILL_SWITCH`; every generation endpoint answers `503 {"error":"temporarily_disabled"}` until it is turned off.
 - `db` = reachability of the SQLite file that holds issued keys and all counters (`ok: false` makes health answer `503`).
 - `client.usage` = this install's current window (same shape as the `get_usage` tool; `null` if no key yet).
@@ -249,6 +250,8 @@ The server's job JSON (returned by `GET /job/:id`):
 
 `status` walks through: `"queued"` → `"generating (i/n)"` while parts run → `"done"` or `"failed"` (then `error` holds the message). `progress` (0–100) appears once the first part finishes. Treat anything not `done`/`failed` as still running.
 
+Every job also carries `deadlineAt` (when it will give up if it has not finished). While it is `queued` it additionally carries `queue` — the live `{ active, queued, concurrency, queueMax, saturated, load }` — so a caller can tell "waiting for a worker" from "working". The internal `usage` bookkeeping is never returned.
+
 After the audio TTL, `file` becomes `null`, `audioDeletedAt` is set, and `GET /download/:id` returns `410`. The job object itself is pruned after `jobTtlSeconds` (default 1 hour). The job's `tenant` id is never exposed in API responses.
 
 ---
@@ -313,7 +316,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 | `401 {"error":"invalid_key"}` | The key is not a row in the studio's keys table (forged, deleted, or issued by an older build) | `POST /keys` (with `GET /keys/challenge`) for a new one — the pages and the MCP do this automatically when they see a 401. See [MIGRATION-v3-keys.md](MIGRATION-v3-keys.md). |
 | `403 pow_challenge_invalid` / `pow_failed` on `/keys` | The challenge was skipped, already used, expired, or the nonce does not hash to enough zeros | Fetch a fresh `GET /keys/challenge` and solve that one; challenges are single-use |
 | `503 {"error":"temporarily_disabled"}` | The operator set `KOE_KILL_SWITCH=true` | Nothing to fix on the client — every generation endpoint is off by design. Retry later. |
-| `429 — Hourly/Daily word limit reached ...` | This tenant's free quota is exhausted | Read `retryAfterSeconds`, call `get_usage`, wait for the window to reset. Requests are not refunded; failed jobs refund words. |
+| `429 — Hourly/Daily word limit reached ...` | This tenant's free quota is exhausted | Read `retryAfterSeconds`, call `get_usage`, wait for the window to reset. Any job that ends without audio — upstream error, deadline overrun, or no worker — refunds the words **and** the request unit, booked into the window it was charged in (so a job that fails after an hour boundary does not leave the earlier hour charged). |
 | `429 — The synthesis queue is full` | The instance's 20-job queue is full | The MCP retries once if the wait is ≤45 s; otherwise retry shortly. |
 | `429` with `reason: "global_daily_words"` | The whole instance hit its daily word ceiling (`KOE_GLOBAL_DAILY_WORDS`) | Everyone is limited, not just you — retry after the reset window. |
 | `503 — Synthesis is cooling down after upstream errors` | Circuit breaker tripped by repeated edge-tts failures | Wait `retryAfterSeconds` (starts at 60 s, max 10 min) and retry. |
@@ -335,6 +338,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 - **Per job:** 6,000 words (`400`) / 40,000 characters (`413`). Previews: 600 characters.
 - **Per IP:** 3 free keys/day (`429` once exhausted, `retryAfterSeconds` until UTC midnight).
 - **Instance-wide:** 2 concurrent jobs, 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`).
+- **Job deadline:** 300 s from submission, queue wait included (`KOE_JOB_DEADLINE_SEC`). A job still queued at the deadline fails with `Still waiting for a free synthesis slot…`; a job that overruns mid-synthesis fails with `Job exceeded its 300s limit…`. Either way the caller is refunded words and the request unit. Previews wait 30 s for a worker (`KOE_PREVIEW_WAIT_SEC`) and then answer `429` rather than holding the request open.
 - **Fail-safe:** `KOE_KILL_SWITCH=true` stops all generation with `503 {"error":"temporarily_disabled"}` before anything is charged.
 - **Retention:** audio 900 s, job metadata 1 hour, previews 10 min. Nothing is permanent.
 - edge synthesis timeouts: 5 min per part on the server; piper: 10 min.

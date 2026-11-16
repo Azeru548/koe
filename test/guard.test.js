@@ -213,3 +213,94 @@ test("slot semaphore bounds concurrency and queue depth", async () => {
   assert.equal(guard.queueFull(), true);
   guard.releaseSlot();
 });
+
+test("waitForSlot gives up at the deadline instead of queueing forever", async () => {
+  guard.cfg.globalConcurrency = 1;
+  guard.cfg.globalQueue = 2;
+
+  const held = guard.tryAcquireSlot();
+  await held;                       // one worker busy for the whole test
+  const waiting = guard.tryAcquireSlot();
+  assert.ok(waiting);
+
+  const started = Date.now();
+  const grant = await guard.waitForSlot(waiting, Date.now() + 120);
+  assert.equal(grant.granted, false);
+  assert.equal(grant.reason, "wait_timeout");
+  assert.ok(Date.now() - started >= 100, "it waited roughly the budget before giving up");
+
+  // Walking away must also leave the queue: a timed-out waiter is not still
+  // occupying a place, and it must not swallow the worker when one frees up.
+  assert.equal(guard.slotStats().queued, 0, "timed-out waiter left the queue");
+  guard.releaseSlot();               // frees the held worker
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(guard.slotStats().active, 0, "late grant returned to the pool");
+  assert.equal(guard.slotStats().queued, 0);
+
+  // And the pool is genuinely free again.
+  guard.cfg.globalQueue = 1;
+  const next = guard.tryAcquireSlot();
+  assert.ok(next);
+  await next;
+  assert.equal(guard.slotStats().active, 1);
+  guard.releaseSlot();
+  assert.equal(guard.slotStats().active, 0);
+});
+
+test("queue state reports saturation honestly, not just an idle-looking ok", async () => {
+  guard.cfg.globalConcurrency = 1;
+  guard.cfg.globalQueue = 1;
+
+  const a = guard.tryAcquireSlot();
+  await a;
+  assert.equal(guard.slotStats().load, "busy");
+  assert.equal(guard.slotStats().saturated, false);
+
+  const b = guard.tryAcquireSlot();
+  assert.equal(guard.slotStats().saturated, true);
+  assert.equal(guard.slotStats().load, "saturated");
+
+  b.cancelWait();
+  guard.releaseSlot();
+  assert.equal(guard.slotStats().load, "idle");
+  assert.equal(guard.slotStats().queued, 0);
+});
+
+test("refunds land in the window that was charged, not in the current one", () => {
+  // Earlier tests lower these to prove the limits bite; set what this one needs.
+  guard.cfg.keyReqHour = 60;
+  guard.cfg.keyWordsHour = 2000;
+  guard.cfg.keyWordsDay = 20000;
+  guard.cfg.globalWordsDay = 1000000;
+  const subjectId = "key:refund-window-test";
+  const t0 = Date.UTC(2026, 0, 5, 10, 59, 0);      // just before an hour boundary
+  const charged = guard.charge({ subjectId, kind: "key", words: 120, now: t0 });
+  assert.equal(charged.ok, true);
+  const hour1 = guard.hourWindow(t0);
+  const day1 = guard.dayWindow(t0);
+
+  const t1 = t0 + 3 * 60 * 1000;                   // the job finishes in the next hour
+  assert.notEqual(guard.hourWindow(t1), hour1, "the two times are in different windows");
+
+  guard.refund({ subjectId, words: 120, requests: true, windows: charged.windows, now: t1 });
+
+  const old = guard.db.readUsage(subjectId, hour1, day1);
+  assert.equal(old.hour.words, 0, "the hour that was charged is clean again");
+  assert.equal(old.hour.requests, 0);
+
+  const current = guard.db.readUsage(subjectId, guard.hourWindow(t1), guard.dayWindow(t1));
+  assert.equal(current.hour.words, 0, "the new hour is not credited with usage it never had");
+  assert.equal(current.hour.requests, 0);
+});
+
+test("a full queue is reported immediately, not after the wait", async () => {
+  guard.cfg.globalConcurrency = 1;
+  guard.cfg.globalQueue = 0;
+  const held = guard.tryAcquireSlot();
+  await held;
+  assert.equal(guard.tryAcquireSlot(), null);
+  const grant = await guard.waitForSlot(null, Date.now() + 5000);
+  assert.equal(grant.granted, false);
+  assert.equal(grant.reason, "queue_full");
+  guard.releaseSlot();
+});

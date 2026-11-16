@@ -258,7 +258,7 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
         <table>
           <tr><th>Endpoint</th><th>Purpose</th></tr>
           <tr><td><code>POST /tts</code></td><td><code>{ text, voice?, rate?, pitch?, engine? }</code> → <code>{ jobId, parts, wordCount }</code> immediately; synthesis runs in the background.</td></tr>
-          <tr><td><code>GET /job/:id</code></td><td>The job object and its status: <code>queued</code>, <code>generating (n/m)</code>, <code>done</code>, <code>failed</code>.</td></tr>
+          <tr><td><code>GET /job/:id</code></td><td>The job object and its status: <code>queued</code>, <code>generating (n/m)</code>, <code>done</code>, <code>failed</code>. Includes <code>deadlineAt</code>, and while queued a live <code>queue</code> snapshot, so you can tell waiting for a worker from working.</td></tr>
           <tr><td><code>GET /download/:id</code></td><td>ZIP of the parts. <code>409</code> until done, <code>410</code> once the audio has expired.</td></tr>
           <tr><td><code>POST /tts-preview</code></td><td>Streams a short MP3 directly (600 characters max). Edge only.</td></tr>
           <tr><td><code>GET /voices</code></td><td>The catalog: <code>?engine=</code> and <code>&amp;lang=</code> filters. Public.</td></tr>
@@ -282,6 +282,8 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
           <tr><td>Anonymous</td><td>20 requests / hour · 500 words / hour · 3,000 words / day</td></tr>
           <tr><td>One job</td><td>6,000 words · 40,000 characters</td></tr>
           <tr><td>Instance</td><td>2 concurrent jobs · 20-job queue · 30,000 words / day</td></tr>
+          <tr><td>Job deadline</td><td>300 s from submission, queue wait included. A job that cannot get a worker in time fails with a clear message and is refunded.</td></tr>
+          <tr><td>Refunds</td><td>A job that ends without audio — upstream error, deadline, or no worker — returns its words <em>and</em> its request unit, into the hour/day window it was charged in.</td></tr>
           <tr><td>Audio</td><td>Deleted after 15 minutes; job metadata after an hour</td></tr>
         </table>
       </div>

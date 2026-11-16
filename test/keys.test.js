@@ -222,12 +222,12 @@ test("a single job over the word cap is a 400 before counting", async () => {
   assert.equal(usage.data.usage.hour.words, 0, "the rejected job was never charged");
 });
 
-test("a failed generation refunds its words but keeps the request", async () => {
+test("a failed generation refunds both the words and the request", async () => {
   const s = await startServer("refund");
   const key = (await mintKey(s.base)).data.key;
 
-  // Charged on submission, then synthesis fails (docker is not on PATH),
-  // so the guard must give the words back.
+  // Charged on submission, then synthesis fails (docker is not on PATH), so the
+  // guard must give everything back: the caller received no audio.
   const failed = await json(s.base, "/tts-preview", {
     method: "POST",
     key,
@@ -239,8 +239,8 @@ test("a failed generation refunds its words but keeps the request", async () => 
   const usage = await json(s.base, "/usage", { key });
   assert.equal(usage.data.usage.hour.words, 0, "words refunded");
   assert.equal(usage.data.usage.day.words, 0, "day words refunded");
-  assert.equal(usage.data.usage.hour.requests, 1, "the request still counts");
-  assert.equal(usage.data.usage.day.requests, 1);
+  assert.equal(usage.data.usage.hour.requests, 0, "the request is refunded too");
+  assert.equal(usage.data.usage.day.requests, 0);
 });
 
 // ── key issuance ─────────────────────────────────────────────
@@ -312,7 +312,8 @@ test("killing and restarting the process preserves keys and counters", async () 
   });
   assert.equal(failed.status, 500);
   const before = await json(s.base, "/usage", { key: keys[0] });
-  assert.equal(before.data.usage.hour.requests, 1);
+  assert.equal(before.data.usage.hour.requests, 0, "a failed preview is fully refunded");
+  assert.equal(before.data.usage.hour.words, 0);
 
   await stop(s.child);
 
@@ -321,7 +322,7 @@ test("killing and restarting the process preserves keys and counters", async () 
 
   const after = await json(again.base, "/usage", { key: keys[0] });
   assert.equal(after.status, 200, "the key minted before the restart still resolves");
-  assert.equal(after.data.usage.day.requests, 1, "usage counters survived the restart");
+  assert.equal(after.data.usage.day.requests, 0, "the refunded counter row survived the restart");
   assert.equal(after.data.usage.hour.words, 0, "the refund survived too");
 
   // The per-IP mint cap is persisted as well: the IP already used 3 today.

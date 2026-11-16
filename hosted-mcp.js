@@ -126,10 +126,21 @@ function createHostedMcp({ client }) {
           job = await client.job(jobId);
           if (job.status === "done" || job.status === "failed") break;
           if (Date.now() > deadline) {
+            // "It keeps working" is only true until the job's own deadline. Say
+            // which of the two is happening, and when the answer arrives.
+            const waiting = String(job.status || "").startsWith("queued");
+            const q = job.queue;
+            const until = job.deadlineAt || "its server-side deadline";
             return jsonResult({
               jobId,
               status: job.status,
-              note: `Still generating after ${args.timeout_seconds}s. The studio keeps working — call get_voiceover_status with this jobId in a moment.`,
+              queue: q || null,
+              deadlineAt: job.deadlineAt || null,
+              note: waiting
+                ? `Still waiting for a free synthesis worker after ${args.timeout_seconds}s` +
+                  (q ? ` (${q.active}/${q.concurrency} busy, ${q.queued} waiting)` : "") +
+                  `. This job fails at ${until} if no worker frees up — it will not start late. Call get_voiceover_status, or submit again later.`
+                : `Still generating after ${args.timeout_seconds}s. It finishes or fails at ${until}; either way get_voiceover_status has the answer.`,
             });
           }
         }

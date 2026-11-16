@@ -720,21 +720,26 @@ app.post("/tts", async (req, res) => {
     guard.logReject("queue_full", req.ctx.rawKey, req.ctx.ip);
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
+  let usageWindows = null;
   if (subject) {
     const verdict = guard.charge({ subjectId: subject.id, kind: subject.kind, words });
     if (!verdict.ok) {
       guard.logReject(verdict.reason || "limit", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
       return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds, reason: verdict.reason });
     }
+    usageWindows = verdict.windows || null;
   }
   const slot = guard.tryAcquireSlot();
   if (!slot) {
     // Lost a race for the last queue place: return the charge.
-    if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
+    if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
     guard.logReject("queue_full", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
   const submittedAt = Date.now();
+  // One deadline per job, queue wait included: past this point the job fails
+  // with a refund rather than occupying a worker indefinitely.
+  const deadlineAt = submittedAt + guard.cfg.jobDeadlineSec * 1000;
   // Count the words against the same subject that observe() counted the request
   // for — including the admin caller, whose charge is skipped but whose work
   // still belongs on the dashboard.
@@ -760,6 +765,8 @@ app.post("/tts", async (req, res) => {
     parts:      parts.length,
     wordCount,
     tenant:     subject ? subject.id : null,
+    usage:      usageWindows,          // the windows charged — refunds go back here
+    deadlineAt: new Date(deadlineAt).toISOString(),
     words,
     textChars:  text.length,
     createdAt:  new Date().toISOString(),
@@ -775,7 +782,7 @@ app.post("/tts", async (req, res) => {
     saveJob(job);
   } catch (err) {
     guard.releaseSlot();
-    if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
+    if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
     deleteJobArtifacts(jobId);
     console.error(`[JOB ${jobId}] could not be created:`, err.message);
     return res.status(500).json({ error: "Could not create the job" });
@@ -784,12 +791,31 @@ app.post("/tts", async (req, res) => {
   // Schedule the work first so a failed response write can never orphan the slot.
   setImmediate(async () => {
     activeJobs.add(jobId);
+    let acquired = false;
     try {
-      await slot;
+      const grant = await guard.waitForSlot(slot, deadlineAt);
+      if (!grant.granted) {
+        // Nothing was synthesised, so the caller gets its words and its request
+        // back and a retry hint — this is a wait, not a failure of their script.
+        job.status = "failed";
+        job.error = grant.reason === "wait_timeout"
+          ? `Still waiting for a free synthesis slot after ${guard.cfg.jobDeadlineSec}s — nothing was generated. Try again shortly.`
+          : "The synthesis queue was full — nothing was generated. Try again shortly.";
+        saveJob(job);
+        if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: job.usage });
+        deleteJobArtifacts(jobId);
+        return;
+      }
+      acquired = true;
       job.status = `generating (0/${parts.length})`;
       saveJob(job);
 
       for (let i = 0; i < parts.length; i++) {
+        if (Date.now() > deadlineAt) {
+          const err = new Error(`Job exceeded its ${guard.cfg.jobDeadlineSec}s limit after ${i}/${parts.length} parts — partial audio was discarded.`);
+          err.timedOut = true;
+          throw err;
+        }
         const base = `part_${String(i + 1).padStart(3, "0")}`;
 
         const { bytes } = await activeEngine.synthesize({
@@ -827,12 +853,16 @@ app.post("/tts", async (req, res) => {
       job.status = "failed";
       job.error  = message;
       saveJob(job);
-      if (subject) guard.refund({ subjectId: subject.id, words });
-      if (engine !== "kokoro") guard.recordUpstreamFailure(err);
+      // The caller got no audio, whatever went wrong: return the words and the
+      // request unit, booked against the windows this job was charged in.
+      if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: job.usage });
+      if (engine !== "kokoro" && !(err && err.timedOut)) guard.recordUpstreamFailure(err);
       deleteJobArtifacts(jobId);
     } finally {
       if (deletedJobs.delete(jobId)) deleteJobArtifacts(jobId);
-      guard.releaseSlot();
+      // Only hand back a worker we actually hold; a wait that timed out already
+      // released any late grant inside waitForSlot().
+      if (acquired) guard.releaseSlot();
       activeJobs.delete(jobId);
     }
   });
@@ -850,10 +880,13 @@ function canAccessJob(req, job) {
 }
 
 function publicJob(job) {
-  const { tenant, ...rest } = job;
+  const { tenant, usage, ...rest } = job;   // internal bookkeeping stays internal
   if (rest.audioExpiresAt && !rest.audioDeletedAt) {
     rest.expiresInSeconds = Math.max(0, Math.round((Date.parse(rest.audioExpiresAt) - Date.now()) / 1000));
   }
+  // "queued" on its own says nothing about whether it will ever start, so a
+  // queued job carries the live queue and the moment it will give up.
+  if (rest.status === "queued") rest.queue = guard.slotStats();
   return rest;
 }
 
@@ -995,17 +1028,19 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
 
   const words = text.trim().split(/\s+/).length;
   const subject = callerSubject(req);
+  let usageWindows = null;
   if (subject) {
     const verdict = guard.charge({ subjectId: subject.id, kind: subject.kind, words });
     if (!verdict.ok) {
       guard.logReject(verdict.reason || "limit", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
       return res.status(verdict.status).json({ error: verdict.error, retryAfterSeconds: verdict.retryAfterSeconds, reason: verdict.reason });
     }
+    usageWindows = verdict.windows || null;
   }
 
   const slot = guard.tryAcquireSlot();
   if (!slot) {
-    if (subject) guard.refund({ subjectId: subject.id, words, requests: true });
+    if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
     guard.logReject("queue_full", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
@@ -1025,7 +1060,17 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
   const previewPath = path.join(PREVIEW_DIR, fileName);
 
   try {
-    await slot;
+    // A preview is synchronous, so it cannot sit in the queue forever: give up
+    // at the configured wait and tell the caller to come back.
+    const grant = await guard.waitForSlot(slot, Date.now() + guard.cfg.previewWaitSec * 1000);
+    if (!grant.granted) {
+      if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
+      guard.logReject("queue_wait_timeout", req.ctx.rawKey, req.ctx.ip, `waited=${grant.waitedMs}ms`);
+      if (!res.headersSent) {
+        return res.status(429).json({ error: "The synthesis queue is busy — try again shortly", retryAfterSeconds: 15 });
+      }
+      return;
+    }
     try {
       const { bytes } = await engines.getEngine(engine).synthesize({
         text,
@@ -1040,7 +1085,7 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     }
 
     if (!fs.existsSync(previewPath)) {
-      if (subject) guard.refund({ subjectId: subject.id, words });
+      if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
       return res.status(500).json({ error: "Preview file not written" });
     }
 
@@ -1049,7 +1094,7 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     streamPreview(res, previewPath, engines.contentTypeFor(engine), `preview.${ext}`);
   } catch (err) {
     release();
-    if (subject) guard.refund({ subjectId: subject.id, words });
+    if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
     guard.recordUpstreamFailure(err);
     console.error(`[PREVIEW ${engine}] failed:`, String(err.message || err).slice(0, 300));
     if (!res.headersSent) {
@@ -1195,6 +1240,7 @@ async function healthHandler(req, res) {
     db:           { ok: dbInfo.ok, path: dbInfo.path, journalMode: dbInfo.journalMode },
     mcp:          { endpoint: "/mcp", transport: "streamable-http", stateless: true, setup: "/mcp" },
     queue:        guard.slotStats(),
+    load:         guard.slotStats().load,
     ephemeral:    { audioTtlSeconds: guard.cfg.audioTtlSec, jobTtlSeconds: guard.cfg.jobTtlSec },
     limits:       guard.publicLimits(),
   });

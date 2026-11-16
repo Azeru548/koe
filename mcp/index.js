@@ -369,7 +369,13 @@ server.tool(
         }
         if (job.status === "done" || job.status === "failed") break;
         if (Date.now() > deadline) {
-          throw new Error(`Timed out after ${args.timeout_seconds}s waiting for job ${jobId} (last status: ${job.status}). The studio keeps working; use get_voiceover_status with this id.`);
+          const waiting = String(job.status || "").startsWith("queued");
+          const until = job.deadlineAt ? ` Its deadline is ${job.deadlineAt}, after which it fails and is refunded.` : "";
+          throw new Error(
+            `Timed out after ${args.timeout_seconds}s waiting for job ${jobId} (last status: ${job.status}).` +
+            (waiting ? " It is still waiting for a free synthesis worker." : " It is still generating.") +
+            until + " Check get_voiceover_status with this id, or submit again later."
+          );
         }
       }
       if (job.status === "failed") throw new Error(`TTS job failed on the studio server: ${job.error}`);
