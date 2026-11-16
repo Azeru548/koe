@@ -23,6 +23,7 @@ const archiver = require("archiver");
 const guard = require("./guard");
 const jobs = require("./jobs");
 const engines = require("./engines");
+const cache = require("./cache");
 
 const POLL_MS = Math.max(200, parseInt(process.env.KOE_WORKER_POLL_MS, 10) || 500);
 const PART_CONCURRENCY = Math.max(1, parseInt(process.env.KOE_PART_CONCURRENCY, 10) || 2);
@@ -51,16 +52,30 @@ function cachePath({ engine, voice, rate, pitch, text }) {
 }
 
 async function synthesizeCached(engine, params) {
-  const file = cachePath({ engine, ...params });
-  try {
-    const bytes = await fs.promises.readFile(file);
-    if (bytes.length) return { bytes, cached: true };
-  } catch { /* miss */ }
+  const name = path.basename(cachePath({ engine, ...params }));
+  const hit = cache.read(PATHS.cache, name);
+  if (hit) return { bytes: hit, cached: true };
   const { bytes } = await engines.getEngine(engine).synthesize({ ...params, scratchDir: PATHS.work });
-  try {
-    await fs.promises.writeFile(file, bytes);
-  } catch { /* cache is best-effort */ }
+  // The cache has a byte budget: this write prunes the oldest entries back
+  // under it, so a busy instance cannot fill the disk with old audio.
+  cache.write(PATHS.cache, name, bytes);
   return { bytes, cached: false };
+}
+
+// The script itself never goes into the database — it is written beside the
+// job's work directory at submit time and read here. That is also what lets a
+// claimed job be re-queued instead of lost when the process restarts.
+function partsFile(jobId) {
+  return path.join(PATHS.work, `${jobId}.parts.json`);
+}
+
+function readParts(job) {
+  try {
+    const parts = JSON.parse(fs.readFileSync(partsFile(job.id), "utf8"));
+    if (Array.isArray(parts) && parts.length) return parts;
+  } catch { /* missing, fall through to legacy rows */ }
+  if (Array.isArray(job.partsText) && job.partsText.length) return job.partsText;
+  return null;
 }
 
 // ── artifacts ───────────────────────────────────────────────
@@ -79,6 +94,7 @@ function createZip(sourceDir, destPath) {
 function deleteArtifacts(jobId) {
   fs.rmSync(path.join(PATHS.audio, `${jobId}.zip`), { force: true });
   fs.rmSync(path.join(PATHS.work, jobId), { recursive: true, force: true });
+  fs.rmSync(partsFile(jobId), { force: true });
 }
 
 // ── one job ─────────────────────────────────────────────────
@@ -162,7 +178,17 @@ let stopping = false;
 async function runOnce() {
   const job = jobs.claimNext(guard.cfg.globalConcurrency);
   if (!job) return false;
-  const parts = Array.isArray(job.partsText) && job.partsText.length ? job.partsText : [job.text || ""];
+  const parts = readParts(job);
+  if (!parts) {
+    // Script gone: the row survived but its work directory did not, so there is
+    // nothing to synthesise. Fail it and give the quota back rather than looping.
+    job.status = "failed";
+    job.error = "The script for this job is no longer on disk — nothing was generated.";
+    jobs.update(job);
+    if (job.tenant) guard.refund({ subjectId: job.tenant, words: job.words || 0, requests: true, windows: job.usage });
+    deleteArtifacts(job.id);
+    return true;
+  }
   await runJob(job, parts);
   return true;
 }
@@ -200,6 +226,8 @@ module.exports = {
   runOnce,
   synthesizeCached,
   cachePath,
+  partsFile,
+  readParts,
   deleteArtifacts,
   PATHS,
   PART_CONCURRENCY,

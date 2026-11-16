@@ -94,6 +94,35 @@ test("reapStale only fails jobs that are past the deadline", () => {
   jobs.remove("stale-fresh");
 });
 
+test("a claimed job whose script survived is re-queued, not failed", () => {
+  const workDir = path.join(TMP, "work");
+  fs.mkdirSync(workDir, { recursive: true });
+
+  jobs.create(job("resume-script"));
+  const claimed = jobs.claimNext(1);
+  assert.equal(claimed.id, "resume-script");
+  assert.equal(claimed.status, "starting");
+  // The submit path writes the script beside the work directory; the worker that
+  // claimed this job died, but the script is still there.
+  fs.writeFileSync(path.join(workDir, "resume-script.parts.json"), JSON.stringify(["hello there"]));
+
+  jobs.create(job("resume-gone", { status: "starting" }));
+
+  const { requeued, failed } = jobs.requeueClaimed({ workDir, deadlineSec: 300 });
+  assert.deepEqual(requeued.map((j) => j.id), ["resume-script"]);
+  assert.deepEqual(failed.map((j) => j.id), ["resume-gone"]);
+
+  const back = jobs.get("resume-script");
+  assert.equal(back.status, "queued", "it goes back in the queue");
+  assert.equal(back.progress, 0);
+  assert.ok(Date.parse(back.deadlineAt) > Date.now(), "the deadline is renewed");
+  assert.match(jobs.get("resume-gone").error, /restarted/i);
+  assert.equal(jobs.countQueued(), 1);
+  assert.equal(jobs.countRunning(), 0, "no row can stay claimed after a restart");
+
+  for (const id of ["resume-script", "resume-gone"]) jobs.remove(id);
+});
+
 test("failRunning fails everything a previous process left in flight", () => {
   jobs.create(job("boot-queued"));
   jobs.create(job("boot-running", { status: "starting" }));

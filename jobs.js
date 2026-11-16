@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────
 
 const fs = require("fs");
+const path = require("path");
 const db = require("./db");
 
 const RUNNING_SQL = "(status = 'starting' OR status LIKE 'generating%')";
@@ -131,6 +132,38 @@ function claimNext(limit = Infinity) {
   });
 }
 
+// A job claimed by a worker that then died: if its script is still beside the
+// work directory there is nothing lost, so put it back in the queue instead of
+// failing it. Only rows whose script is gone are failed.
+function requeueClaimed({ workDir, deadlineSec = 300 }, now = Date.now()) {
+  return db.transaction(() => {
+    const conn = db.conn();
+    const rows = conn.all(`SELECT id, data FROM jobs WHERE ${RUNNING_SQL}`);
+    const requeued = [];
+    const failed = [];
+    for (const row of rows) {
+      const job = parse(row);
+      if (!job) { conn.run("DELETE FROM jobs WHERE id = ?", [row.id]); continue; }
+      const script = path.join(workDir, `${job.id}.parts.json`);
+      if (fs.existsSync(script)) {
+        job.status = "queued";
+        job.progress = 0;
+        job.error = null;
+        // The original deadline died with the process; the work starts over.
+        job.deadlineAt = new Date(now + deadlineSec * 1000).toISOString();
+        put(job);
+        requeued.push(job);
+      } else {
+        job.status = "failed";
+        job.error = "Server restarted before this job finished — nothing was generated.";
+        put(job);
+        failed.push(job);
+      }
+    }
+    return { requeued, failed };
+  });
+}
+
 // At boot nothing is running yet, so any row still marked starting/generating
 // belongs to a previous incarnation of the service and will never finish.
 function failRunning(reason) {
@@ -236,6 +269,7 @@ module.exports = {
   countAll,
   reapStale,
   failRunning,
+  requeueClaimed,
   sweep,
   importLegacy,
 };

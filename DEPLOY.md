@@ -126,6 +126,12 @@ KOE_EMBED_WORKER=false node server.js        # HTTP only
 KOE_WORKERS=6 node worker.js > /var/log/koe-worker.log 2>&1 &
 ```
 
+The synthesis cache lives in `/data/output/cache` and is capped by
+`KOE_CACHE_MAX_MB` (default 256 MB), pruned oldest-first on write — it cannot fill
+the volume. Job scripts are kept under `/data/output/work/` (never in the
+database), so a job claimed when the process is killed is re-queued on the next
+boot from its own file.
+
 Any number of `worker.js` processes can run beside the server: claims are atomic,
 the concurrency limit is shared, and a crashed worker's jobs are reaped and
 refunded after `KOE_JOB_DEADLINE_SEC`. Keep `KOE_GLOBAL_CONCURRENCY` honest for

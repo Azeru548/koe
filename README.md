@@ -66,7 +66,14 @@ KOE_WORKERS=6 node worker.js
   served by a process that did not synthesise the job.
 - Parts of one job synthesise in parallel (`KOE_PART_CONCURRENCY`, default 2), and
   identical `(text, voice, rate, pitch, engine)` requests are served from
-  `output/cache/` instead of a fresh upstream call.
+  `output/cache/` instead of a fresh upstream call. That cache has a byte budget
+  (`KOE_CACHE_MAX_MB`, default 256 MB) and is pruned oldest-first on every write,
+  so it cannot grow without limit.
+- A job's script is **not** stored in the database: `POST /tts` writes it to
+  `output/work/<jobId>.parts.json` and the worker reads it from there. The row
+  keeps counts and status only. If a worker is killed mid-job, the next boot
+  re-queues the job from that file (with a fresh deadline) instead of failing it;
+  only jobs whose script is missing are failed and refunded.
 
 Measured on the reference box (108-word jobs, edge engine): 2 workers ≈ 6 jobs/min,
 6 workers ≈ 10–15 jobs/min. The upstream endpoint, not the CPU, is the ceiling —
@@ -343,6 +350,7 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `KOE_WORKERS` | `KOE_GLOBAL_CONCURRENCY` | Worker loops per `worker.js` process |
 | `KOE_PART_CONCURRENCY` | `2` | Parts of one job synthesised in parallel |
 | `KOE_WORKER_POLL_MS` | `500` | How often an idle worker checks the queue |
+| `KOE_CACHE_MAX_MB` | `256` | Byte budget for the synthesis cache; oldest entries are pruned on write |
 | `KOE_STATS_FILE` | `.koe-stats.json` | Persisted traffic/voiceover counters used by `/stats` |
 | `KOE_PUBLIC_URL` | request origin | Absolute base used in hosted-MCP download links (set it if you run behind a proxy) |
 | `KOE_MCP_INLINE_AUDIO_MAX` | `3145728` | Max bytes of audio to inline in an MCP response; `0` returns only the link |

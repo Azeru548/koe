@@ -154,7 +154,7 @@ Success result:
 
 **Rate limits/errors:** the MCP retries once automatically when the queue is full or the upstream is cooling down (`429`/`503` with a short `retryAfterSeconds`). A persistent `429` means the tenant's hourly/daily words or requests are exhausted — wait for the reset or check `get_usage`. A `413` means the script exceeds 2,000 words / 40,000 chars per job.
 
-Timing reality check: a short sentence takes ~2–5 s on a warm server. The public instance is a small EC2 box with a 2-job concurrency limit; if the container was just restarted, allow the first call a little longer. A multi-thousand-word script can take minutes — raise `timeout_seconds`.
+Timing reality check: a short sentence takes ~2–5 s on a warm server. The public instance is a small EC2 box; if the container was just restarted, allow the first call a little longer. A multi-thousand-word script can take minutes — raise `timeout_seconds`.
 
 ### `get_voiceover_status`
 
@@ -252,6 +252,8 @@ The server's job JSON (returned by `GET /job/:id`):
 
 `error` is one readable line — the exception, not the Python traceback the CLI printed; the full stderr stays in the server log. If you need to debug an engine, read the log, not the API response.
 
+The script you send is written to the server's work directory, not into its database — the job record holds counts and status only. A job interrupted by a restart is re-queued from that file rather than lost.
+
 Every job also carries `deadlineAt` (when it will give up if it has not finished). While it is `queued` it additionally carries `queue` — the live `{ active, queued, concurrency, queueMax, saturated, load }` — so a caller can tell "waiting for a worker" from "working". The internal `usage` bookkeeping is never returned.
 
 After the audio TTL, `file` becomes `null`, `audioDeletedAt` is set, and `GET /download/:id` returns `410`. The job object itself is pruned after `jobTtlSeconds` (default 1 hour). The job's `tenant` id is never exposed in API responses.
@@ -344,7 +346,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 - **Fail-safe:** `KOE_KILL_SWITCH=true` stops all generation with `503 {"error":"temporarily_disabled"}` before anything is charged.
 - **Retention:** audio 900 s, job metadata 1 hour, previews 10 min. Nothing is permanent.
 - edge synthesis timeouts: 5 min per part on the server; piper: 10 min.
-- The public instance is a small EC2 box — serialize big jobs (one at a time); don't fan out parallel generations.
+- The public instance is a small EC2 box. It runs several workers, but edge-tts is a free unofficial endpoint: send one long script at a time and don't fan out parallel generations.
 - edge-tts is free but unofficial (Microsoft's consumer endpoint). It is fine for personal voiceovers; don't hammer it.
 - Keep `KOE_SECRET` stable and `API_KEY` private on the deployed server. The free tier is deliberately bounded so the instance cannot be burned.
 

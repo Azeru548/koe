@@ -207,6 +207,7 @@ const OUTPUT_DIR  = process.env.KOE_OUTPUT_DIR || path.join(__dirname, "output")
 const WORK_DIR    = path.join(OUTPUT_DIR, "work");
 const AUDIO_DIR   = path.join(OUTPUT_DIR, "audio");
 const PREVIEW_DIR = path.join(OUTPUT_DIR, "previews");
+const CACHE_DIR   = path.join(OUTPUT_DIR, "cache");
 // Legacy job file: imported into the database once at boot, then never written.
 const JOBS_FILE   = process.env.KOE_JOBS_FILE || path.join(OUTPUT_DIR, "jobs.json");
 
@@ -227,6 +228,7 @@ for (const dir of [OUTPUT_DIR, WORK_DIR, AUDIO_DIR, PREVIEW_DIR]) {
 // and work the same queue. These thin names keep the routes readable.
 const jobStore = require("./jobs");
 const worker = require("./worker");
+const cache = require("./cache");
 
 const loadJobs = () => jobStore.list({ limit: 1000 });
 const getJob = (id) => jobStore.get(id);
@@ -242,10 +244,14 @@ function deleteJobArtifacts(jobId) {
 // Generated audio is ephemeral: clear every audio artifact at boot. Job
 // metadata may survive a restart, but never claims to be downloadable.
 function bootCleanup() {
-  for (const dir of [WORK_DIR, AUDIO_DIR, PREVIEW_DIR]) {
+  // AUDIO_DIR and PREVIEW_DIR are ephemeral, but WORK_DIR holds the scripts of
+  // jobs that have not run yet: wiping it here is what used to make a claimed
+  // job unrecoverable across a restart.
+  for (const dir of [AUDIO_DIR, PREVIEW_DIR]) {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
   }
+  fs.mkdirSync(WORK_DIR, { recursive: true });
 
   // Pre-ephemeral versions also left per-job folders inside output/.
   try {
@@ -284,10 +290,26 @@ function bootCleanup() {
       jobStore.update(job);
     }
   }
-  for (const job of jobStore.failRunning("Server restarted before this job finished — nothing was generated.")) {
+  // Jobs a worker had claimed when the process died: re-queue the ones whose
+  // script is still on disk, fail (and refund) the rest.
+  const reclaimed = jobStore.requeueClaimed({
+    workDir: WORK_DIR,
+    deadlineSec: guard.cfg.jobDeadlineSec,
+  });
+  if (reclaimed.requeued.length) {
+    console.log(`[jobs] re-queued ${reclaimed.requeued.length} job(s) interrupted by the restart`);
+  }
+  for (const job of reclaimed.failed) {
     console.error(`[JOB ${job.id}] failed: ${job.error}`);
     deleteJobArtifacts(job.id);
     if (job.tenant) guard.refund({ subjectId: job.tenant, words: job.words || 0, requests: true, windows: job.usage });
+  }
+
+  // A cache left over from a previous run may already exceed the byte budget.
+  cache.prune(CACHE_DIR);
+  for (const name of fs.existsSync(WORK_DIR) ? fs.readdirSync(WORK_DIR) : []) {
+    const id = name.replace(/\.parts\.json$/, "");
+    if (!jobStore.get(id)) fs.rmSync(path.join(WORK_DIR, name), { recursive: true, force: true });
   }
   for (const job of jobStore.reapStale(guard.cfg.jobDeadlineSec)) {
     console.error(`[JOB ${job.id}] failed: ${job.error}`);
@@ -324,7 +346,8 @@ function sweep() {
 
   try {
     for (const name of fs.readdirSync(WORK_DIR)) {
-      if (!live.has(name)) fs.rmSync(path.join(WORK_DIR, name), { recursive: true, force: true });
+      const id = name.replace(/\.parts\.json$/, "");
+      if (!live.has(id)) fs.rmSync(path.join(WORK_DIR, name), { recursive: true, force: true });
     }
   } catch { /* dir vanished */ }
 
@@ -727,6 +750,7 @@ app.post("/tts", async (req, res) => {
 
   const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const parts = splitText(text);
+  const scriptFile = path.join(WORK_DIR, `${jobId}.parts.json`);
 
   const job = {
     id:         jobId,
@@ -749,7 +773,8 @@ app.post("/tts", async (req, res) => {
     file:       null,
     error:      null,
     progress:   0,
-    partsText:  parts,                 // handed to the worker; never exposed
+    // The script is written beside the work directory, not here: the database
+    // holds counts and status, not what the user asked to be spoken.
     // Only the log label (first 11 chars): the worker logs the generation, and a
     // stored full key would be a secret sitting in the database.
     logKey:     req.ctx.rawKey ? String(req.ctx.rawKey).slice(0, 11) : "",
@@ -760,8 +785,13 @@ app.post("/tts", async (req, res) => {
   // transaction that flips the row to "starting", so it stays correct with
   // several servers and worker processes sharing one database.
   try {
+    // On disk before the row exists, so a worker can never claim a job it
+    // cannot read, and a restart can re-queue it from the same file.
+    fs.mkdirSync(WORK_DIR, { recursive: true });
+    fs.writeFileSync(scriptFile, JSON.stringify(parts));
     jobStore.create(job);
   } catch (err) {
+    fs.rmSync(scriptFile, { force: true });
     if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
     console.error(`[JOB ${jobId}] could not be created:`, String((err && err.message) || err));
     return res.status(500).json({ error: "Could not create the job" });
