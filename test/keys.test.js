@@ -212,11 +212,13 @@ test("a single job over the word cap is a 400 before counting", async () => {
   const s = await startServer("jobcap");
   const key = (await mintKey(s.base)).data.key;
 
-  const text = Array(6001).fill("word").join(" ");
+  // The cap is 2,000 words: at ~8 words/s that is the most a job can finish
+  // inside its 300s deadline, so the ceiling is reachable rather than decorative.
+  const text = Array(2001).fill("word").join(" ");
   const big = await json(s.base, "/tts", { method: "POST", key, body: { text } });
   assert.equal(big.status, 400);
   assert.match(big.data.error, /Job too long/);
-  assert.equal(big.data.maxWords, 6000);
+  assert.equal(big.data.maxWords, 2000);
 
   const usage = await json(s.base, "/usage", { key });
   assert.equal(usage.data.usage.hour.words, 0, "the rejected job was never charged");

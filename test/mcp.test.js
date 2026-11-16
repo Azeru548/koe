@@ -16,6 +16,8 @@ const ROOT = path.join(__dirname, "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-mcp-test-"));
 const OUTPUT = path.join(TMP, "output");
 const JOBS_FILE = path.join(OUTPUT, "jobs.json");
+const DB_PATH = path.join(TMP, "koe.db");
+const { seedJob } = require("./dbseed");
 const AUDIO_DIR = path.join(OUTPUT, "audio");
 const SECRET = "mcp-test-secret";
 
@@ -69,7 +71,7 @@ test.before(async () => {
       KOE_SECRET: SECRET,
       KOE_REQUIRE_KEY: "true",
       KOE_STATE_FILE: path.join(TMP, "state.json"),
-      KOE_DB_PATH: path.join(TMP, "koe.db"),
+      KOE_DB_PATH: DB_PATH,
       KOE_OUTPUT_DIR: OUTPUT,
       KOE_JOBS_FILE: JOBS_FILE,
       KOE_SWEEP_INTERVAL_SEC: "15",
@@ -243,8 +245,8 @@ test("signed audio links work without a key, and expire with the job", async () 
     audioExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     audioDeletedAt: null, file: `${id}.zip`, error: null, progress: 100,
   };
-  const jobs = fs.existsSync(JOBS_FILE) ? JSON.parse(fs.readFileSync(JOBS_FILE, "utf8")) : [];
-  fs.writeFileSync(JOBS_FILE, JSON.stringify([...jobs.filter((j) => j.id !== id), job], null, 2));
+  // The job store is SQLite: insert the fixture the server will serve.
+  seedJob(DB_PATH, job);
 
   const token = guard.signDownload(id);
   const ok = await fetch(`${base}/audio/${id}?dl=${token}`);

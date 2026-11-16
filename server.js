@@ -207,6 +207,7 @@ const OUTPUT_DIR  = process.env.KOE_OUTPUT_DIR || path.join(__dirname, "output")
 const WORK_DIR    = path.join(OUTPUT_DIR, "work");
 const AUDIO_DIR   = path.join(OUTPUT_DIR, "audio");
 const PREVIEW_DIR = path.join(OUTPUT_DIR, "previews");
+// Legacy job file: imported into the database once at boot, then never written.
 const JOBS_FILE   = process.env.KOE_JOBS_FILE || path.join(OUTPUT_DIR, "jobs.json");
 
 const LEGACY_JOB_ZIP_RE = /^\d{13}-[a-z0-9]{5}\.zip$/i;
@@ -215,51 +216,27 @@ const PREVIEW_FILE_RE   = /^preview(?:-piper)?-\d+[-a-z0-9]*\.(?:mp3|wav)$/i;
 for (const dir of [OUTPUT_DIR, WORK_DIR, AUDIO_DIR, PREVIEW_DIR]) {
   fs.mkdirSync(dir, { recursive: true });
 }
-if (!fs.existsSync(JOBS_FILE)) fs.writeFileSync(JOBS_FILE, "[]");
+
 
 // ─────────────────────────────────────────────
 //  JOB STORE HELPERS
 // ─────────────────────────────────────────────
 
-const activeJobs = new Set();
-const deletedJobs = new Set();
+// Jobs live in SQLite (jobs.js). The server no longer keeps a job list in
+// memory or rewrites a JSON file per update, so several processes can serve
+// and work the same queue. These thin names keep the routes readable.
+const jobStore = require("./jobs");
+const worker = require("./worker");
 
-function loadJobs() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(JOBS_FILE, "utf8"));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveJobs(jobs) {
-  const tmp = `${JOBS_FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(jobs, null, 2));
-  try {
-    fs.renameSync(tmp, JOBS_FILE);
-  } catch {
-    fs.copyFileSync(tmp, JOBS_FILE);
-    fs.rmSync(tmp, { force: true });
-  }
-}
-
-function saveJob(updatedJob) {
-  if (deletedJobs.has(updatedJob.id)) return; // deleted while it was still generating
-  const jobs = loadJobs();
-  const idx  = jobs.findIndex(j => j.id === updatedJob.id);
-  if (idx !== -1) jobs[idx] = updatedJob;
-  else jobs.push(updatedJob);
-  saveJobs(jobs);
-}
-
-function getJob(id) {
-  return loadJobs().find(j => j.id === id) || null;
-}
+const loadJobs = () => jobStore.list({ limit: 1000 });
+const getJob = (id) => jobStore.get(id);
+const saveJob = (job) => {
+  jobStore.update(job);
+  return job;
+};
 
 function deleteJobArtifacts(jobId) {
-  fs.rmSync(path.join(AUDIO_DIR, `${jobId}.zip`), { force: true });
-  fs.rmSync(path.join(WORK_DIR, jobId), { recursive: true, force: true });
+  worker.deleteArtifacts(jobId);
 }
 
 // Generated audio is ephemeral: clear every audio artifact at boot. Job
@@ -291,73 +268,70 @@ function bootCleanup() {
     }
   } catch { /* read-only or already clean */ }
 
-  const now = Date.now();
-  const kept = [];
-  for (const job of loadJobs()) {
-    const created = Date.parse(job.createdAt || 0);
-    if (!Number.isFinite(created) || now - created > guard.cfg.jobTtlSec * 1000) continue;
-    if (job.status === "done") {
+  // Bring forward anything the old JSON store left behind, drop jobs past
+  // their TTL, and fail rows that were mid-flight when this process died.
+  const imported = jobStore.importLegacy(JOBS_FILE);
+  if (imported) console.log(`[jobs] imported ${imported} legacy job(s) from ${path.basename(JOBS_FILE)}`);
+  const { removed } = jobStore.sweep({ jobTtlSec: guard.cfg.jobTtlSec, audioTtlSec: guard.cfg.audioTtlSec });
+  for (const id of removed) deleteJobArtifacts(id);
+
+  // The boot cleanup above wiped output/audio, so imported jobs keep their row
+  // (and their old link) but lose their file pointer.
+  for (const job of jobStore.list({ limit: 5000 })) {
+    if (job.status === "done" && job.file) {
       job.file = null;
       job.audioDeletedAt = new Date().toISOString();
-    } else if (job.status !== "failed") {
-      job.status = "failed";
-      job.error = "Server restarted before this job finished";
+      jobStore.update(job);
     }
-    kept.push(job);
   }
-  saveJobs(kept);
+  for (const job of jobStore.failRunning("Server restarted before this job finished — nothing was generated.")) {
+    console.error(`[JOB ${job.id}] failed: ${job.error}`);
+    deleteJobArtifacts(job.id);
+    if (job.tenant) guard.refund({ subjectId: job.tenant, words: job.words || 0, requests: true, windows: job.usage });
+  }
+  for (const job of jobStore.reapStale(guard.cfg.jobDeadlineSec)) {
+    console.error(`[JOB ${job.id}] failed: ${job.error}`);
+    deleteJobArtifacts(job.id);
+    if (job.tenant) guard.refund({ subjectId: job.tenant, words: job.words || 0, requests: true, windows: job.usage });
+  }
 }
 
 // Periodic TTL sweep: delete expired audio, prune old jobs, and remove
 // orphaned work dirs/zips/previews left behind by crashes.
 function sweep() {
   const now = Date.now();
-  const jobs = loadJobs();
-  const kept = [];
-  const keptIds = new Set();
-  let changed = false;
+  let live;
 
-  for (const job of jobs) {
-    if (activeJobs.has(job.id)) {
-      kept.push(job);
-      keptIds.add(job.id);
-      continue;
-    }
-    const created = Date.parse(job.createdAt || 0);
-    if (!Number.isFinite(created) || now - created > guard.cfg.jobTtlSec * 1000) {
+  try {
+    // A worker that died mid-job holds an admission slot and never finishes:
+    // give up on those rows, refund them, and take their artifacts away.
+    for (const job of jobStore.reapStale(guard.cfg.jobDeadlineSec, now)) {
+      console.error(`[JOB ${job.id}] reaped: ${job.error}`);
       deleteJobArtifacts(job.id);
-      changed = true;
-      continue;
+      if (job.tenant) guard.refund({ subjectId: job.tenant, words: job.words || 0, requests: true, windows: job.usage });
     }
 
-    if (job.status === "done" && job.file && !activeJobs.has(job.id)) {
-      const doneAt = Date.parse(job.completedAt || job.createdAt || 0);
-      if (Number.isFinite(doneAt) && now - doneAt > guard.cfg.audioTtlSec * 1000) {
-        deleteJobArtifacts(job.id);
-        job.file = null;
-        job.audioDeletedAt = new Date().toISOString();
-        changed = true;
-      }
-    }
-
-    kept.push(job);
-    keptIds.add(job.id);
+    const { removed, expired } = jobStore.sweep(
+      { jobTtlSec: guard.cfg.jobTtlSec, audioTtlSec: guard.cfg.audioTtlSec },
+      now
+    );
+    for (const id of [...removed, ...expired]) deleteJobArtifacts(id);
+    live = new Set(jobStore.list({ limit: 5000 }).map((j) => j.id));
+  } catch (err) {
+    console.error("[sweep] failed:", String((err && err.message) || err).slice(0, 200));
+    return;
   }
-
-  if (changed) saveJobs(kept);
 
   try {
     for (const name of fs.readdirSync(WORK_DIR)) {
-      if (!activeJobs.has(name) && !keptIds.has(name)) {
-        fs.rmSync(path.join(WORK_DIR, name), { recursive: true, force: true });
-      }
+      if (!live.has(name)) fs.rmSync(path.join(WORK_DIR, name), { recursive: true, force: true });
     }
   } catch { /* dir vanished */ }
 
   try {
     for (const name of fs.readdirSync(AUDIO_DIR)) {
       const id = name.replace(/\.zip$/i, "");
-      if (!keptIds.has(id)) fs.rmSync(path.join(AUDIO_DIR, name), { force: true });
+      if (!live.has(id)) fs.rmSync(path.join(AUDIO_DIR, name), { force: true });
     }
   } catch { /* dir vanished */ }
 
@@ -383,15 +357,28 @@ function splitText(text) {
     .map(p => p.replace(/\n/g, " ").trim())
     .filter(Boolean);
 
-  const parts = [];
+  // Pack paragraphs up to the split threshold before splitting. Every part is a
+  // separate CLI run costing ~5 s of start-up, so a script written as twenty
+  // short paragraphs used to pay twenty start-ups instead of two.
+  const LIMIT = 3000;
+  const chunks = [];
+  let current = "";
   for (const para of paragraphs) {
-    if (para.length <= 3000) {
+    if (!current) { current = para; continue; }
+    if (current.length + 2 + para.length <= LIMIT) current = `${current}\n\n${para}`;
+    else { chunks.push(current); current = para; }
+  }
+  if (current) chunks.push(current);
+
+  const parts = [];
+  for (const para of chunks) {
+    if (para.length <= LIMIT) {
       parts.push(para);
     } else {
       const sentences = para.match(/[^.!?]+[.!?]+/g) || [para];
       let chunk = "";
       for (const s of sentences) {
-        if ((chunk + s).length > 3000) {
+        if ((chunk + s).length > LIMIT) {
           if (chunk) parts.push(chunk.trim());
           chunk = s;
         } else {
@@ -729,31 +716,17 @@ app.post("/tts", async (req, res) => {
     }
     usageWindows = verdict.windows || null;
   }
-  const slot = guard.tryAcquireSlot();
-  if (!slot) {
-    // Lost a race for the last queue place: return the charge.
-    if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
-    guard.logReject("queue_full", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
-    return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
-  }
   const submittedAt = Date.now();
-  // One deadline per job, queue wait included: past this point the job fails
-  // with a refund rather than occupying a worker indefinitely.
+  // One deadline per job, queue wait included: past this point the worker
+  // gives up on it with a refund rather than holding a slot indefinitely.
   const deadlineAt = submittedAt + guard.cfg.jobDeadlineSec * 1000;
   // Count the words against the same subject that observe() counted the request
   // for — including the admin caller, whose charge is skipped but whose work
   // still belongs on the dashboard.
   stats.markWords({ subject, words });
 
-  const jobId      = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const jobDir     = path.join(WORK_DIR, jobId);
-  const zipPath    = path.join(AUDIO_DIR, `${jobId}.zip`);
-  const parts      = splitText(text);
-  const wordCount  = words;
-
-  // Resolved once from the registry: one interface for every engine.
-  const activeEngine = engines.getEngine(engine);
-  const engineExt    = engines.extFor(engine);
+  const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const parts = splitText(text);
 
   const job = {
     id:         jobId,
@@ -763,111 +736,38 @@ app.post("/tts", async (req, res) => {
     rate:       rateNum,
     pitch:      pitchNum,
     parts:      parts.length,
-    wordCount,
+    wordCount:  words,
     tenant:     subject ? subject.id : null,
     usage:      usageWindows,          // the windows charged — refunds go back here
     deadlineAt: new Date(deadlineAt).toISOString(),
     words,
     textChars:  text.length,
-    createdAt:  new Date().toISOString(),
+    createdAt:  new Date(submittedAt).toISOString(),
     completedAt: null,
     audioExpiresAt: null,
     audioDeletedAt: null,
     file:       null,
     error:      null,
+    progress:   0,
+    partsText:  parts,                 // handed to the worker; never exposed
+    // Only the log label (first 11 chars): the worker logs the generation, and a
+    // stored full key would be a secret sitting in the database.
+    logKey:     req.ctx.rawKey ? String(req.ctx.rawKey).slice(0, 11) : "",
   };
 
+  // The request is accepted now and any worker process picks it up. Admission
+  // (the global concurrency limit) is enforced at claim time, inside the same
+  // transaction that flips the row to "starting", so it stays correct with
+  // several servers and worker processes sharing one database.
   try {
-    fs.mkdirSync(jobDir, { recursive: true });
-    saveJob(job);
+    jobStore.create(job);
   } catch (err) {
-    guard.releaseSlot();
     if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: usageWindows });
-    deleteJobArtifacts(jobId);
-    console.error(`[JOB ${jobId}] could not be created:`, err.message);
+    console.error(`[JOB ${jobId}] could not be created:`, String((err && err.message) || err));
     return res.status(500).json({ error: "Could not create the job" });
   }
 
-  // Schedule the work first so a failed response write can never orphan the slot.
-  setImmediate(async () => {
-    activeJobs.add(jobId);
-    let acquired = false;
-    try {
-      const grant = await guard.waitForSlot(slot, deadlineAt);
-      if (!grant.granted) {
-        // Nothing was synthesised, so the caller gets its words and its request
-        // back and a retry hint — this is a wait, not a failure of their script.
-        job.status = "failed";
-        job.error = grant.reason === "wait_timeout"
-          ? `Still waiting for a free synthesis slot after ${guard.cfg.jobDeadlineSec}s — nothing was generated. Try again shortly.`
-          : "The synthesis queue was full — nothing was generated. Try again shortly.";
-        saveJob(job);
-        if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: job.usage });
-        deleteJobArtifacts(jobId);
-        return;
-      }
-      acquired = true;
-      job.status = `generating (0/${parts.length})`;
-      saveJob(job);
-
-      for (let i = 0; i < parts.length; i++) {
-        if (Date.now() > deadlineAt) {
-          const err = new Error(`Job exceeded its ${guard.cfg.jobDeadlineSec}s limit after ${i}/${parts.length} parts — partial audio was discarded.`);
-          err.timedOut = true;
-          throw err;
-        }
-        const base = `part_${String(i + 1).padStart(3, "0")}`;
-
-        const { bytes } = await activeEngine.synthesize({
-          text: parts[i],
-          voice,
-          rate: rateNum,
-          pitch: pitchNum,
-          scratchDir: jobDir,
-        });
-        await fs.promises.writeFile(path.join(jobDir, `${base}.${engineExt}`), bytes);
-
-        job.status = `generating (${i + 1}/${parts.length})`;
-        job.progress = Math.round(((i + 1) / parts.length) * 100);
-        saveJob(job);
-      }
-
-      await createZip(jobDir, zipPath);
-      fs.rmSync(jobDir, { recursive: true, force: true });
-
-      job.status         = "done";
-      job.file           = `${jobId}.zip`;
-      job.completedAt    = new Date().toISOString();
-      job.audioExpiresAt = new Date(Date.now() + guard.cfg.audioTtlSec * 1000).toISOString();
-      job.progress       = 100;
-      saveJob(job);
-      // Kokoro has its own failure domain: it never touches the shared
-      // circuit breaker, so a dead sidecar cannot cool down edge or piper.
-      if (engine !== "kokoro") guard.recordUpstreamSuccess();
-      guard.logGeneration({ rawKey: req.ctx.rawKey, subject: subject ? subject.id : "admin", engine, voice, words, durationMs: Date.now() - submittedAt, jobId });
-
-    } catch (err) {
-      const message = String((err && err.message) || err).slice(0, 500);
-      // One failure line per synthesis: engine + reason, key never included.
-      console.error(`[JOB ${jobId}] engine=${engine} voice=${voice} failed:`, message);
-      job.status = "failed";
-      job.error  = message;
-      saveJob(job);
-      // The caller got no audio, whatever went wrong: return the words and the
-      // request unit, booked against the windows this job was charged in.
-      if (subject) guard.refund({ subjectId: subject.id, words, requests: true, windows: job.usage });
-      if (engine !== "kokoro" && !(err && err.timedOut)) guard.recordUpstreamFailure(err);
-      deleteJobArtifacts(jobId);
-    } finally {
-      if (deletedJobs.delete(jobId)) deleteJobArtifacts(jobId);
-      // Only hand back a worker we actually hold; a wait that timed out already
-      // released any late grant inside waitForSlot().
-      if (acquired) guard.releaseSlot();
-      activeJobs.delete(jobId);
-    }
-  });
-
-  res.json({ jobId, parts: parts.length, wordCount });
+  res.json({ jobId, parts: parts.length, wordCount: words });
 });
 
 
@@ -880,7 +780,7 @@ function canAccessJob(req, job) {
 }
 
 function publicJob(job) {
-  const { tenant, usage, ...rest } = job;   // internal bookkeeping stays internal
+  const { tenant, usage, partsText, logKey, ...rest } = job;   // internal bookkeeping stays internal
   if (rest.audioExpiresAt && !rest.audioDeletedAt) {
     rest.expiresInSeconds = Math.max(0, Math.round((Date.parse(rest.audioExpiresAt) - Date.now()) / 1000));
   }
@@ -901,7 +801,7 @@ app.get("/job/:id", (req, res) => {
 
 // GET /jobs
 app.get("/jobs", (req, res) => {
-  const jobs = loadJobs().reverse().filter(j => canAccessJob(req, j)).slice(0, 100);
+  const jobs = loadJobs().filter(j => canAccessJob(req, j)).slice(0, 100);
   res.setHeader("Cache-Control", "no-store");
   res.json(jobs.map(publicJob));
 });
@@ -958,14 +858,12 @@ app.get("/audio/:id", (req, res) => {
 
 // DELETE /job/:id
 app.delete("/job/:id", (req, res) => {
-  const jobs    = loadJobs();
-  const job     = jobs.find(j => j.id === req.params.id);
+  const job = getJob(req.params.id);
   if (!job) return res.status(404).json({ error: "Not found" });
   if (!canAccessJob(req, job)) return res.status(403).json({ error: "Forbidden — this job belongs to another tenant" });
 
-  if (activeJobs.has(req.params.id)) deletedJobs.add(req.params.id);
   deleteJobArtifacts(req.params.id);
-  saveJobs(jobs.filter(j => j.id !== req.params.id));
+  jobStore.remove(req.params.id);   // a worker mid-flight cannot resurrect it
 
   res.json({ deleted: req.params.id });
 });
@@ -1273,9 +1171,13 @@ const httpServer = app.listen(PORT, async () => {
   if (!engineState.kokoro) console.log("Kokoro sidecar is not reachable — engine \"kokoro\" will answer 503 until `docker compose up -d`.");
   console.log(`Admin API key: ${API_KEY ? "configured (unlimited)" : "not set"}`);
   console.log(`Free tier: ${guard.cfg.requireKey ? "key required" : "anonymous allowed"} · audio TTL ${guard.cfg.audioTtlSec}s · queue ${guard.cfg.globalConcurrency}`);
+  // Synthesis runs in-process by default. Set KOE_EMBED_WORKER=false and run
+  // `node worker.js` processes instead to scale workers separately from HTTP.
+  worker.start({ workers: guard.cfg.globalConcurrency, label: "embedded" });
 });
 
 function shutdown() {
+  worker.stop();
   guard.saveState();
   httpServer.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();

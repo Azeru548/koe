@@ -20,7 +20,7 @@ you (agent) ──MCP tools──> mcp/index.js ──HTTPS──> TTS Studio �
 4. Use that file (ffmpeg, Remotion, HyperFrames, an editor, ...) in your video project.
 5. If anything fails, call `studio_status` (and `get_usage` for quota) — it tells you if the server is reachable, asleep, rate-limited, or missing an engine.
 
-**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The whole instance shares **2 concurrent jobs, a 20-job queue, and 30,000 words/day**. One job may be at most **6,000 words / 40,000 characters**, and at most **300 s of wall clock from submission** (queue wait included) — past that it fails with a clear error instead of holding a worker. A job that never got a slot, or that overran, returns its words **and** its request unit. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds` and a `reason`. Counters and keys live in SQLite, so they survive restarts; a rejected or failed request never consumes quota.
+**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The whole instance shares **6 concurrent jobs, a 20-job queue, and 30,000 words/day**. One job may be at most **2,000 words / 40,000 characters**, and at most **300 s of wall clock from submission** (queue wait included) — past that it fails with a clear error instead of holding a worker. A job that never got a slot, or that overran, returns its words **and** its request unit. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds` and a `reason`. Counters and keys live in SQLite, so they survive restarts; a rejected or failed request never consumes quota.
 
 
 ---
@@ -78,9 +78,9 @@ Pings the studio's `/healthz` (alias `/health`). **Call this first whenever a ge
   "freeKeys": true,
   "killSwitch": false,
   "db": { "ok": true, "path": "/data/koe.db", "journalMode": "delete" },
-  "queue": { "active": 0, "queued": 0, "concurrency": 2, "queueMax": 20 },
+  "queue": { "active": 0, "queued": 0, "concurrency": 6, "queueMax": 20 },
   "ephemeral": { "audioTtlSeconds": 900, "jobTtlSeconds": 3600 },
-  "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 6000, "maxChars": 40000, "maxPreviewChars": 600, "maxSeconds": 300 }, "global": { "concurrency": 2, "queueMax": 20, "wordsPerDay": 30000 }, "queue": { "waitSeconds": 300, "previewWaitSeconds": 30 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
+  "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 2000, "maxChars": 40000, "maxPreviewChars": 600, "maxSeconds": 300 }, "global": { "concurrency": 6, "queueMax": 20, "wordsPerDay": 30000 }, "queue": { "waitSeconds": 300, "previewWaitSeconds": 30 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
   "studioUrl": "https://koe.kennedyazeru.space",
   "client": {
     "keyMode": "auto",
@@ -152,7 +152,7 @@ Success result:
 - `expiresInSeconds` — how long the studio keeps its server-side copy; the local file never expires.
 - Output location: `VOICEOVER_DIR` env var, else `./voiceovers` relative to the **agent's working directory**.
 
-**Rate limits/errors:** the MCP retries once automatically when the queue is full or the upstream is cooling down (`429`/`503` with a short `retryAfterSeconds`). A persistent `429` means the tenant's hourly/daily words or requests are exhausted — wait for the reset or check `get_usage`. A `413` means the script exceeds 6,000 words / 40,000 chars per job.
+**Rate limits/errors:** the MCP retries once automatically when the queue is full or the upstream is cooling down (`429`/`503` with a short `retryAfterSeconds`). A persistent `429` means the tenant's hourly/daily words or requests are exhausted — wait for the reset or check `get_usage`. A `413` means the script exceeds 2,000 words / 40,000 chars per job.
 
 Timing reality check: a short sentence takes ~2–5 s on a warm server. The public instance is a small EC2 box with a 2-job concurrency limit; if the container was just restarted, allow the first call a little longer. A multi-thousand-word script can take minutes — raise `timeout_seconds`.
 
@@ -248,7 +248,7 @@ The server's job JSON (returned by `GET /job/:id`):
 }
 ```
 
-`status` walks through: `"queued"` → `"generating (i/n)"` while parts run → `"done"` or `"failed"` (then `error` holds the message). `progress` (0–100) appears once the first part finishes. Treat anything not `done`/`failed` as still running.
+`status` walks through: `"queued"` → `"starting"` (claimed by a worker) → `"generating (i/n)"` while parts run → `"done"` or `"failed"` (then `error` holds the message). `progress` (0–100) appears once the first part finishes. Treat anything not `done`/`failed` as still running.
 
 `error` is one readable line — the exception, not the Python traceback the CLI printed; the full stderr stays in the server log. If you need to debug an engine, read the log, not the API response.
 
@@ -304,7 +304,7 @@ Base URL: local `http://localhost:3000`, or your hosted URL.
 | `/` | GET | — | Redirects to `/mcp` |
 | `/studio` | GET | — | The studio web UI |
 
-Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job over `KOE_MAX_JOB_WORDS` (6,000 words)**, `401` `{"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown job, `409` job not ready, `410` audio expired, `413` script over 40,000 chars, `429` rate/queue/global limit (read `retryAfterSeconds` and the `reason` field: `hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `queue_full`, `mint_cap`), `503` `{"error":"temporarily_disabled"}` (kill switch), engine unavailable, upstream cool-down, or — for a missing Kokoro sidecar — `503 {"error":"tts_unavailable","engine":"kokoro"}` (checked before quota is charged, so nothing is consumed). Request body limit is 10 MB.
+Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job over `KOE_MAX_JOB_WORDS` (2,000 words)**, `401` `{"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown job, `409` job not ready, `410` audio expired, `413` script over 40,000 chars, `429` rate/queue/global limit (read `retryAfterSeconds` and the `reason` field: `hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `queue_full`, `mint_cap`), `503` `{"error":"temporarily_disabled"}` (kill switch), engine unavailable, upstream cool-down, or — for a missing Kokoro sidecar — `503 {"error":"tts_unavailable","engine":"kokoro"}` (checked before quota is charged, so nothing is consumed). Request body limit is 10 MB.
 
 ---
 
@@ -325,7 +325,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 | `503 — Engine 'piper' is not available` | The server has no piper installed | Use `engine: "edge"`. |
 | `503 {"error":"tts_unavailable","engine":"kokoro"}` | The optional Kokoro sidecar is not running (or still warming up) | Start it: `docker compose up -d` (see [DEPLOY.md](DEPLOY.md) §8). Or just use `engine: "edge"` — nothing else is affected and no quota was spent. |
 | `400 — Invalid voice '…' for engine 'kokoro'` (`validVoices` in the body) | An edge/piper voice id was passed to kokoro (or vice versa) — ids are never shared between engines | Pick one of the ids in `validVoices`, or call `list_voices` with that engine first. |
-| `400 — Job too long (N words)` | Over `KOE_MAX_JOB_WORDS` (6,000) in one call | Split into multiple `generate_voiceover` calls (one per scene) and keep the same voice/rate. |
+| `400 — Job too long (N words)` | Over `KOE_MAX_JOB_WORDS` (2,000) in one call | Split into multiple `generate_voiceover` calls (one per scene) and keep the same voice/rate. |
 | `413 — Script too long` | Over 40,000 characters in one call | Same fix: split the script per scene. |
 | `Timed out after Ns waiting for job <id>` | Script too long / slow instance | The job continues server-side — recover it per §2, or re-run with a bigger `timeout_seconds`. |
 | `403 — this job belongs to another tenant` | You used a different key/IP than the one that created the job | Use the same key (or the admin key). Jobs are tenant-isolated. |
@@ -337,9 +337,9 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 
 - **Per registered free key:** 60 requests/hour, 2,000 words/hour, 20,000 words/day.
 - **Anonymous (no key):** 20 requests/hour, 500 words/hour, 3,000 words/day.
-- **Per job:** 6,000 words (`400`) / 40,000 characters (`413`). Previews: 600 characters.
+- **Per job:** 2,000 words (`400`) / 40,000 characters (`413`). Previews: 600 characters.
 - **Per IP:** 3 free keys/day (`429` once exhausted, `retryAfterSeconds` until UTC midnight).
-- **Instance-wide:** 2 concurrent jobs, 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`).
+- **Instance-wide:** 6 concurrent jobs, 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`).
 - **Job deadline:** 300 s from submission, queue wait included (`KOE_JOB_DEADLINE_SEC`). A job still queued at the deadline fails with `Still waiting for a free synthesis slot…`; a job that overruns mid-synthesis fails with `Job exceeded its 300s limit…`. Either way the caller is refunded words and the request unit. Previews wait 30 s for a worker (`KOE_PREVIEW_WAIT_SEC`) and then answer `429` rather than holding the request open.
 - **Fail-safe:** `KOE_KILL_SWITCH=true` stops all generation with `503 {"error":"temporarily_disabled"}` before anything is charged.
 - **Retention:** audio 900 s, job metadata 1 hour, previews 10 min. Nothing is permanent.

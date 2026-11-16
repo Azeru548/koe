@@ -60,6 +60,25 @@ CREATE TABLE IF NOT EXISTS global_usage (
   words INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_usage_window ON usage (window);
+
+-- Jobs live here instead of a rewritten JSON file: indexed reads, an atomic
+-- claim for worker processes, and no whole-file rewrite per status update.
+-- The full job object is kept in the data column so the public shape stays unchanged;
+-- the columns beside it exist to be queried.
+CREATE TABLE IF NOT EXISTS jobs (
+  id               TEXT PRIMARY KEY,
+  status           TEXT    NOT NULL,
+  tenant           TEXT,
+  engine           TEXT,
+  voice            TEXT,
+  data             TEXT    NOT NULL,
+  created_at       INTEGER NOT NULL,
+  completed_at     INTEGER,
+  audio_expires_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_status  ON jobs (status);
+CREATE INDEX IF NOT EXISTS idx_jobs_tenant  ON jobs (tenant);
+CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs (created_at);
 `;
 
 let db = null;
@@ -80,8 +99,23 @@ function open() {
     const row = db.get("PRAGMA journal_mode = WAL");
     journalMode = String((row && row.journal_mode) || "unknown");
   } catch { journalMode = "unknown"; }
-  db.exec("PRAGMA synchronous = FULL");
-  db.exec(SCHEMA);
+  retryBusy(() => db.exec("PRAGMA synchronous = FULL"));
+  // Several processes share this file (the server, worker processes). SQLite's
+  // own busy handler is not reliable in the wasm VFS, so ask for one AND retry
+  // in-process below; without this a second worker sees "database is locked".
+  try { retryBusy(() => db.exec("PRAGMA busy_timeout = 5000")); } catch { /* older VFS */ }
+  // Another process may be creating the same schema at this instant; retry, then
+  // verify the tables are actually there before handing the handle out.
+  retryBusy(() => db.exec(SCHEMA));
+  const present = () => {
+    try {
+      return Boolean(db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'jobs'"));
+    } catch (err) {
+      if (BUSY_RE.test(String((err && err.message) || err))) return false;
+      throw err;
+    }
+  };
+  if (!present()) retryBusy(() => db.exec(SCHEMA));
   migratePlaintextKeys(db);
   return db;
 }
@@ -106,21 +140,48 @@ function migratePlaintextKeys(d) {
   }
 }
 
-function conn() { return open(); }
+// Retry SQLITE_BUSY synchronously: the driver is synchronous, so an async
+// sleep would mean yielding in the middle of a transaction.
+const BUSY_RE = /database is locked|database table is locked|SQLITE_BUSY/i;
+function retryBusy(fn, attempts = 120) {
+  for (let i = 0; ; i += 1) {
+    try {
+      return fn();
+    } catch (err) {
+      if (i >= attempts || !BUSY_RE.test(String((err && err.message) || err))) throw err;
+      const until = Date.now() + 5 + Math.min(50, i * 2);
+      while (Date.now() < until) { /* spin briefly, then retry */ }
+    }
+  }
+}
+
+// Every statement goes through the retry: with two worker processes and a
+// server on one database, a busy handle is normal, not an error.
+function conn() {
+  const d = open();
+  return {
+    run: (...args) => retryBusy(() => d.run(...args)),
+    get: (...args) => retryBusy(() => d.get(...args)),
+    all: (...args) => retryBusy(() => d.all(...args)),
+    exec: (...args) => retryBusy(() => d.exec(...args)),
+  };
+}
 
 // Run `fn` inside an immediate transaction: readers are locked out until the
 // COMMIT, so check-then-increment can never interleave with another charge.
 function transaction(fn) {
   open();
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    const out = fn();
-    db.exec("COMMIT");
-    return out;
-  } catch (err) {
-    try { db.exec("ROLLBACK"); } catch { /* already rolled back */ }
-    throw err;
-  }
+  return retryBusy(() => {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const out = fn();
+      db.exec("COMMIT");
+      return out;
+    } catch (err) {
+      try { db.exec("ROLLBACK"); } catch { /* already rolled back */ }
+      throw err;
+    }
+  });
 }
 
 // ── keys ────────────────────────────────────────────────────
@@ -255,6 +316,7 @@ module.exports = {
   open,
   conn,
   transaction,
+  retryBusy,
   insertKey,
   findKey,
   countKeys,

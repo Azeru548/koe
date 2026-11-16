@@ -280,8 +280,8 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
           <tr><th>Scope</th><th>Limit</th></tr>
           <tr><td>Free key</td><td>60 requests / hour · 2,000 words / hour · 20,000 words / day</td></tr>
           <tr><td>Anonymous</td><td>20 requests / hour · 500 words / hour · 3,000 words / day</td></tr>
-          <tr><td>One job</td><td>6,000 words · 40,000 characters</td></tr>
-          <tr><td>Instance</td><td>2 concurrent jobs · 20-job queue · 30,000 words / day</td></tr>
+          <tr><td>One job</td><td>2,000 words · 40,000 characters</td></tr>
+          <tr><td>Instance</td><td>6 concurrent jobs · 20-job queue · 30,000 words / day</td></tr>
           <tr><td>Job deadline</td><td>300 s from submission, queue wait included. A job that cannot get a worker in time fails with a clear message and is refunded.</td></tr>
           <tr><td>Refunds</td><td>A job that ends without audio — upstream error, deadline, or no worker — returns its words <em>and</em> its request unit, into the hour/day window it was charged in.</td></tr>
           <tr><td>Audio</td><td>Deleted after 15 minutes; job metadata after an hour</td></tr>
@@ -295,7 +295,7 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
       <div class="table-wrap">
         <table>
           <tr><th>Code</th><th>Meaning and fix</th></tr>
-          <tr><td><code>400</code></td><td>Bad input: empty text, unknown engine, a voice id from another engine, or a job over 6,000 words.</td></tr>
+          <tr><td><code>400</code></td><td>Bad input: empty text, unknown engine, a voice id from another engine, or a job over 2,000 words.</td></tr>
           <tr><td><code>401</code></td><td>Missing or unknown key. Mint a new one at <a href="/mcp">/mcp</a>.</td></tr>
           <tr><td><code>403</code></td><td>Another tenant's job, or a failed issuance gate (expired or reused challenge).</td></tr>
           <tr><td><code>409</code></td><td>The job exists but is not finished; poll <code>GET /job/:id</code>.</td></tr>

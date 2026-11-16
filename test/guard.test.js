@@ -182,36 +182,50 @@ test("circuit breaker ignores bad input and opens on transient upstream errors",
   assert.equal(guard.checkCircuit().open, false);
 });
 
-test("slot semaphore bounds concurrency and queue depth", async () => {
+// Job admission moved from process memory to the job store, so several
+// processes can share one limit. This asserts the new contract: the count that
+// bounds concurrency is the count of claimed rows in the database.
+test("admission is bounded by the shared job store, not by process memory", () => {
+  const jobsStore = require("../jobs");
   guard.cfg.globalConcurrency = 1;
   guard.cfg.globalQueue = 1;
 
-  const first = guard.tryAcquireSlot();
-  assert.ok(first);
-  await first;
+  const row = (id) => ({
+    id, status: "queued", voice: "en-US-GuyNeural", engine: "edge", rate: 1, pitch: 0,
+    parts: 1, wordCount: 1, words: 1, tenant: null, progress: 0,
+    createdAt: new Date().toISOString(), partsText: ["hello"],
+  });
 
-  const queued = guard.tryAcquireSlot();
-  assert.ok(queued);
-  assert.equal(guard.tryAcquireSlot(), null, "queue must be bounded");
-  assert.equal(guard.queueFull(), true, "busy worker + full queue");
+  jobsStore.create(row("admit-a"));
+  jobsStore.create(row("admit-b"));
 
-  let queuedRan = false;
-  queued.then(() => { queuedRan = true; });
-  guard.releaseSlot();
-  await queued;
-  assert.equal(queuedRan, true);
-  guard.releaseSlot();
+  assert.equal(guard.queueFull(), false, "one running + one queued still fits");
 
+  const first = jobsStore.claimNext(guard.cfg.globalConcurrency);
+  assert.equal(first.id, "admit-a");
+  assert.equal(
+    jobsStore.claimNext(guard.cfg.globalConcurrency),
+    null,
+    "the concurrency limit is enforced inside the claim"
+  );
+
+  assert.equal(guard.slotStats().active, 1);
+  assert.equal(guard.slotStats().queued, 1);
+  assert.equal(guard.queueFull(), true, "busy worker + full waiting room");
+
+  // Finishing a job frees the slot for the next queued one.
+  first.status = "done";
+  jobsStore.update(first);
+  const second = jobsStore.claimNext(guard.cfg.globalConcurrency);
+  assert.equal(second.id, "admit-b");
+
+  second.status = "done";
+  jobsStore.update(second);
   assert.equal(guard.slotStats().active, 0);
+  assert.equal(guard.slotStats().load, "idle");
 
-  // A zero-length queue must still admit work while a worker is free.
-  guard.cfg.globalQueue = 0;
-  assert.equal(guard.queueFull(), false);
-  const immediate = guard.tryAcquireSlot();
-  assert.ok(immediate);
-  await immediate;
-  assert.equal(guard.queueFull(), true);
-  guard.releaseSlot();
+  jobsStore.remove("admit-a");
+  jobsStore.remove("admit-b");
 });
 
 test("waitForSlot gives up at the deadline instead of queueing forever", async () => {
@@ -231,37 +245,47 @@ test("waitForSlot gives up at the deadline instead of queueing forever", async (
 
   // Walking away must also leave the queue: a timed-out waiter is not still
   // occupying a place, and it must not swallow the worker when one frees up.
-  assert.equal(guard.slotStats().queued, 0, "timed-out waiter left the queue");
+  assert.equal(guard.slotStats().previewWaiters, 0, "timed-out waiter left the queue");
   guard.releaseSlot();               // frees the held worker
   await new Promise((r) => setTimeout(r, 30));
-  assert.equal(guard.slotStats().active, 0, "late grant returned to the pool");
-  assert.equal(guard.slotStats().queued, 0);
+  assert.equal(guard.slotStats().previews, 0, "late grant returned to the pool");
+  assert.equal(guard.slotStats().previewWaiters, 0);
 
   // And the pool is genuinely free again.
   guard.cfg.globalQueue = 1;
   const next = guard.tryAcquireSlot();
   assert.ok(next);
   await next;
-  assert.equal(guard.slotStats().active, 1);
+  assert.equal(guard.slotStats().previews, 1);
   guard.releaseSlot();
-  assert.equal(guard.slotStats().active, 0);
+  assert.equal(guard.slotStats().previews, 0);
 });
 
-test("queue state reports saturation honestly, not just an idle-looking ok", async () => {
+test("queue state reports saturation honestly, not just an idle-looking ok", () => {
+  const jobsStore = require("../jobs");
   guard.cfg.globalConcurrency = 1;
-  guard.cfg.globalQueue = 1;
+  guard.cfg.globalQueue = 2;
 
-  const a = guard.tryAcquireSlot();
-  await a;
-  assert.equal(guard.slotStats().load, "busy");
+  const row = (id, status) => ({
+    id, status, voice: "en-US-GuyNeural", engine: "edge", rate: 1, pitch: 0,
+    parts: 1, wordCount: 1, words: 1, tenant: null, progress: 0,
+    createdAt: new Date().toISOString(), partsText: ["hello"],
+  });
+
+  jobsStore.create(row("sat-a", "queued"));
+  jobsStore.create(row("sat-b", "queued"));
+
+  jobsStore.claimNext(guard.cfg.globalConcurrency);
+  assert.equal(guard.slotStats().load, "busy", "a worker is busy, room in the queue");
   assert.equal(guard.slotStats().saturated, false);
 
-  const b = guard.tryAcquireSlot();
-  assert.equal(guard.slotStats().saturated, true);
+  assert.equal(guard.slotStats().queued, 1);
+  guard.cfg.globalQueue = 1;                       // the waiting room is now full
+  assert.equal(guard.slotStats().saturated, true, "busy worker and a full waiting room");
   assert.equal(guard.slotStats().load, "saturated");
 
-  b.cancelWait();
-  guard.releaseSlot();
+  jobsStore.remove("sat-a");
+  jobsStore.remove("sat-b");
   assert.equal(guard.slotStats().load, "idle");
   assert.equal(guard.slotStats().queued, 0);
 });

@@ -40,7 +40,37 @@ Because the audio lives on the server rather than the caller's disk, hosted `gen
 | Words / day | 20,000 | 3,000 | unlimited |
 | Job visibility | own jobs only | own jobs only (per IP) | all jobs |
 
-Global safety rail: **2** concurrent jobs, a **20**-job queue, and **30,000** words/day across the whole instance. One job may be at most **6,000 words / 40,000 characters**. Free keys are capped at **3 per IP per day**. Previews are metered too and limited to 600 characters.
+Global safety rail: **6** concurrent jobs, a **20**-job queue, and **30,000** words/day across the whole instance.
+
+### Scaling out
+
+Synthesis is a queue, and the queue lives in SQLite, so capacity is a matter of
+running more workers — not of running a bigger server process:
+
+```bash
+# one process that serves HTTP only
+KOE_EMBED_WORKER=false node server.js
+
+# as many worker processes as you want, all against the same KOE_DB_PATH
+KOE_WORKERS=6 node worker.js
+KOE_WORKERS=6 node worker.js
+```
+
+- The global concurrency limit (`KOE_GLOBAL_CONCURRENCY`) is enforced **inside the
+  claim transaction**, so every process shares one budget. Two processes cannot
+  both admit job number seven.
+- Jobs are claimed atomically (`queued` → `starting`), so no job runs twice, and
+  a worker that dies mid-job is reaped and refunded after the job deadline.
+- Workers share the database file, so they must be on the same host or volume.
+  The audio directory must be shared too, since `GET /download/:id` may be
+  served by a process that did not synthesise the job.
+- Parts of one job synthesise in parallel (`KOE_PART_CONCURRENCY`, default 2), and
+  identical `(text, voice, rate, pitch, engine)` requests are served from
+  `output/cache/` instead of a fresh upstream call.
+
+Measured on the reference box (108-word jobs, edge engine): 2 workers ≈ 6 jobs/min,
+6 workers ≈ 10–15 jobs/min. The upstream endpoint, not the CPU, is the ceiling —
+raise `KOE_GLOBAL_CONCURRENCY` carefully and watch for 403/429s. One job may be at most **2,000 words / 40,000 characters**. Free keys are capped at **3 per IP per day**. Previews are metered too and limited to 600 characters.
 
 All of these are environment variables (see below).
 
@@ -82,7 +112,7 @@ curl -H "x-api-key: koe_sk_..." -H "Content-Type: application/json" \
 ### Ephemeral audio
 
 - Audio zips live in `output/audio/` and are deleted after `KOE_AUDIO_TTL_SEC` (default **900 s**).
-- Job metadata lives in `output/jobs.json` and is pruned after `KOE_JOB_TTL_SEC` (default **1 hour**).
+- Job metadata lives in the SQLite `jobs` table (`KOE_DB_PATH`) and is pruned after `KOE_JOB_TTL_SEC` (default **1 hour**). A legacy `output/jobs.json` is imported once on boot and then ignored.
 - Previews are written to `output/previews/` and swept after `KOE_PREVIEW_TTL_SEC` (default **10 min**).
 - On boot all audio/preview/work files are deleted; jobs that were mid-flight are marked failed. `GET /download/:id` returns `410` once audio expires.
 - Script text is never stored on disk — only counts, voice, engine, status and timings.
@@ -195,7 +225,7 @@ bash ~/koe-ops/rebuild.sh
 
 `rebuild.sh` clones/pulls the repo, builds the image, recreates `koe` on `127.0.0.1:8080`, and starts Caddy. `KOE_SECRET` must stay stable — it signs download links and every hashed subject id. `API_KEY` is the operator key used by `/stats`, `/stats.json`, and the analytics dashboard.
 
-The Docker image installs Node 20 + `edge-tts` and best-effort Piper. It keeps runtime data (`jobs.json`, `state.json`, `stats.json`, and `koe.db`) on a mounted volume so a container recreate does not wipe issued keys, usage counters or job metadata — set `KOE_DB_PATH=/data/koe.db` alongside `KOE_STATE_FILE`/`KOE_JOBS_FILE`/`KOE_STATS_FILE`.
+The Docker image installs Node 20 + `edge-tts` and best-effort Piper. It keeps runtime data (`state.json`, `stats.json`, and `koe.db` — which now also holds the job queue) on a mounted volume so a container recreate does not wipe issued keys, usage counters or job metadata — set `KOE_DB_PATH=/data/koe.db` alongside `KOE_STATE_FILE`/`KOE_JOBS_FILE`/`KOE_STATS_FILE`.
 
 > `render.yaml` remains in the repo as a legacy blueprint. It is not the production target.
 
@@ -293,10 +323,10 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `KOE_ANON_REQ_HOUR` | `20` | Requests/hour per anonymous IP |
 | `KOE_ANON_WORDS_HOUR` | `500` | Words/hour per anonymous IP |
 | `KOE_ANON_WORDS_DAY` | `3000` | Words/day per anonymous IP |
-| `KOE_MAX_JOB_WORDS` | `6000` | Per-request word cap; larger jobs are `400` before counting *(legacy: `KOE_MAX_WORDS_PER_JOB`)* |
+| `KOE_MAX_JOB_WORDS` | `2000` | Per-request word cap; larger jobs are `400` before counting *(legacy: `KOE_MAX_WORDS_PER_JOB`)* |
 | `KOE_MAX_CHARS_PER_JOB` | `40000` | Per-request character cap (`413`) |
 | `KOE_MAX_CHARS_PER_PREVIEW` | `600` | Preview text cap |
-| `KOE_GLOBAL_CONCURRENCY` | `2` | Simultaneous upstream jobs |
+| `KOE_GLOBAL_CONCURRENCY` | `6` | Simultaneous upstream jobs |
 | `KOE_GLOBAL_QUEUE` | `20` | Max queued jobs |
 | `KOE_GLOBAL_DAILY_WORDS` | `30000` | Instance-wide hard daily word ceiling *(legacy: `KOE_GLOBAL_WORDS_DAY`)* |
 | `KOE_KILL_SWITCH` | `false` | `true` → `503 {"error":"temporarily_disabled"}` on every generation endpoint |
@@ -308,7 +338,11 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `KOE_COOLDOWN_SEC` | `60` | Base upstream failure cool-down (doubles, max 10 min) |
 | `KOE_STATE_FILE` | `.koe-state.json` | Only the generated `KOE_SECRET` fallback — counters live in SQLite |
 | `KOE_OUTPUT_DIR` | `./output` | Runtime audio/work/job directory |
-| `KOE_JOBS_FILE` | `output/jobs.json` | Job metadata file |
+| `KOE_JOBS_FILE` | `output/jobs.json` | **Legacy** job file: imported into the database once at boot, then never written |
+| `KOE_EMBED_WORKER` | `true` | Run synthesis inside the server process; set `false` and run `node worker.js` to scale workers separately |
+| `KOE_WORKERS` | `KOE_GLOBAL_CONCURRENCY` | Worker loops per `worker.js` process |
+| `KOE_PART_CONCURRENCY` | `2` | Parts of one job synthesised in parallel |
+| `KOE_WORKER_POLL_MS` | `500` | How often an idle worker checks the queue |
 | `KOE_STATS_FILE` | `.koe-stats.json` | Persisted traffic/voiceover counters used by `/stats` |
 | `KOE_PUBLIC_URL` | request origin | Absolute base used in hosted-MCP download links (set it if you run behind a proxy) |
 | `KOE_MCP_INLINE_AUDIO_MAX` | `3145728` | Max bytes of audio to inline in an MCP response; `0` returns only the link |

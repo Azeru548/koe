@@ -96,13 +96,13 @@ for short clips. **Download promptly**: server-side audio is deleted after
 - Paragraphs over ~3000 characters are auto-split at sentence boundaries, so
   there is no need to pre-chunk.
 - Write numbers as you want them spoken ("2026" vs "two thousand twenty-six").
-- One job may be at most **6,000 words / 40,000 characters**; beyond that, split
+- One job may be at most **2,000 words / 40,000 characters**; beyond that, split
   per scene (`400` / `413` otherwise).
 
 ## Limits
 
 Per key: **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Instance-wide:
-**2 concurrent jobs**, 20-job queue, 30,000 words/day. Previews: 600 characters.
+**6 concurrent jobs**, 20-job queue, 30,000 words/day. Previews: 600 characters.
 
 Serialize large jobs — this is one small shared instance, not a fleet. Do not
 fan out parallel generations.

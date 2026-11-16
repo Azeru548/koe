@@ -11,6 +11,8 @@ const path = require("path");
 const ROOT = path.join(__dirname, "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-server-test-"));
 const JOBS_FILE = path.join(TMP, "output", "jobs.json");
+const DB_PATH = path.join(TMP, "koe.db");
+const { seedJob } = require("./dbseed");
 const ADMIN_KEY = "admin-test-key";
 const { mintKey: mintViaHttp } = require("./helpers");
 
@@ -70,7 +72,7 @@ test.before(async () => {
       KOE_REQUIRE_KEY: "true",
       KOE_REGISTER_IP_DAY: "3",
       KOE_STATE_FILE: path.join(TMP, "state.json"),
-      KOE_DB_PATH: path.join(TMP, "koe.db"),
+      KOE_DB_PATH: DB_PATH,
       KOE_OUTPUT_DIR: path.join(TMP, "output"),
       KOE_JOBS_FILE: JOBS_FILE,
       KOE_STATS_FILE: path.join(TMP, "stats.json"),
@@ -216,7 +218,8 @@ test("jobs are isolated between tenants", async () => {
       file: null, error: null, progress: 100,
     },
   ];
-  fs.writeFileSync(JOBS_FILE, JSON.stringify(seed, null, 2));
+  // Jobs live in SQLite now; the running server reads these rows directly.
+  for (const job of seed) seedJob(DB_PATH, job);
 
   const a = await json("GET", "/jobs", { key: keys[0] });
   assert.equal(a.status, 200);

@@ -39,6 +39,18 @@ function boolEnv(name, def = false) {
   return ["1", "true", "yes", "on"].includes(String(v).toLowerCase());
 }
 
+// Counts are read from the job store; required lazily so a test that only uses
+// guard does not need a database.
+let jobsStore = null;
+function jobCounts(kind) {
+  try {
+    if (!jobsStore) jobsStore = require("./jobs");
+    return kind === "queued" ? jobsStore.countQueued() : jobsStore.countRunning();
+  } catch {
+    return 0;
+  }
+}
+
 const cfg = {
   // Free-key minting (POST /keys): how many keys one IP may mint per UTC day.
   registerIpDay: intEnv("KOE_REGISTER_IP_DAY", 3),
@@ -56,12 +68,17 @@ const cfg = {
   anonWordsDay: intEnv("KOE_ANON_WORDS_DAY", 3000),
 
   // Per-request caps (protect one tenant from monopolising the queue)
-  maxWordsPerJob: intEnv("KOE_MAX_JOB_WORDS", intEnv("KOE_MAX_WORDS_PER_JOB", 6000)),
+  // Measured throughput is ~8 words/s per worker, so 2,000 words is the most
+  // that can finish inside the 300s job deadline. A 6,000-word cap could never
+  // complete and would only ever produce a guaranteed failure.
+  maxWordsPerJob: intEnv("KOE_MAX_JOB_WORDS", intEnv("KOE_MAX_WORDS_PER_JOB", 2000)),
   maxCharsPerJob: intEnv("KOE_MAX_CHARS_PER_JOB", 40000),
   maxCharsPerPreview: intEnv("KOE_MAX_CHARS_PER_PREVIEW", 600),
 
   // Global safety rail (shared by every tenant): hard daily word ceiling.
-  globalConcurrency: Math.max(1, intEnv("KOE_GLOBAL_CONCURRENCY", 2)),
+  // Each worker is an edge-tts subprocess waiting on the network, so this is
+  // mostly a politeness limit towards the upstream endpoint, not a CPU one.
+  globalConcurrency: Math.max(1, intEnv("KOE_GLOBAL_CONCURRENCY", 6)),
   globalQueue: intEnv("KOE_GLOBAL_QUEUE", 20),
   globalWordsDay: intEnv("KOE_GLOBAL_DAILY_WORDS", intEnv("KOE_GLOBAL_WORDS_DAY", 30000)),
 
@@ -393,23 +410,33 @@ function releaseSlot() {
 }
 
 function slotStats() {
-  const full = active >= cfg.globalConcurrency;
-  const saturated = full && waiters.length >= cfg.globalQueue;
+  // Running and queued counts come from the database, not this process: with
+  // several servers and worker processes the honest answer is the shared one.
+  // `active` on its own is only this process's preview fan-out.
+  const running = jobCounts("running");
+  const queued = jobCounts("queued");
+  const full = running >= cfg.globalConcurrency;
+  const saturated = full && queued >= cfg.globalQueue;
   return {
-    active,
-    queued: waiters.length,
+    active: running,
+    queued,
     concurrency: cfg.globalConcurrency,
     queueMax: cfg.globalQueue,
     // Honest state for callers and /healthz: a healthy db and "ok" do not mean
     // the service can accept work right now.
     saturated,
     load: saturated ? "saturated" : full ? "busy" : "idle",
+    // Previews run inline in this process and are bounded per process, not by
+    // the job queue; report them separately so neither number lies.
+    previews: active,
+    previewWaiters: waiters.length,
   };
 }
 
 function queueFull() {
-  // Full only when every worker is busy AND the waiting room is at capacity.
-  return active >= cfg.globalConcurrency && waiters.length >= cfg.globalQueue;
+  // Full only when every worker is busy AND the waiting room is at capacity,
+  // counted across every process sharing the database.
+  return jobCounts("running") >= cfg.globalConcurrency && jobCounts("queued") >= cfg.globalQueue;
 }
 
 // Bound a slot wait. `slotPromise` comes from tryAcquireSlot(); this resolves

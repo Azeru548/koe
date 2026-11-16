@@ -11,7 +11,7 @@ Caddy (TLS, HTTP/2, gzip/zstd)
   ▼
 koe container (Node 20 + edge-tts + Piper)
   │
-  └── /data  →  jobs.json, state.json, stats.json, koe.db
+  └── /data  →  state.json, stats.json, koe.db (jobs + counters)
 ```
 
 - **Caddy** terminates TLS with a Let's Encrypt certificate and proxies to the app.
@@ -114,7 +114,23 @@ The script:
 2. Installs/enables Docker and Git.
 3. Clones `KOE_REPO_URL` to `KOE_REPO_DIR` or resets it to `origin/$KOE_BRANCH`.
 4. Builds the `koe` image.
-5. Recreates the `koe` container on `127.0.0.1:8080` with the `/data` volume, pointing `KOE_DB_PATH`, `KOE_STATS_FILE`, `KOE_JOBS_FILE` and `KOE_STATE_FILE` at it.
+5. Recreates the `koe` container on `127.0.0.1:8080` with the `/data` volume, pointing `KOE_DB_PATH`, `KOE_STATS_FILE` and `KOE_STATE_FILE` at it.
+
+### More throughput without a bigger box
+
+The job queue is in `koe.db`, so extra capacity is extra worker processes on the
+same volume, not a new instance:
+
+```bash
+KOE_EMBED_WORKER=false node server.js        # HTTP only
+KOE_WORKERS=6 node worker.js > /var/log/koe-worker.log 2>&1 &
+```
+
+Any number of `worker.js` processes can run beside the server: claims are atomic,
+the concurrency limit is shared, and a crashed worker's jobs are reaped and
+refunded after `KOE_JOB_DEADLINE_SEC`. Keep `KOE_GLOBAL_CONCURRENCY` honest for
+the whole set (6 workers across two processes is still six, not twelve) and watch
+the log for upstream 403/429s before raising it.
 
    Before removing the old container it preserves the issued-key database: if `/data` has no database yet, it stops the container, copies `KOE_DB_PATH` (or `/app/koe.db` on an image that stored it inside the container) onto the volume, checks that the copy really is SQLite, and carries on. It never overwrites a database already on the volume — that one is newer — and never aborts the deploy: a failed copy prints the manual `docker cp` command and lets the rebuild finish, because clients re-mint on a `401`.
 6. Recreates Caddy with the `KOE_DOMAIN` from `koe.env`.
