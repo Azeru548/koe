@@ -143,6 +143,10 @@ async function runJob(job, parts) {
 
     await createZip(jobDir, zipPath);
     fs.rmSync(jobDir, { recursive: true, force: true });
+    // The script is deleted on every terminal outcome — success here, failure in
+    // deleteArtifacts(). Only a job still waiting or running keeps its
+    // parts.json, which is exactly what restart recovery needs.
+    fs.rmSync(partsFile(job.id), { force: true });
 
     job.status = "done";
     job.file = `${job.id}.zip`;

@@ -307,9 +307,10 @@ function bootCleanup() {
 
   // A cache left over from a previous run may already exceed the byte budget.
   cache.prune(CACHE_DIR);
+  const known = new Set(jobStore.ids());
   for (const name of fs.existsSync(WORK_DIR) ? fs.readdirSync(WORK_DIR) : []) {
     const id = name.replace(/\.parts\.json$/, "");
-    if (!jobStore.get(id)) fs.rmSync(path.join(WORK_DIR, name), { recursive: true, force: true });
+    if (!known.has(id)) fs.rmSync(path.join(WORK_DIR, name), { recursive: true, force: true });
   }
   for (const job of jobStore.reapStale(guard.cfg.jobDeadlineSec)) {
     console.error(`[JOB ${job.id}] failed: ${job.error}`);
@@ -338,7 +339,7 @@ function sweep() {
       now
     );
     for (const id of [...removed, ...expired]) deleteJobArtifacts(id);
-    live = new Set(jobStore.list({ limit: 5000 }).map((j) => j.id));
+    live = new Set(jobStore.ids());
   } catch (err) {
     console.error("[sweep] failed:", String((err && err.message) || err).slice(0, 200));
     return;
@@ -365,6 +366,16 @@ function sweep() {
       if (now - stat.mtimeMs > guard.cfg.previewTtlSec * 1000) fs.rmSync(file, { force: true });
     }
   } catch { /* dir vanished */ }
+
+  // The cache is pruned on every write, but that alone cannot hold the budget:
+  // lowered limits, files left by an older build, or a burst that finished all
+  // its writes before the limit changed would all keep the directory over it.
+  try {
+    const pruned = cache.prune(CACHE_DIR);
+    if (pruned.removed) console.log(`[cache] pruned ${pruned.removed} file(s), ${pruned.bytes} bytes left`);
+  } catch (err) {
+    console.error("[cache] prune failed:", String((err && err.message) || err).slice(0, 200));
+  }
 }
 
 bootCleanup();

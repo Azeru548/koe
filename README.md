@@ -68,12 +68,16 @@ KOE_WORKERS=6 node worker.js
   identical `(text, voice, rate, pitch, engine)` requests are served from
   `output/cache/` instead of a fresh upstream call. That cache has a byte budget
   (`KOE_CACHE_MAX_MB`, default 256 MB) and is pruned oldest-first on every write,
-  so it cannot grow without limit.
+  and again on every periodic sweep, so lowering the limit or inheriting files
+  from an older run still converges on the budget.
 - A job's script is **not** stored in the database: `POST /tts` writes it to
   `output/work/<jobId>.parts.json` and the worker reads it from there. The row
   keeps counts and status only. If a worker is killed mid-job, the next boot
   re-queues the job from that file (with a fresh deadline) instead of failing it;
-  only jobs whose script is missing are failed and refunded.
+  only jobs whose script is missing are failed and refunded. The file is deleted
+  on every terminal outcome — success, failure, deadline overrun, a reaped
+  worker, or `DELETE /job/:id` — so only jobs that are still waiting or running
+  hold one.
 
 Measured on the reference box (108-word jobs, edge engine): 2 workers ≈ 6 jobs/min,
 6 workers ≈ 10–15 jobs/min. The upstream endpoint, not the CPU, is the ceiling —

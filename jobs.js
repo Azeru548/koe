@@ -102,6 +102,12 @@ function countQueued() {
   return Number(db.conn().get("SELECT COUNT(*) AS n FROM jobs WHERE status = 'queued'").n) || 0;
 }
 
+// Every job id. The sweep uses this to decide which artifacts still have an
+// owner; a paged list() would make anything older than the page look orphaned.
+function ids() {
+  return db.conn().all("SELECT id FROM jobs").map((row) => row.id);
+}
+
 function countAll() {
   return Number(db.conn().get("SELECT COUNT(*) AS n FROM jobs").n) || 0;
 }
@@ -267,6 +273,7 @@ module.exports = {
   countRunning,
   countQueued,
   countAll,
+  ids,
   reapStale,
   failRunning,
   requeueClaimed,
