@@ -86,20 +86,20 @@
 
       /* ── 5 · three moves ── */
       #s5{background:var(--shu);color:var(--washi)}
-      #s5 .kick{top:110px;color:rgba(236,227,210,.75)}
+      #s5 .kick{top:60px;color:rgba(236,227,210,.75)}
       #s5 .roww{position:absolute;left:96px;width:1728px;height:250px;display:flex;align-items:center;gap:46px}
       #s5 .roww .num{font:400 34px var(--mono);opacity:.7;width:90px}
       #s5 .roww .txt{font:600 104px/1 var(--sans);letter-spacing:-.04em;text-transform:uppercase}
-      #s5 .r1{top:250px}
-      #s5 .r2{top:480px}
-      #s5 .r3{top:710px}
+      #s5 .r1{top:130px}
+      #s5 .r2{top:360px}
+      #s5 .r3{top:590px}
       #s5 .dots{display:flex;gap:14px;margin-left:auto}
       #s5 .dots b{width:36px;height:36px;border-radius:50%;border:3px solid var(--washi)}
       #s5 .dots b.on{background:var(--washi);transform:scale(1.35)}
       #s5 .slider{position:relative;margin-left:auto;width:300px;height:8px;background:rgba(236,227,210,.4);border-radius:4px}
       #s5 .slider b{position:absolute;left:0;top:-16px;width:40px;height:40px;border-radius:50%;background:var(--washi)}
       #s5 .btn{margin-left:auto;padding:22px 44px;background:var(--washi);color:var(--shu);font:500 34px var(--mono);letter-spacing:.18em;text-transform:uppercase;border-radius:8px}
-      #s5 .ripple{position:absolute;right:230px;top:770px;width:120px;height:120px;border:4px solid var(--washi);border-radius:50%;opacity:0}
+      #s5 .ripple{position:absolute;right:230px;top:648px;width:120px;height:120px;border:4px solid var(--washi);border-radius:50%;opacity:0}
 
       /* ── 6 · where it lands ── */
       #s6{background:var(--washi)}
@@ -142,16 +142,23 @@
 
       /* ── 9 · end card ── */
       #s9{background:var(--washi)}
-      #s9 .portrait{position:absolute;left:96px;top:150px;width:470px;height:780px;overflow:hidden;background:var(--sumi)}
+      #s9 .portrait{position:absolute;left:96px;top:108px;width:430px;height:690px;overflow:hidden;background:var(--sumi)}
       #s9 .portrait img{width:100%;height:100%;object-fit:cover}
-      #s9 .koe{position:absolute;left:640px;top:180px;font:700 300px/.82 var(--display);letter-spacing:-.03em}
-      #s9 .free{position:absolute;left:650px;top:520px;font:600 96px/1 var(--sans);letter-spacing:-.03em}
+      #s9 .koe{position:absolute;left:600px;top:150px;font:700 280px/.82 var(--display);letter-spacing:-.03em}
+      #s9 .free{position:absolute;left:610px;top:450px;font:600 88px/1 var(--sans);letter-spacing:-.03em}
       #s9 .free em{font-style:normal;color:var(--shu)}
-      #s9 .url{position:absolute;left:650px;top:660px;font:400 34px var(--mono);letter-spacing:.06em}
-      #s9 .pill{position:absolute;left:650px;top:740px;padding:16px 30px;background:var(--sumi);color:var(--washi);font:400 22px var(--mono);letter-spacing:.26em;text-transform:uppercase}
-      #s9 .credit{position:absolute;left:650px;top:850px;font:400 20px var(--mono);color:rgba(26,23,18,.55);letter-spacing:.04em}
+      #s9 .url{position:absolute;left:610px;top:590px;font:400 32px var(--mono);letter-spacing:.06em}
+      #s9 .pill{position:absolute;left:610px;top:660px;padding:16px 30px;background:var(--sumi);color:var(--washi);font:400 22px var(--mono);letter-spacing:.26em;text-transform:uppercase}
+      #s9 .credit{position:absolute;left:610px;top:772px;font:400 20px var(--mono);color:rgba(26,23,18,.55);letter-spacing:.04em}
       #s9 .mark{position:absolute;right:-160px;top:60px;width:900px;height:900px;border:3px solid rgba(26,23,18,.14);border-radius:50%}
       #s9 .mark::after{content:"";position:absolute;left:130px;top:130px;right:130px;bottom:130px;border:3px solid rgba(26,23,18,.12);border-radius:50%}
+
+      /* ── captions: one band, one style, never over the picture type ── */
+      #caps{position:absolute;inset:0;z-index:55;pointer-events:none}
+      #caps .cue{position:absolute;left:96px;bottom:60px;max-width:1340px;padding:18px 34px 20px 30px;
+        background:rgba(26,23,18,.9);color:var(--washi);border-left:7px solid var(--shu);
+        font:500 40px/1.22 var(--sans);letter-spacing:-.01em;opacity:0;
+        box-shadow:0 18px 40px rgba(26,23,18,.28)}
 
       .wipe{background:var(--shu);z-index:60}
       .wipe.kin{background:var(--kin)}
@@ -288,6 +295,9 @@
         <div class="credit" id="s9-credit" data-layout-ignore>music: “Path To Victory” — UNIVERSFIELD, CC BY 4.0</div>
       </section>
 
+      <!-- ══ burned-in captions ══ -->
+      <div id="caps"></div>
+
       <!-- ══ motion field ══ -->
       <div id="field">
         <i class="f1"></i><i class="f2"></i><i class="f3"></i><i class="f4"></i><i class="f5"></i><i class="f6"></i>
@@ -326,6 +336,31 @@
       $$("#s6-boxes .bx .w").forEach((w) => {
         w.innerHTML = [30, 52, 22, 44, 36, 50, 26].map((h) => `<b style="height:${h}px"></b>`).join("");
       });
+
+      /* ---------- burned-in captions ---------- */
+      /* Times mirror the audio starts and the measured MP3 durations in vo.json; the
+         padding rule is the same one tools/make_captions.py uses for the sidecar files,
+         so the burned-in and sidecar captions cannot drift apart. */
+      const CUE_START = [0.25, 2.55, 4.08, 7.89, 11.43, 14.95, 19.17, 22.91, 25.18];
+      const CUE_SEC = [1.90, 1.13, 3.41, 3.14, 3.12, 3.82, 3.34, 1.87, 1.37];
+      const CUE_TEXT = [
+        "Stop paying for voiceovers.",
+        "This is Koe.",
+        "Paste a script. Get a finished voiceover in seconds.",
+        "Twenty-nine voices. Twenty-nine languages.",
+        "Pick one. Set the pace. Hit generate.",
+        "Podcasts. Ads. Explainers. Whole books.",
+        "No account. No card. No API bill.",
+        "Your words, actually spoken.",
+        "Koe. Free.",
+      ];
+      const CUES = CUE_TEXT.map((text, i) => {
+        const a = Math.max(0, CUE_START[i] - 0.06);
+        let b = Math.min(END, CUE_START[i] + CUE_SEC[i] + 0.18);
+        if (i + 1 < CUE_TEXT.length) b = Math.min(b, CUE_START[i + 1] - 0.06);
+        return { a, b, text };
+      });
+      $("#caps").innerHTML = CUES.map((c, i) => `<div class="cue" id="cue${i}">${c.text}</div>`).join("");
 
       const tl = gsap.timeline({ paused: true });
 
@@ -474,6 +509,12 @@
       wipes.forEach(([t, sel]) => {
         tl.to(sel, { yPercent: 0, duration: 0.15, ease: "power4.in" }, t - 0.16);
         tl.to(sel, { yPercent: -101, duration: 0.2, ease: "power4.out" }, t - 0.01);
+      });
+
+      /* ================= captions ================= */
+      CUES.forEach((c, i) => {
+        tl.fromTo(`#cue${i}`, { opacity: 0 }, { opacity: 1, duration: 0.1, ease: "none" }, c.a);
+        tl.to(`#cue${i}`, { opacity: 0, duration: 0.12, ease: "none" }, c.b - 0.12);
       });
 
       window.__timelines["koe-launch"] = tl;
