@@ -342,14 +342,45 @@ docker compose down           # stop it
 docker compose pull && docker compose up -d   # after bumping tag + digest
 ```
 
-The image is pinned by **digest** (`msgflux/fastkokoro:0.7-cpu@sha256:35b4…`, never `:latest`), bound to `127.0.0.1:8880` only, and capped at `cpus: "2.0"` / `mem_limit: 2g` so it can never starve the app container. The healthcheck probes `GET /health` inside the container with a 180s start period for the first-boot model download.
+The image is pinned by **digest** (`msgflux/fastkokoro:0.7-cpu@sha256:35b4…`, never `:latest`), bound to `127.0.0.1:8880` only, and capped at `cpus: "2.0"` / `mem_limit: ${KOKORO_MEM_LIMIT:-1g}` so it can never starve the app container. The healthcheck probes `GET /health` inside the container with a 180s start period for the first-boot model download.
+
+**Pick the instance for the engine mix.** The app itself is small (Node plus a
+few `edge-tts` subprocesses, all network-bound); Kokoro is the part that decides
+the memory bill:
+
+| Host | RAM | Kokoro sidecar | `KOE_GLOBAL_CONCURRENCY` |
+| --- | --- | --- | --- |
+| t3.micro | 1 GiB | **Don't run it.** `engine: "kokoro"` stays a clean 503; edge and piper work. | 3–4 |
+| t3.small | 2 GiB | Yes, with `KOKORO_MEM_LIMIT=1g` (the default) | 3–4 |
+| t3.medium | 4 GiB | Yes, `KOKORO_MEM_LIMIT=2g` | 6 |
+
+Two rules that matter:
+
+- **On 2 GiB, keep the sidecar at 1 GB.** The container limit protects Node only
+  if the host has the memory to honour it; a 2 GB `mem_limit` on a 2 GB box means
+  the kernel picks a victim, and that victim is usually the app container — jobs
+  die mid-synthesis with no error in `docker logs`.
+- **Keep concurrency at 3–4, not 6.** Each in-flight part is an `edge-tts`
+  process (~100 MB) on top of Node, so six of them is the one default that can
+  push a 2 GB host into swap.
+
+Set both in `~/koe-ops/koe.env` and re-run `rebuild.sh` — the values are baked
+into `docker run`, so a restart alone will not pick them up:
+
+```bash
+KOE_GLOBAL_CONCURRENCY=4
+KOKORO_MEM_LIMIT=1g      # only matters when docker compose is used
+```
+
+Resizing does not change any of this by itself: after a resize, run
+`bash ~/koe-ops/rebuild.sh` so the container is recreated with the new limits.
 
 > **First boot needs more RAM than a 1 GB instance has.** After downloading the
 > model (~236 MB) the sidecar rewrites it —
 > `Simplifying ONNX model for CPU: ... -> /models/onnx/*.sim.<hash>.onnx` — and
 > that step never completed on the reference box (913 MB RAM, 2 vCPU, 1 GB swap):
 > 10 restarts, `/models/onnx` still empty, load average 28, SSH unresponsive.
-> `mem_limit: 2g` does not save you there, because the **host** OOM-kills before
+> A `mem_limit` does not save you there, because the **host** OOM-kills before
 > the container's own 2 GB cgroup limit is reached — `docker inspect` then shows
 > `OOMKilled=false` with `ExitCode=137`, which is misleading. On a 2-vCPU host
 > `cpus: "2.0"` is not a cap at all. Once the `.sim.*` file lands it persists in

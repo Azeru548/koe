@@ -26,10 +26,16 @@ services:
     restart: unless-stopped
 
     # The sidecar is the only thing in this stack that does real work, so it
-    # gets a hard ceiling: 2 CPUs, 2 GB. It must never be able to starve the
-    # Node process that serves edge and piper.
+    # gets a hard ceiling. Default 1 GB, not 2: on the 2 GB t3.small the app
+    # container needs the other half, and a 2 GB sidecar limit would let the
+    # host OOM-kill Node before Docker ever enforced it. Override per host with
+    # KOKORO_MEM_LIMIT (e.g. 2g on a 4 GB box) — never raise it on 2 GB.
+    #
+    # Do not start this on a 1 GB host (t3.micro) at all: the first-boot ONNX
+    # rewrite needs more than 1 GB and takes the whole instance down. See
+    # DEPLOY.md §8 for the sizing table.
     cpus: "2.0"
-    mem_limit: 2g
+    mem_limit: ${KOKORO_MEM_LIMIT:-1g}
 
     ports:
       # Loopback only — the studio is the sole intended client.
