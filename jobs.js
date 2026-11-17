@@ -98,6 +98,16 @@ function countRunning() {
   return Number(db.conn().get(`SELECT COUNT(*) AS n FROM jobs WHERE ${RUNNING_SQL}`).n) || 0;
 }
 
+// Running jobs per engine. Used by the per-engine admission ceiling (and
+// available for operator visibility): one engine must not be able to occupy
+// every global slot and starve the others.
+function countRunningByEngine() {
+  const rows = db.conn().all(`SELECT COALESCE(engine, '') AS engine, COUNT(*) AS n FROM jobs WHERE ${RUNNING_SQL} GROUP BY engine`);
+  const out = {};
+  for (const row of rows) out[row.engine] = Number(row.n) || 0;
+  return out;
+}
+
 function countQueued() {
   return Number(db.conn().get("SELECT COUNT(*) AS n FROM jobs WHERE status = 'queued'").n) || 0;
 }
@@ -115,7 +125,7 @@ function countAll() {
 // Atomically take the oldest queued job. Two workers racing get different rows
 // (or one gets null), because the SELECT and the UPDATE happen in one
 // transaction and the UPDATE re-checks `status = 'queued'`.
-function claimNext(limit = Infinity) {
+function claimNext(limit = Infinity, engineCaps = null) {
   return db.transaction(() => {
     const conn = db.conn();
     // Admission: the global concurrency limit is checked in the same
@@ -123,7 +133,26 @@ function claimNext(limit = Infinity) {
     // overrun it. A busy pool means "nothing to claim right now", not an error.
     const running = Number(conn.get(`SELECT COUNT(*) AS n FROM jobs WHERE ${RUNNING_SQL}`).n) || 0;
     if (running >= limit) return null;
-    const row = conn.get("SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1");
+
+    // Per-engine ceiling, inside the same transaction as the claim: an engine
+    // that is at its cap is skipped rather than blocking the queue, so a
+    // saturated Kokoro/Kitten sidecar cannot starve the edge jobs behind it.
+    const saturated = [];
+    if (engineCaps && typeof engineCaps === "object") {
+      const byEngine = conn.all(`SELECT COALESCE(engine, '') AS engine, COUNT(*) AS n FROM jobs WHERE ${RUNNING_SQL} GROUP BY engine`);
+      for (const row of byEngine) {
+        const cap = Number(engineCaps[row.engine]);
+        if (Number.isFinite(cap) && Number(row.n) >= cap) saturated.push(row.engine);
+      }
+    }
+
+    const row = saturated.length
+      ? conn.get(
+          `SELECT id FROM jobs WHERE status = 'queued' AND COALESCE(engine, '') NOT IN (${saturated.map(() => "?").join(",")}) ` +
+            "ORDER BY created_at ASC LIMIT 1",
+          saturated
+        )
+      : conn.get("SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1");
     if (!row) return null;
     conn.run("UPDATE jobs SET status = 'starting' WHERE id = ? AND status = 'queued'", [row.id]);
     const after = conn.get("SELECT status, data FROM jobs WHERE id = ?", [row.id]);
@@ -271,6 +300,7 @@ module.exports = {
   remove,
   claimNext,
   countRunning,
+  countRunningByEngine,
   countQueued,
   countAll,
   ids,

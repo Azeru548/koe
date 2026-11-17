@@ -13,19 +13,24 @@ ENV PIP_NO_CACHE_DIR=1 \
 
 WORKDIR /app
 
+# PINNED on purpose: the dependency list below is hand-picked against this
+# exact version. A bump must be followed by `python smoke.py` (CI runs it), or a
+# new required module will only surface as a 500 on a live request.
+#
 # `pip install kittenml` on its own drags in torch, torchaudio, diffusers,
 # transformers, spacy and 24 NVIDIA CUDA wheels — 6.5 GB installed, for a
 # dependency the int8 ONNX path never imports (verified: `torch` is absent from
 # sys.modules after a full generate()). Installing the package --no-deps plus
 # the modules the ONNX path does use gives a ~300 MB environment that
 # synthesises correctly, which is what makes this sidecar viable on a small box.
-RUN pip install --no-cache-dir --no-deps kittenml \
+RUN pip install --no-cache-dir --no-deps "kittenml==0.9.8" \
  && pip install --no-cache-dir \
       onnxruntime numpy huggingface_hub safetensors \
       phonemizer espeakng_loader kitten-text-processing num2words \
       scipy soundfile misaki pyloudnorm einops omegaconf hydra-core brotli
 
 COPY server.py /app/server.py
+COPY smoke.py /app/smoke.py
 
 EXPOSE 8881
 

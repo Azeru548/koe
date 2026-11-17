@@ -341,7 +341,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 - **Anonymous (no key):** 20 requests/hour, 500 words/hour, 3,000 words/day.
 - **Per job:** 2,000 words (`400`) / 40,000 characters (`413`). Previews: 600 characters.
 - **Per IP:** 3 free keys/day (`429` once exhausted, `retryAfterSeconds` until UTC midnight).
-- **Instance-wide:** 6 concurrent jobs, 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`).
+- **Instance-wide:** 6 concurrent jobs, 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`). Per engine, it is 1 in flight for Kokoro and 1 for Kitten (`KOE_ENGINE_CONCURRENCY`): a sidecar engine at its cap is skipped so it cannot hold global slots while edge callers wait.
 - **Job deadline:** 300 s from submission, queue wait included (`KOE_JOB_DEADLINE_SEC`). A job still queued at the deadline fails with `Still waiting for a free synthesis slot…`; a job that overruns mid-synthesis fails with `Job exceeded its 300s limit…`. Either way the caller is refunded words and the request unit. Previews wait 30 s for a worker (`KOE_PREVIEW_WAIT_SEC`) and then answer `429` rather than holding the request open.
 - **Fail-safe:** `KOE_KILL_SWITCH=true` stops all generation with `503 {"error":"temporarily_disabled"}` before anything is charged.
 - **Retention:** audio 900 s, job metadata 1 hour, previews 10 min. Nothing is permanent.

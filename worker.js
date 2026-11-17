@@ -180,7 +180,9 @@ async function runJob(job, parts) {
 let stopping = false;
 
 async function runOnce() {
-  const job = jobs.claimNext(guard.cfg.globalConcurrency);
+  // The per-engine ceiling is enforced inside the claim transaction, so an
+  // engine that is at its cap is skipped instead of holding up the queue.
+  const job = jobs.claimNext(guard.cfg.globalConcurrency, guard.cfg.engineConcurrency);
   if (!job) return false;
   const parts = readParts(job);
   if (!parts) {

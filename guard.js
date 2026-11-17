@@ -82,6 +82,13 @@ const cfg = {
   globalQueue: intEnv("KOE_GLOBAL_QUEUE", 20),
   globalWordsDay: intEnv("KOE_GLOBAL_DAILY_WORDS", intEnv("KOE_GLOBAL_WORDS_DAY", 30000)),
 
+  // Per-engine in-flight ceiling: how many jobs of ONE engine may run at the
+  // same time, independent of the global pool. Sidecar engines default to 1
+  // because each sidecar serialises inside its own container anyway — letting
+  // them hold several slots only parks jobs that cannot make progress while
+  // edge callers queue behind them. Format "kokoro=1,kitten=1"; empty disables.
+  engineConcurrency: parseEngineCaps(process.env.KOE_ENGINE_CONCURRENCY),
+
   // Instant kill switch: every generation answers 503 {"error":"temporarily_disabled"}.
   killSwitch: boolEnv("KOE_KILL_SWITCH", false),
 
@@ -113,6 +120,21 @@ const cfg = {
   stateFile: process.env.KOE_STATE_FILE || path.join(__dirname, ".koe-state.json"),
 };
 
+// "kokoro=1,kitten=1" -> { kokoro: 1, kitten: 1 }. Unset means the sidecar
+// default; an empty string means no per-engine ceiling at all. Unknown engine
+// names are accepted and simply never match a job.
+function parseEngineCaps(raw) {
+  const source = raw === undefined || raw === null ? "kokoro=1,kitten=1" : String(raw);
+  const caps = {};
+  for (const part of source.split(",")) {
+    const [name, value] = part.split("=").map((s) => String(s || "").trim());
+    if (!name) continue;
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 1) caps[name.toLowerCase()] = Math.floor(n);
+  }
+  return caps;
+}
+
 const keyLimits = () => ({ requestsPerHour: cfg.keyReqHour, wordsPerHour: cfg.keyWordsHour, wordsPerDay: cfg.keyWordsDay });
 const anonLimits = () => ({ requestsPerHour: cfg.anonReqHour, wordsPerHour: cfg.anonWordsHour, wordsPerDay: cfg.anonWordsDay });
 
@@ -122,7 +144,7 @@ function publicLimits() {
     key: keyLimits(),
     anon: anonLimits(),
     perJob: { maxWords: cfg.maxWordsPerJob, maxChars: cfg.maxCharsPerJob, maxPreviewChars: cfg.maxCharsPerPreview, maxSeconds: cfg.jobDeadlineSec },
-    global: { concurrency: cfg.globalConcurrency, queueMax: cfg.globalQueue, wordsPerDay: cfg.globalWordsDay },
+    global: { concurrency: cfg.globalConcurrency, queueMax: cfg.globalQueue, wordsPerDay: cfg.globalWordsDay, engines: cfg.engineConcurrency },
     queue: { waitSeconds: cfg.jobDeadlineSec, previewWaitSeconds: cfg.previewWaitSec },
     audio: {
       ttlSeconds: cfg.audioTtlSec,

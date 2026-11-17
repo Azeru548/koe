@@ -43,6 +43,19 @@ jobs:
             console.log('image contents ok');
           "
 
+  # The Kitten image installs `kittenml` with --no-deps plus a hand-picked list
+  # (torch and the CUDA tree are deliberately excluded). A version bump can start
+  # needing a module that list does not have, which would otherwise only show up
+  # as a 500 on a live request — so the image has to prove it can synthesise.
+  sidecar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Kitten sidecar
+        run: docker build -t koe-kitten:ci ops/kitten
+      - name: The sidecar still synthesises
+        run: docker run --rm koe-kitten:ci python /app/smoke.py
+
   # Deploys main to the EC2 instance by running the same script an operator would
   # run by hand — through Systems Manager, so the instance needs no open inbound
   # port and GitHub stores no AWS key. Three gates keep it from surprising
@@ -55,7 +68,7 @@ jobs:
   #
   # See DEPLOY.md §6 for the IAM role, the variables and how to turn this off.
   deploy:
-    needs: [test, docker]
+    needs: [test, docker, sidecar]
     if: |
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||

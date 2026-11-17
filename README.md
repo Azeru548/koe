@@ -357,6 +357,7 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `TTS_BACKEND` | auto | `native` or `docker` |
 | `KOKORO_BASE_URL` | `http://127.0.0.1:8880` | Where the optional Kokoro sidecar lives; the engine is unavailable when it does not answer |
 | `KITTEN_BASE_URL` | `http://127.0.0.1:8881` | Where the optional Kitten sidecar lives; same rule |
+| `KOE_ENGINE_CONCURRENCY` | `kokoro=1,kitten=1` | Per-engine in-flight ceiling. A sidecar at its cap is skipped in the claim transaction, so it cannot hold global slots while edge callers wait. `kokoro=2,kitten=1` raises one, empty disables the ceiling |
 | `KOE_SECRET` | generated | **Set this in production.** Signs download links, hashed anon subjects and key ids (keys themselves are DB rows) |
 | `KOE_DB_PATH` | `./koe.db` | SQLite file holding issued keys and every counter (`keys`, `usage`, `mint_ips`, `global_usage`). One connection per process; restarts resume from it |
 | `API_KEY` | *(none)* | Admin key: unlimited, sees all jobs |

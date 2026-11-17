@@ -398,6 +398,11 @@ Two rules that matter:
 - **Keep concurrency at 3–4, not 6.** Each in-flight part is an `edge-tts`
   process (~100 MB) on top of Node, so six of them is the one default that can
   push a 2 GB host into swap.
+- **Each sidecar engine is capped at 1 job in flight** (`KOE_ENGINE_CONCURRENCY`,
+  default `kokoro=1,kitten=1`). A sidecar serialises inside its own container, so
+  extra Kokoro/Kitten jobs would only occupy global slots while making no
+  progress — with the cap they stay queued and edge jobs get the worker. Raise
+  it (`kokoro=2,kitten=1`) only if you have sized the host for it.
 
 Set both in `~/koe-ops/koe.env` and re-run `rebuild.sh` — the values are baked
 into `docker run`, so a restart alone will not pick them up:
