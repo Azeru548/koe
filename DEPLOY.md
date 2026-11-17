@@ -386,7 +386,7 @@ bill:
 | Host | RAM | Kokoro (MP3, 82M) | Kitten (WAV, 15–80M) | `KOE_GLOBAL_CONCURRENCY` |
 | --- | --- | --- | --- | --- |
 | t3.micro | 1 GiB | **Don't run it.** `engine: "kokoro"` stays a clean 503. | Only if you accept ~512 MB for it | 3–4 |
-| t3.small | 2 GiB | Yes, `KOKORO_MEM_LIMIT=1g` (default) | **Or** Kitten, `KITTEN_MEM_LIMIT=512m` — not both | 3–4 |
+| t3.small | 2 GiB | Yes, `KOKORO_MEM_LIMIT=1300m` — measured 725 MiB steady, so 1g is too tight for fp32 peaks | **Or** Kitten, `KITTEN_MEM_LIMIT=512m` — not both | 4 |
 | t3.medium | 4 GiB | Yes, `KOKORO_MEM_LIMIT=2g` | Yes, `512m` | 6 |
 
 Two rules that matter:
@@ -414,10 +414,17 @@ KOE_PART_CONCURRENCY=1
 KOE_ENGINE_CONCURRENCY=kokoro=1,kitten=1
 
 # Compose-only ceilings (not app settings); pass the same file to compose
-KOKORO_MEM_LIMIT=1g
+KOKORO_MEM_LIMIT=1300m
 KITTEN_MEM_LIMIT=512m
 ```
 
+> On the reference t3.small, Kokoro measured **724.7 MiB** (koe 53 MB, caddy 10 MB of
+> 1.865 GiB). A 1 GB ceiling leaves too little room for the synthesis spike, and
+> the container's old 2 GB ceiling was *larger than the instance* — so an OOM
+> would have taken Node down instead of the container. 1.3 GB is the working
+> value; it can be changed on a running container with
+> `docker update --memory 1300m --memory-swap 1300m koe-kokoro`.
+>
 > `rebuild.sh` used to hardcode `-e KOE_GLOBAL_CONCURRENCY=2`, so editing the
 > value in `koe.env` changed nothing — the container always came up with 2. It
 > now reads the file (defaults `4` / `1` / `kokoro=1,kitten=1`) and also forwards
