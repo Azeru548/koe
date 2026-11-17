@@ -97,12 +97,15 @@ fi
 sudo docker rm -f koe 2>/dev/null || true
 sudo docker run -d --name koe --restart unless-stopped \
   -p 127.0.0.1:8080:3000 \
-  -e KOKORO_BASE_URL="http://kokoro:8880" \
+  -e KOKORO_BASE_URL="${KOKORO_BASE_URL:-http://kokoro:8880}" \
+  -e KITTEN_BASE_URL="${KITTEN_BASE_URL:-http://kitten:8881}" \
   -e TTS_BACKEND=native \
   -e KOE_PUBLIC_URL="https://${KOE_DOMAIN}" \
   -e KOE_SECRET="$KOE_SECRET" \
   -e KOE_REQUIRE_KEY=true \
-  -e KOE_GLOBAL_CONCURRENCY=2 \
+  -e KOE_GLOBAL_CONCURRENCY="${KOE_GLOBAL_CONCURRENCY:-4}" \
+  -e KOE_PART_CONCURRENCY="${KOE_PART_CONCURRENCY:-1}" \
+  -e KOE_ENGINE_CONCURRENCY="${KOE_ENGINE_CONCURRENCY:-kokoro=1,kitten=1}" \
   -e KOE_GLOBAL_QUEUE=20 \
   -e KOE_GLOBAL_WORDS_DAY=30000 \
   -e KOE_AUDIO_TTL_SEC=900 \

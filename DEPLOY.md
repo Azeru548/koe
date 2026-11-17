@@ -408,10 +408,26 @@ Set both in `~/koe-ops/koe.env` and re-run `rebuild.sh` — the values are baked
 into `docker run`, so a restart alone will not pick them up:
 
 ```bash
+# ~/koe-ops/koe.env — rebuild.sh sources this file and forwards these three
 KOE_GLOBAL_CONCURRENCY=4
-KOKORO_MEM_LIMIT=1g      # only matters when docker compose is used
+KOE_PART_CONCURRENCY=1
+KOE_ENGINE_CONCURRENCY=kokoro=1,kitten=1
+
+# Compose-only ceilings (not app settings); pass the same file to compose
+KOKORO_MEM_LIMIT=1g
 KITTEN_MEM_LIMIT=512m
 ```
+
+> `rebuild.sh` used to hardcode `-e KOE_GLOBAL_CONCURRENCY=2`, so editing the
+> value in `koe.env` changed nothing — the container always came up with 2. It
+> now reads the file (defaults `4` / `1` / `kokoro=1,kitten=1`) and also forwards
+> `KITTEN_BASE_URL`. If a limit looks applied but `/api/limits` disagrees, check
+> that the instance copy of the script is current:
+> `sudo -u ec2-user cp /home/ec2-user/koe/ops/rebuild.sh /home/ec2-user/koe-ops/`.
+>
+> The two `*_MEM_LIMIT` values are read by docker-compose, not by the app, so
+> compose needs to be pointed at the same file:
+> `cd ~/koe && sudo docker compose --env-file ~/koe-ops/koe.env up -d`.
 
 **On 2 GiB, run one sidecar, not two.** Kokoro's fp32 ONNX peaks around
 1.2 GB RSS; Kitten's int8 nano around 250–400 MB. 1g + 512m + Node + Docker does
