@@ -364,6 +364,32 @@ Reaching it from the app container follows the same rule as Kokoro (§8): the
 `koe` container is bridge-networked, so use `KITTEN_BASE_URL=http://kitten:8881`
 on the compose network rather than `127.0.0.1`.
 
+#### If the instance has no `docker compose` plugin
+
+The reference t3.small does **not** have it (`docker compose` prints Docker's
+help text and exits 125), so the compose commands above fail there. Plain
+`docker` does the same job — this is the exact sequence that started the live
+sidecar:
+
+```bash
+cd ~/koe/ops/kitten && sudo docker build -t koe-kitten:local .
+
+sudo docker run -d --name koe-kitten --restart unless-stopped \
+  --cpus 1.0 --memory 512m \
+  --network koe_default --network-alias kitten \
+  -p 127.0.0.1:8881:8881 \
+  -e KITTEN_MODEL=KittenML/kitten-tts-nano-0.8-int8 \
+  -e KITTEN_PORT=8881 -e HF_HOME=/models \
+  -v kitten-models:/models \
+  koe-kitten:local
+
+curl -s localhost:8881/health      # first start downloads the model (~25 MB)
+```
+
+`--network-alias kitten` is the important flag: `koe` resolves `KITTEN_BASE_URL`
+as `http://kitten:8881`, and `--restart unless-stopped` keeps it alive across
+reboots and `rebuild.sh` runs (which never touch this container).
+
 ### Kokoro sidecar (optional)
 
 The Kokoro engine runs in its **own container**. The app is fully functional without it — edge and piper are unaffected, and only `engine: "kokoro"` requests answer `503 {"error":"tts_unavailable","engine":"kokoro"}` (within 10s, before any quota is charged).
