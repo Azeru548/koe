@@ -202,8 +202,10 @@ Note the sidecar ignores pitch entirely, and rates below `1.0` are clamped up to
 
 #### Kitten sidecar (tiny, WAV)
 
-Kitten TTS is the cheap local engine: the int8 nano checkpoint is ~25 MB and the
-whole sidecar fits in 512 MB, so it runs comfortably where Kokoro does not.
+Kitten TTS is the cheap local engine: the int8 nano checkpoint is ~25 MB,
+the measured sidecar RSS after a synthesis is **~155 MB**, and the image is
+~300 MB — so it runs comfortably where Kokoro does not. It is roughly 6× faster
+than realtime for short text (measured: 18 words → 8.8 s of audio in 1.4 s).
 
 ```bash
 docker compose up -d --build kitten   # builds ops/kitten, serves 127.0.0.1:8881
@@ -220,6 +222,9 @@ down (before any quota is charged). `GET /healthz` reports `engines.kitten`.
   ignored** (warned once).
 - One synthesis at a time inside the container, which is what keeps it inside
   its memory limit.
+- The image installs `kittenml` **without its torch/CUDA tree**: the int8 ONNX
+  path never imports torch (verified), so the stock dependency set is 6.5 GB for
+  nothing. See `ops/kitten/Dockerfile`.
 
 **Kitten voices** — the eight speakers every checkpoint ships. The sidecar is
 authoritative (`GET /voices`); this is the fallback list:

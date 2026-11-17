@@ -25,6 +25,9 @@ MODEL_ID = os.environ.get("KITTEN_MODEL", "KittenML/kitten-tts-nano-0.8-int8")
 PORT = int(os.environ.get("KITTEN_PORT", "8881"))
 BIND = os.environ.get("KITTEN_BIND", "0.0.0.0")
 MAX_TEXT = int(os.environ.get("KITTEN_MAX_TEXT", "6000"))
+# Verified against kittenml 0.9.8: `model.sample_rate` is None on the 0.8 ONNX
+# checkpoints, so this is the fallback the WAV header is written with.
+SAMPLE_RATE = int(os.environ.get("KITTEN_SAMPLE_RATE", "24000"))
 
 # The eight speakers every Kitten checkpoint ships. The model reports its own
 # list; this is the fallback and the order the studio renders.
@@ -89,7 +92,10 @@ def synthesize(text, voice, speed):
         else:
             samples = model.generate(text, voice=name)
 
-    return wav_bytes(samples, getattr(model, "sample_rate", 24000))
+    # `getattr(..., default)` is not enough here: the attribute exists and is
+    # None on these checkpoints, which would write a WAV header with a null
+    # frame rate.
+    return wav_bytes(samples, getattr(model, "sample_rate", None) or SAMPLE_RATE)
 
 
 class Handler(BaseHTTPRequestHandler):

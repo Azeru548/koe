@@ -345,6 +345,14 @@ docker compose down kitten           # stop it
 - `KITTEN_MODEL` (default `KittenML/kitten-tts-nano-0.8-int8`), `KITTEN_MEM_LIMIT`
   (default `512m`), `KITTEN_BASE_URL` for the app (default `http://127.0.0.1:8881`).
 - Output is WAV, one synthesis at a time inside the container.
+- Measured on the reference build: RSS **~155 MB** after a synthesis, image
+  **~300 MB**, ~6× faster than realtime for short text. `512m` therefore has real
+  headroom; the first `--build` still needs network and ~300 MB of disk.
+- The Dockerfile installs `kittenml` with `--no-deps` plus the modules the int8
+  ONNX path actually uses. The stock install pulls torch, torchaudio, diffusers,
+  transformers, spacy and 24 CUDA wheels — 6.5 GB, and `torch` is never even
+  imported during a generate(). Do not "simplify" that back to a plain
+  `pip install kittenml`.
 - `engine: "kitten"` answers `503 {"error":"tts_unavailable","engine":"kitten"}`
   while the sidecar is down — nothing else is affected and no quota is spent.
 - Voice ids: `bella` `jasper` `luna` `bruno` `rosie` `hugo` `kiki` `leo`.

@@ -2,7 +2,7 @@
 #
 # Deliberately a plain Python image: the model is 25 MB (int8 nano) and the
 # wrapper is stdlib-only, so there is no server framework to install or patch.
-# Built by `docker compose up -d --build` from docker-compose.yml.
+# Built by `docker compose up -d --build kitten` from docker-compose.yml.
 
 FROM python:3.12-slim
 
@@ -13,8 +13,17 @@ ENV PIP_NO_CACHE_DIR=1 \
 
 WORKDIR /app
 
-# numpy arrives with the package; `kittenml` pulls the small onnxruntime build.
-RUN pip install --no-cache-dir kittenml
+# `pip install kittenml` on its own drags in torch, torchaudio, diffusers,
+# transformers, spacy and 24 NVIDIA CUDA wheels — 6.5 GB installed, for a
+# dependency the int8 ONNX path never imports (verified: `torch` is absent from
+# sys.modules after a full generate()). Installing the package --no-deps plus
+# the modules the ONNX path does use gives a ~300 MB environment that
+# synthesises correctly, which is what makes this sidecar viable on a small box.
+RUN pip install --no-cache-dir --no-deps kittenml \
+ && pip install --no-cache-dir \
+      onnxruntime numpy huggingface_hub safetensors \
+      phonemizer espeakng_loader kitten-text-processing num2words \
+      scipy soundfile misaki pyloudnorm einops omegaconf hydra-core brotli
 
 COPY server.py /app/server.py
 
