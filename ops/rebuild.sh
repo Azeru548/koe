@@ -37,6 +37,32 @@ git -C "$REPO_DIR" fetch --prune origin "$BRANCH"
 # The instance is a deployment target, not a working copy: make it match Git.
 git -C "$REPO_DIR" reset --hard "origin/$BRANCH"
 
+# ── keep the copies in $OPS_DIR in step with the repo ──
+# The scripts in ~/koe-ops are hand-copied at bootstrap, and nothing used to
+# refresh them: the box kept running whatever was copied months earlier while
+# the repo moved on. That is not cosmetic — the image now runs as uid 1000, and
+# the hand-over of the data directory (`chown` below) only happens in the repo
+# version of this file.
+for _script in rebuild.sh watchdog.sh disk-guard.sh backup.sh; do
+  _src="$REPO_DIR/ops/$_script"
+  _dst="$OPS_DIR/$_script"
+  [ -f "$_src" ] || continue
+  cmp -s "$_src" "$_dst" && continue
+  cp -p "$_dst" "$_dst.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+  cp "$_src" "$_dst.tmp" 2>/dev/null || sudo cp "$_src" "$_dst.tmp"
+  chmod +x "$_dst.tmp"
+  mv -f "$_dst.tmp" "$_dst" 2>/dev/null || sudo mv -f "$_dst.tmp" "$_dst"
+  echo "updated $OPS_DIR/$_script from the repo (previous copy kept as .bak-*)"
+  [ "$_script" = rebuild.sh ] && _restart_needed=1
+done
+
+# The changed copy of *this* script only takes effect on a new run, so re-exec
+# once. The guard stops a loop if the copy still differs (e.g. read-only ops dir).
+if [ "${_restart_needed:-0}" = 1 ] && [ "${KOE_SELF_SYNCED:-0}" != 1 ]; then
+  echo "rebuild.sh itself changed — re-running the updated script"
+  exec env KOE_OPS_DIR="$OPS_DIR" KOE_SELF_SYNCED=1 bash "${BASH_SOURCE[0]}" "$@"
+fi
+
 echo "=== [4/6] image ==="
 sudo docker build -t koe "$REPO_DIR" 2>&1 | tail -3
 

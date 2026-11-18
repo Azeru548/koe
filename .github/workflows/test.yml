@@ -157,7 +157,7 @@ jobs:
             --document-name AWS-RunShellScript \
             --comment "koe deploy ${GITHUB_SHA::7}" \
             --timeout-seconds 2400 \
-            --parameters 'commands=["sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe-ops/rebuild.sh"]' \
+            --parameters 'commands=["sudo -u ec2-user -H git -C /home/ec2-user/koe fetch --prune origin main","sudo -u ec2-user -H git -C /home/ec2-user/koe reset --hard origin/main","sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe/ops/rebuild.sh"]' \
             --query 'Command.CommandId' --output text)"
           echo "command id: $command_id"
 
