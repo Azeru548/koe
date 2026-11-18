@@ -43,6 +43,25 @@ jobs:
             console.log('image contents ok');
           "
 
+      # The image runs as the unprivileged `node` user and writes its database
+      # and output under /app. Without this check a permission mistake would
+      # only show up as a 503 on the live box after a deploy.
+      - name: the image runs unprivileged, starts, and can write its state
+        run: |
+          test "$(docker run --rm koe:ci id -u)" = "1000"
+          docker run -d --name koe-ci -p 127.0.0.1:3000:3000 koe:ci
+          ok=""
+          for _ in $(seq 1 30); do
+            if curl -fsS -m 5 http://127.0.0.1:3000/health > /tmp/health.json 2>/dev/null; then ok=1; break; fi
+            sleep 2
+          done
+          docker logs koe-ci || true
+          docker rm -f koe-ci >/dev/null 2>&1 || true
+          test -n "$ok" || { echo "::error::the container never answered /health"; exit 1; }
+          cat /tmp/health.json
+          test "$(jq -r .status /tmp/health.json)" = "ok"
+          test "$(jq -r .db.ok /tmp/health.json)" = "true"
+
   # The Kitten image installs `kittenml` with --no-deps plus a hand-picked list
   # (torch and the CUDA tree are deliberately excluded). A version bump can start
   # needing a module that list does not have, which would otherwise only show up

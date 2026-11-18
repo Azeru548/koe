@@ -1,24 +1,37 @@
 {
   "name": "tts-web",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Koe TTS Studio — self-hosted text-to-speech studio (edge, piper, Kokoro, Kitten) with a free multi-tenant tier and an MCP server.",
+  "main": "server.js",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Azeru548/koe.git"
+  },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/guard.test.js test/pow.test.js test/keys.test.js test/stats.test.js test/server.test.js test/ephemeral.test.js test/mcp.test.js test/kokoro.test.js test/kokoro-server.test.js test/kokoro-up.test.js test/errors.test.js test/jobs.test.js test/cache.test.js test/cache-sweep.test.js test/kitten.test.js test/engine-cap.test.js"
+    "test": "node --test test/guard.test.js test/pow.test.js test/keys.test.js test/stats.test.js test/server.test.js test/ephemeral.test.js test/mcp.test.js test/kokoro.test.js test/kokoro-server.test.js test/kokoro-up.test.js test/errors.test.js test/jobs.test.js test/cache.test.js test/cache-sweep.test.js test/kitten.test.js test/engine-cap.test.js test/test-registry.test.js"
   },
-  "keywords": [],
-  "author": "",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "tts",
+    "text-to-speech",
+    "mcp",
+    "edge-tts",
+    "kokoro",
+    "kitten"
+  ],
+  "author": "Azeru548",
   "license": "UNLICENSED",
-  "description": "",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.6.1",
     "archiver": "^5.3.2",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "multer": "^2.1.1",
     "node-sqlite3-wasm": "^0.8.61",
-    "socket.io": "^4.8.3",
-    "zod": "^3.24.0"
+    "zod": "^4.6.6"
   }
 }

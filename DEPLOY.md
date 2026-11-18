@@ -440,10 +440,14 @@ Set both in `~/koe-ops/koe.env` and re-run `rebuild.sh` — the values are baked
 into `docker run`, so a restart alone will not pick them up:
 
 ```bash
-# ~/koe-ops/koe.env — rebuild.sh sources this file and forwards these three
+# ~/koe-ops/koe.env — rebuild.sh sources this file and forwards these
 KOE_GLOBAL_CONCURRENCY=4
 KOE_PART_CONCURRENCY=1
 KOE_ENGINE_CONCURRENCY=kokoro=1,kitten=1
+# Per-job word ceilings: 2,000 for edge; kitten is ~3 words/s, so 900 is all
+# that fits in the 300 s deadline. Both are enforced before quota is charged.
+KOE_MAX_JOB_WORDS=2000
+KOE_ENGINE_MAX_WORDS=kitten=900
 
 # Compose-only ceilings (not app settings); pass the same file to compose
 KOKORO_MEM_LIMIT=1300m
@@ -534,6 +538,58 @@ systemctl start koe-diskguard.service
 ```
 
 Disk pressure: the guard prunes Docker at 85% root usage. Check `df -h /` first; if the image or logs are growing unexpectedly, inspect before pruning.
+
+### Backups (the one thing that cannot be regenerated)
+
+`/data/koe.db` holds every issued key, mint cap and usage counter. Audio and
+jobs are disposable by design; that file is not. Losing the volume forces every
+client to re-mint a key and erases the usage history.
+
+`ops/backup.sh` takes a consistent snapshot with SQLite's online backup API (a
+plain `cp` of a live database can capture a torn write), verifies it with
+`PRAGMA integrity_check`, keeps 14 days, and optionally uploads to S3:
+
+```bash
+# on the instance, once
+git -C ~/koe pull --ff-only            # the script ships with the repo
+~/koe/ops/backup.sh                  # manual run
+
+# nightly at 03:00 UTC — `crontab -e` as ec2-user (or /etc/cron.d/koe-backup):
+0 3 * * * /home/ec2-user/koe/ops/backup.sh >> /home/ec2-user/koe-backup.log 2>&1
+```
+
+Copies land in `$KOE_DATA_DIR/backups` (`/home/ec2-user/koe-data/backups`). For
+off-box copies set `KOE_BACKUP_S3=s3://your-bucket/koe` in `~/koe-ops/koe.env`
+and make sure the instance role may `s3:PutObject` there — an upload failure
+exits non-zero so a cron mail or uptime check tells you the backups stopped.
+
+**Restore:**
+
+```bash
+sudo docker stop koe
+sudo cp /home/ec2-user/koe-data/backups/koe-<stamp>.db /home/ec2-user/koe-data/koe.db
+sudo rm -f /home/ec2-user/koe-data/koe.db-journal   # never keep a stale journal
+sudo chown 1000:1000 /home/ec2-user/koe-data/koe.db  # the app runs as uid 1000
+sudo docker start koe
+curl -s localhost:3000/healthz | jq '.db'          # → ok: true
+```
+
+### Monitoring
+
+Nothing in the repo checks the site between deploys. The deploy job runs
+`/health` once, which catches a failed deploy but not a box that dies at 03:00.
+Point an external uptime monitor (UptimeRobot, Better Stack, Healthchecks.io —
+the free tiers are enough) at `https://<domain>/healthz` and alert on:
+
+- HTTP status ≠ 200 — health answers `503` when the database is unreachable,
+  which is the failure mode that actually matters;
+- `queue.saturated: true` for more than a few minutes;
+- `engines.edge: false` — edge is the only engine that has to work;
+- `/api/limits` returning nothing (process is up but the app is wedged).
+
+For anything more than uptime, `/stats.json` (admin key) already exposes traffic,
+words, queue depth and the 14-day ledger — scrape it into whatever dashboard you
+prefer rather than adding an agent to the box.
 
 ## 9. Troubleshooting
 

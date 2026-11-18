@@ -81,7 +81,7 @@ KOE_WORKERS=6 node worker.js
 
 Measured on the reference box (108-word jobs, edge engine): 2 workers ≈ 6 jobs/min,
 6 workers ≈ 10–15 jobs/min. The upstream endpoint, not the CPU, is the ceiling —
-raise `KOE_GLOBAL_CONCURRENCY` carefully and watch for 403/429s. One job may be at most **2,000 words / 40,000 characters**. Free keys are capped at **3 per IP per day**. Previews are metered too and limited to 600 characters.
+raise `KOE_GLOBAL_CONCURRENCY` carefully and watch for 403/429s. One job may be at most **2,000 words / 40,000 characters** — and **900 words on kitten**, which cannot finish more than that inside the 300 s job deadline, so a longer kitten script is a `400` before anything is charged. Free keys are capped at **3 per IP per day**. Previews are metered too and limited to 600 characters.
 
 All of these are environment variables (see below).
 
@@ -265,13 +265,17 @@ sudo systemctl enable --now docker
 
 mkdir -p ~/koe-ops
 # copy ops/koe.env.example to ~/koe-ops/koe.env and fill in secrets
-# copy ops/rebuild.sh, ops/watchdog.sh, ops/disk-guard.sh to ~/koe-ops/
+# copy ops/rebuild.sh, ops/watchdog.sh, ops/disk-guard.sh, ops/backup.sh to ~/koe-ops/
 bash ~/koe-ops/rebuild.sh
 ```
 
 `rebuild.sh` clones/pulls the repo, builds the image, recreates `koe` on `127.0.0.1:8080`, and starts Caddy. `KOE_SECRET` must stay stable — it signs download links and every hashed subject id. `API_KEY` is the operator key used by `/stats`, `/stats.json`, and the analytics dashboard.
 
 The Docker image installs Node 20 + `edge-tts` and best-effort Piper. It keeps runtime data (`state.json`, `stats.json`, and `koe.db` — which now also holds the job queue) on a mounted volume so a container recreate does not wipe issued keys, usage counters or job metadata — set `KOE_DB_PATH=/data/koe.db` alongside `KOE_STATE_FILE`/`KOE_JOBS_FILE`/`KOE_STATS_FILE`.
+
+**The container runs as the unprivileged `node` user (uid 1000).** `rebuild.sh` hands the data directory to that uid before starting. If you launch the image by hand with a bind mount, make it writable first (`sudo chown -R 1000:1000 ./data`), or the app cannot open its database.
+
+**Back up `/data/koe.db`.** It holds every issued key, mint cap and counter; audio and jobs are disposable. `ops/backup.sh` takes a verified, retention-limited snapshot with SQLite's online backup API — see [DEPLOY.md §8](DEPLOY.md#backups-the-one-thing-that-cannot-be-regenerated).
 
 > `render.yaml` remains in the repo as a legacy blueprint. It is not the production target.
 

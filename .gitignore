@@ -40,6 +40,10 @@ voiceovers/
 /screenshots/
 ops/koe.env
 
+# Rendered video is a build artifact, not source: an 11 MB MP4 in the repo is
+# cloned by every deploy and copied into every image build.
+/video/**/renders/
+
 # Launch-film build artifacts — the film's source stays tracked:
 # videos/*/index.html, compositions/, scripts/, assets/, SPEC.md,
 # REVIEW.md, STORYLINES.md, hyperframes.json

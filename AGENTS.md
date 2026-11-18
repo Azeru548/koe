@@ -20,7 +20,7 @@ you (agent) ──MCP tools──> mcp/index.js ──HTTPS──> TTS Studio �
 4. Use that file (ffmpeg, Remotion, HyperFrames, an editor, ...) in your video project.
 5. If anything fails, call `studio_status` (and `get_usage` for quota) — it tells you if the server is reachable, asleep, rate-limited, or missing an engine.
 
-**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The whole instance shares **6 concurrent jobs, a 20-job queue, and 30,000 words/day**. One job may be at most **2,000 words / 40,000 characters**, and at most **300 s of wall clock from submission** (queue wait included) — past that it fails with a clear error instead of holding a worker. A job that never got a slot, or that overran, returns its words **and** its request unit. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds` and a `reason`. Counters and keys live in SQLite, so they survive restarts; a rejected or failed request never consumes quota.
+**Free-tier limits at a glance** (all env-tunable): a registered key gets **60 requests/hour, 2,000 words/hour, 20,000 words/day**. Anonymous callers get 20/500/3,000. The public instance shares **4 concurrent jobs (the app default is 6), a 20-job queue, and 30,000 words/day**. One job may be at most **2,000 words / 40,000 characters**, and at most **300 s of wall clock from submission** (queue wait included) — past that it fails with a clear error instead of holding a worker. A job that never got a slot, or that overran, returns its words **and** its request unit. Audio expires after **900 s**; job metadata after **1 hour**. Hit a limit → `429` with `retryAfterSeconds` and a `reason`. Counters and keys live in SQLite, so they survive restarts; a rejected or failed request never consumes quota.
 
 
 ---
@@ -78,9 +78,9 @@ Pings the studio's `/healthz` (alias `/health`). **Call this first whenever a ge
   "freeKeys": true,
   "killSwitch": false,
   "db": { "ok": true, "path": "/data/koe.db", "journalMode": "delete" },
-  "queue": { "active": 0, "queued": 0, "concurrency": 6, "queueMax": 20 },
+  "queue": { "active": 0, "queued": 0, "concurrency": 4, "queueMax": 20 },
   "ephemeral": { "audioTtlSeconds": 900, "jobTtlSeconds": 3600 },
-  "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 2000, "maxChars": 40000, "maxPreviewChars": 600, "maxSeconds": 300 }, "global": { "concurrency": 6, "queueMax": 20, "wordsPerDay": 30000 }, "queue": { "waitSeconds": 300, "previewWaitSeconds": 30 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
+  "limits": { "register": { "keysPerIpPerDay": 3 }, "key": { "requestsPerHour": 60, "wordsPerHour": 2000, "wordsPerDay": 20000 }, "anon": { "requestsPerHour": 20, "wordsPerHour": 500, "wordsPerDay": 3000 }, "perJob": { "maxWords": 2000, "maxChars": 40000, "maxPreviewChars": 600, "maxSeconds": 300, "engineMaxWords": { "kitten": 900 } }, "global": { "concurrency": 4, "queueMax": 20, "wordsPerDay": 30000, "engines": { "kokoro": 1, "kitten": 1 } }, "queue": { "waitSeconds": 300, "previewWaitSeconds": 30 }, "audio": { "ttlSeconds": 900, "jobTtlSeconds": 3600, "note": "Generated audio is ephemeral: it is deleted automatically. Download promptly." }, "keyRequired": true },
   "studioUrl": "https://koe.kennedyazeru.space",
   "client": {
     "keyMode": "auto",
@@ -306,7 +306,7 @@ Base URL: local `http://localhost:3000`, or your hosted URL.
 | `/` | GET | — | Redirects to `/mcp` |
 | `/studio` | GET | — | The studio web UI |
 
-Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job over `KOE_MAX_JOB_WORDS` (2,000 words)**, `401` `{"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown job, `409` job not ready, `410` audio expired, `413` script over 40,000 chars, `429` rate/queue/global limit (read `retryAfterSeconds` and the `reason` field: `hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `queue_full`, `mint_cap`), `503` `{"error":"temporarily_disabled"}` (kill switch), engine unavailable, upstream cool-down, or — for a missing Kokoro/Kitten sidecar — `503 {"error":"tts_unavailable","engine":"kokoro"|"kitten"}` (checked before quota is charged, so nothing is consumed). Request body limit is 10 MB.
+Status codes: `400` bad input (empty text, invalid engine/voice/rate), **a job over `KOE_MAX_JOB_WORDS` (2,000 words), or a job over its engine's own cap (kitten: 900 words, before any charge)**, `401` `{"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown job, `409` job not ready, `410` audio expired, `413` script over 40,000 chars, `429` rate/queue/global limit (read `retryAfterSeconds` and the `reason` field: `hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `queue_full`, `mint_cap`), `503` `{"error":"temporarily_disabled"}` (kill switch), engine unavailable, upstream cool-down, or — for a missing Kokoro/Kitten sidecar — `503 {"error":"tts_unavailable","engine":"kokoro"|"kitten"}` (checked before quota is charged, so nothing is consumed). Request body limit is 10 MB.
 
 ---
 
@@ -342,7 +342,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 - **Anonymous (no key):** 20 requests/hour, 500 words/hour, 3,000 words/day.
 - **Per job:** 2,000 words (`400`) / 40,000 characters (`413`). Previews: 600 characters. **Per engine:** kitten accepts at most **900 words** (`KOE_ENGINE_MAX_WORDS`); a longer kitten script is a `400` *before* the sidecar is probed or quota charged, because it cannot finish inside the 300 s deadline. edge/piper/kokoro keep the full 2,000.
 - **Per IP:** 3 free keys/day (`429` once exhausted, `retryAfterSeconds` until UTC midnight).
-- **Instance-wide:** 6 concurrent jobs, 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`). Per engine, it is 1 in flight for Kokoro and 1 for Kitten (`KOE_ENGINE_CONCURRENCY`): a sidecar engine at its cap is skipped so it cannot hold global slots while edge callers wait.
+- **Instance-wide:** 4 concurrent jobs on the public instance (6 is the app default, `KOE_GLOBAL_CONCURRENCY`), 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`). Per engine, it is 1 in flight for Kokoro and 1 for Kitten (`KOE_ENGINE_CONCURRENCY`): a sidecar engine at its cap is skipped so it cannot hold global slots while edge callers wait.
 - **Job deadline:** 300 s from submission, queue wait included (`KOE_JOB_DEADLINE_SEC`). A job still queued at the deadline fails with `Still waiting for a free synthesis slot…`; a job that overruns mid-synthesis fails with `Job exceeded its 300s limit…`. Either way the caller is refunded words and the request unit. Previews wait 30 s for a worker (`KOE_PREVIEW_WAIT_SEC`) and then answer `429` rather than holding the request open.
 - **Fail-safe:** `KOE_KILL_SWITCH=true` stops all generation with `503 {"error":"temporarily_disabled"}` before anything is charged.
 - **Retention:** audio 900 s, job metadata 1 hour, previews 10 min. Nothing is permanent.

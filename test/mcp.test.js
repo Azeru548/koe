@@ -206,6 +206,14 @@ test("hosted MCP lists the expected tools and answers calls", async () => {
       "list_recent_voiceovers", "list_voices", "studio_status",
     ]);
 
+    // The hosted endpoint must be able to request every engine its own
+    // list_voices advertises — kitten was listable but not selectable.
+    const gen = tools.tools.find((t) => t.name === "generate_voiceover");
+    assert.deepEqual(
+      [...gen.inputSchema.properties.engine.enum].sort(),
+      ["edge", "kitten", "kokoro", "piper"],
+    );
+
     const voices = await client.callTool({ name: "list_voices", arguments: { engine: "edge", lang: "en-GB" } });
     const parsed = JSON.parse(voices.content[0].text);
     assert.ok(parsed.length >= 3);

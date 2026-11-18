@@ -95,7 +95,18 @@ elif [ -n "$HOST_DB" ] && sudo docker inspect koe >/dev/null 2>&1; then
 fi
 
 sudo docker rm -f koe 2>/dev/null || true
-sudo docker run -d --name koe --restart unless-stopped \
+
+# The app image runs as the unprivileged `node` user (uid 1000). Everything on
+# the volume was created by the older root-running containers, so hand it over
+# before starting; without this the new container cannot write its own database
+# and every request answers 503 until someone notices.
+if [ -d "$DATA_DIR" ] && ! sudo chown -R 1000:1000 "$DATA_DIR"; then
+  echo "WARN: could not hand $DATA_DIR to uid 1000 — the container may fail to write its database"
+fi
+
+# `--init` puts a real PID 1 in front of Node, so SIGTERM from `docker stop`
+# reaches the server's shutdown handler instead of being swallowed.
+sudo docker run -d --name koe --restart unless-stopped --init \
   -p 127.0.0.1:8080:3000 \
   -e KOKORO_BASE_URL="${KOKORO_BASE_URL:-http://kokoro:8880}" \
   -e KITTEN_BASE_URL="${KITTEN_BASE_URL:-http://kitten:8881}" \
@@ -106,6 +117,8 @@ sudo docker run -d --name koe --restart unless-stopped \
   -e KOE_GLOBAL_CONCURRENCY="${KOE_GLOBAL_CONCURRENCY:-4}" \
   -e KOE_PART_CONCURRENCY="${KOE_PART_CONCURRENCY:-1}" \
   -e KOE_ENGINE_CONCURRENCY="${KOE_ENGINE_CONCURRENCY:-kokoro=1,kitten=1}" \
+  -e KOE_MAX_JOB_WORDS="${KOE_MAX_JOB_WORDS:-2000}" \
+  -e KOE_ENGINE_MAX_WORDS="${KOE_ENGINE_MAX_WORDS:-kitten=900}" \
   -e KOE_GLOBAL_QUEUE=20 \
   -e KOE_GLOBAL_WORDS_DAY=30000 \
   -e KOE_AUDIO_TTL_SEC=900 \

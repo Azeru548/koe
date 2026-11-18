@@ -1,3 +1,6 @@
+# LEGACY / DEMO ONLY — not the production target. Production runs on the EC2
+# instance through ops/rebuild.sh (see DEPLOY.md §10). The Render free plan
+# cannot host the Kokoro/Kitten sidecars and sleeps when idle.
 services:
   - type: web
     name: koe-tts-studio

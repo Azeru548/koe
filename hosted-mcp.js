@@ -97,7 +97,7 @@ function createHostedMcp({ client }) {
     {
       text: z.string().min(1).max(40000).describe("The script to narrate. Paragraph breaks are allowed; long scripts are split into parts automatically."),
       voice: z.string().default("en-US-GuyNeural").describe("Voice id from list_voices, e.g. 'en-US-AndrewNeural'"),
-      engine: z.enum(["edge", "piper", "kokoro"]).default("edge").describe("'edge' = Microsoft neural voices (cloud, supports rate/pitch), 'piper' = offline WAV, 'kokoro' = offline Kokoro MP3 (rate is clamped to 1.0-2.0, pitch ignored)"),
+      engine: z.enum(["edge", "piper", "kokoro", "kitten"]).default("edge").describe("'edge' = Microsoft neural voices (cloud, supports rate/pitch), 'piper' = offline WAV, 'kokoro' = offline Kokoro MP3 (rate is clamped to 1.0-2.0, pitch ignored), 'kitten' = offline Kitten WAV (rate honoured, pitch ignored, max 900 words per job)"),
       rate: z.number().min(0.5).max(2).default(1).describe("Speaking speed multiplier (1 = normal)"),
       pitch: z.number().int().min(-100).max(100).default(0).describe("Pitch shift in Hz (0 = normal)"),
       timeout_seconds: z.number().int().min(30).max(900).default(300).describe("How long to wait for the job before giving up"),
