@@ -340,6 +340,32 @@ footer {
 .foot-links a:hover { color: var(--shu); }
 .colophon { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--faint); text-transform: uppercase; }
 
+/* ────────────── support band ────────────── */
+.malt-band {
+  position: relative; z-index: 1;
+  padding: 54px 0 58px;
+  border-top: 1px solid var(--rule-hi);
+  background: rgba(245, 238, 222, .72);
+}
+.malt-card { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .6fr); align-items: center; gap: 38px; }
+.malt-eyebrow { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+.malt-card h2 { font-family: var(--display); font-weight: 600; font-size: clamp(23px, 3vw, 33px); line-height: 1.2; letter-spacing: -.01em; color: var(--sumi); margin-top: 10px; }
+.malt-copy { margin-top: 14px; font-size: 15px; line-height: 1.66; color: var(--muted); max-width: 54ch; }
+.malt-copy b { color: var(--sumi-2); font-weight: 500; }
+.malt-action { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.malt-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font); font-size: 14px; font-weight: 500;
+  color: #fdf8ee; background: var(--shu); text-decoration: none;
+  padding: 14px 24px;
+  border-radius: 3px 18px 4px 16px / 16px 4px 17px 5px;
+  box-shadow: 2px 2px 0 var(--shu-deep);
+  transition: background .18s, transform .18s, box-shadow .18s;
+}
+.malt-btn:hover { background: var(--shu-deep); transform: translateY(-1px); box-shadow: 2px 3px 0 rgba(141, 43, 31, .55); }
+.malt-btn:active { transform: translateY(0); }
+.malt-note { font-family: var(--mono); font-size: 10.5px; letter-spacing: .05em; color: var(--faint); line-height: 1.55; max-width: 30ch; }
+
 /* ────────────── responsive ────────────── */
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; gap: 44px; padding: 44px 0 56px; }
@@ -354,6 +380,7 @@ footer {
   .ledger { grid-template-columns: 1fr; }
   .ledger div { border-right: 0; border-bottom: 1px solid var(--rule); }
   .ledger div:last-child { border-bottom: 0; }
+  .malt-card { grid-template-columns: 1fr; gap: 24px; }
   /* the nav stays visible at every width — it only tightens */
   .topbar { flex-wrap: wrap; row-gap: 10px; }
   nav.nav { gap: 14px; font-size: 12.5px; }
@@ -631,12 +658,29 @@ footer {
   </div>
 </main>
 
+<section class="malt-band" aria-labelledby="malt-title">
+  <div class="wrap">
+    <div class="malt-card">
+      <div>
+        <p class="malt-eyebrow">支 · Support</p>
+        <h2 id="malt-title">Free to use. Not free to run.</h2>
+        <p class="malt-copy">Koe is free for anyone with a key: no account, no card, no API bill. It runs on <b>one small box and a domain</b>, paid by one person. If it has earned a place in your workflow, buy me a malt — naira or card, and it goes straight to the server bill.</p>
+      </div>
+      <div class="malt-action">
+        <a class="malt-btn" href="https://buymeamalt.com/@azeru548" target="_blank" rel="noopener noreferrer">Buy me a malt <span aria-hidden="true">↗</span></a>
+        <span class="malt-note">No ads, no tracking, no subscription. The free tier stays free either way.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <div class="foot-row">
       <nav class="foot-links" aria-label="Footer">
         <a href="/mcp">Setup &amp; key</a>
         <a href="/studio">Studio</a>
+        <a href="https://buymeamalt.com/@azeru548" target="_blank" rel="noopener noreferrer">Buy me a malt ↗</a>
       </nav>
       <span class="colophon">声 · free · no account, no card</span>
     </div>

@@ -430,6 +430,13 @@ server as a portable `SKILL.md`: when to reach for a voiceover, how to get a fre
 key, the tool table, script-formatting rules and the error table. Zip the folder
 to publish it to a skill marketplace.
 
+## Support
+
+Koe is free and has no accounts, cards or paid APIs. Running it costs one small
+box and a domain, paid by one person. If it has been useful, you can
+[buy me a malt](https://buymeamalt.com/@azeru548) — naira checkout, which Buy Me a
+Coffee can't do for a Nigerian account.
+
 ## Licence
 
 Proprietary. © Azeru548, all rights reserved. See [LICENSE](LICENSE): this

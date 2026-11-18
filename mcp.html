@@ -203,6 +203,19 @@ h2 { font-size: 27px; letter-spacing: -0.03em; color: var(--ink-900); font-weigh
 .section-head { margin-bottom: 18px; }
 .card { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
 
+/* ── Support ── */
+.support-card { display: flex; align-items: center; justify-content: space-between; gap: 26px; padding: 22px 24px; flex-wrap: wrap; }
+.support-line { font-size: 15px; line-height: 1.6; color: var(--ink-700); max-width: 58ch; }
+.support-fine { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-300); margin-top: 9px; }
+.support-btn {
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  font-size: 13.5px; font-weight: 500; color: #fdf8ee; background: var(--accent);
+  text-decoration: none; padding: 13px 21px; border-radius: 2px;
+  transition: background .18s, transform .18s;
+}
+.support-btn:hover { background: var(--accent-ink); transform: translateY(-1px); }
+.support-btn:active { transform: translateY(0); }
+
 /* ── Key ── */
 .keypanel { padding: 20px 22px; display: flex; gap: 24px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .keypanel-main { flex: 1; min-width: 280px; }
@@ -760,6 +773,20 @@ h2 {
       </details>
     </div>
   </section>
+
+  <section id="support" aria-labelledby="support-title">
+    <div class="section-head">
+      <h2 id="support-title">Keeping it free</h2>
+      <p class="sub">Koe has no accounts, no ads and no API bill, so it has no revenue either. One small box and a domain are paid by one person.</p>
+    </div>
+    <div class="card support-card">
+      <div>
+        <p class="support-line">If this setup saved you an afternoon, buy me a malt. Naira or card, and it goes straight to the hosting bill.</p>
+        <p class="support-fine">The free tier does not depend on it — limits stay the same either way</p>
+      </div>
+      <a class="support-btn" href="https://buymeamalt.com/@azeru548" target="_blank" rel="noopener noreferrer">Buy me a malt ↗</a>
+    </div>
+  </section>
 </main>
 
 <footer class="footer">
@@ -767,6 +794,7 @@ h2 {
     <a href="/studio">Studio</a>
     <a href="/health">Health</a>
     <a href="/api/limits">Limits JSON</a>
+    <a href="https://buymeamalt.com/@azeru548" target="_blank" rel="noopener noreferrer">Buy me a malt ↗</a>
   </nav>
   <span class="colophon">声 · free · no account, no card</span>
 </footer>

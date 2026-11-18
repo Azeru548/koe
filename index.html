@@ -476,6 +476,44 @@ input[type="range"]:disabled { opacity: .4; cursor: not-allowed; }
   .btn { flex: 1; }
 }
 
+/* ── support nudge · shown once, after the second finished voiceover ── */
+.malt-modal[hidden] { display: none; }
+.malt-modal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px; }
+.malt-backdrop { position: absolute; inset: 0; background: rgba(24, 22, 19, .34); animation: maltFade .18s ease both; }
+.malt-panel {
+  position: relative; width: min(432px, 100%);
+  background: var(--sheet); border: 1px solid var(--line-strong);
+  padding: 26px 26px 22px;
+  box-shadow: 0 26px 64px rgba(24, 22, 19, .24);
+  animation: maltRise .22s cubic-bezier(.2, .72, .3, 1) both;
+}
+@keyframes maltFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes maltRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.malt-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.malt-panel h2 { margin-top: 10px; font-size: 20px; font-weight: 600; letter-spacing: -.02em; color: var(--ink); }
+.malt-body { margin-top: 10px; font-size: 13.5px; line-height: 1.62; color: var(--ink-2); }
+.malt-actions { display: flex; align-items: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.malt-cta {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--accent); color: #fdf8ee; text-decoration: none;
+  font-size: 13px; font-weight: 500; padding: 11px 16px;
+  transition: background .16s;
+}
+.malt-cta:hover { background: var(--accent-ink); }
+.malt-dismiss {
+  background: none; border: 1px solid var(--line-strong); color: var(--ink-2);
+  font: inherit; font-size: 12.5px; padding: 11px 14px; cursor: pointer;
+  transition: border-color .16s, color .16s;
+}
+.malt-dismiss:hover { border-color: var(--ink); color: var(--ink); }
+.malt-close {
+  position: absolute; top: 8px; right: 8px; width: 30px; height: 30px;
+  border: 0; background: none; color: var(--faint); font-size: 18px; line-height: 1;
+  cursor: pointer; transition: color .16s;
+}
+.malt-close:hover { color: var(--ink); }
+.malt-foot { margin-top: 14px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition-duration: .01ms !important;
@@ -494,6 +532,7 @@ input[type="range"]:disabled { opacity: .4; cursor: not-allowed; }
     <span class="workspace-name">Studio</span>
   </div>
   <div class="topbar-meta">
+    <a class="topbar-link" href="https://buymeamalt.com/@azeru548" target="_blank" rel="noopener noreferrer" title="Koe is free to use; the server behind it isn't">Buy me a malt ↗</a>
     <a class="topbar-link" href="/mcp" target="_self" title="Connect an agent to Koe over MCP">MCP for agents ↗</a>
     <span class="status engine" id="enginePill">Microsoft Neural</span>
     <span class="status" id="serverPill">Checking…</span>
@@ -610,6 +649,21 @@ input[type="range"]:disabled { opacity: .4; cursor: not-allowed; }
 </main>
 
 <div class="toast-wrap" id="toastWrap" role="status" aria-live="polite"></div>
+
+<div class="malt-modal" id="maltModal" hidden>
+  <div class="malt-backdrop" data-malt-close></div>
+  <div class="malt-panel" role="dialog" aria-modal="true" aria-labelledby="maltTitle" aria-describedby="maltBody">
+    <button class="malt-close" type="button" data-malt-close aria-label="Close">×</button>
+    <p class="malt-kicker">支 · Support</p>
+    <h2 id="maltTitle">That's two voiceovers, free.</h2>
+    <p class="malt-body" id="maltBody">Koe runs on one small box and a domain, paid by one person. If it's earning a place in your workflow, buy me a malt — naira or card, and it goes straight to the server bill.</p>
+    <div class="malt-actions">
+      <a class="malt-cta" href="https://buymeamalt.com/@azeru548" target="_blank" rel="noopener noreferrer">Buy me a malt ↗</a>
+      <button class="malt-dismiss" type="button" data-malt-close>Not now</button>
+    </div>
+    <p class="malt-foot">Shown once. Your free limits are the same either way</p>
+  </div>
+</div>
 
 <script>
 
@@ -1332,6 +1386,7 @@ function startPolling(jobId) {
         if (data.status === "done") {
           setWaveStatus("Ready to download");
           toast(`Done! ${voiceName(jobs[idx]?.voice) || "Audio"} is ready (download soon — audio expires).`, "success");
+          if (window.koeMaltPing) window.koeMaltPing();
         } else {
           setWaveStatus("Generation failed");
           toast(failureMsg(data.error), "error");
@@ -1457,6 +1512,52 @@ function toast(msg, type = "info") {
     setTimeout(() => el.remove(), 280);
   }, 3500);
 }
+</script>
+
+<script>
+// Support nudge: appears once, only after two finished voiceovers, never on load.
+(function () {
+  "use strict";
+  var modal = document.getElementById("maltModal");
+  if (!modal) return;
+  var dismiss = modal.querySelector(".malt-dismiss");
+  var KEY = "koe.malt.v1";
+  var AFTER = 2;
+  var lastFocus = null;
+
+  function num(field) {
+    try { return parseInt(localStorage.getItem(KEY + "." + field), 10) || 0; } catch (e) { return 0; }
+  }
+  function set(field, value) {
+    try { localStorage.setItem(KEY + "." + field, String(value)); } catch (e) { /* private mode */ }
+  }
+
+  function open() {
+    if (num("shown")) return;
+    set("shown", 1);
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    setTimeout(function () { if (dismiss) dismiss.focus(); }, 40);
+  }
+  function close() {
+    modal.hidden = true;
+    if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
+  }
+
+  modal.addEventListener("click", function (e) {
+    if (e.target && e.target.closest && e.target.closest("[data-malt-close]")) close();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !modal.hidden) close();
+  });
+
+  window.koeMaltPing = function () {
+    var done = num("done") + 1;
+    set("done", done);
+    if (done < AFTER) return;
+    setTimeout(open, 1100);
+  };
+})();
 </script>
 </body>
 </html>
