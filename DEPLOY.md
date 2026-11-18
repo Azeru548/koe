@@ -429,6 +429,12 @@ Two rules that matter:
   extra Kokoro/Kitten jobs would only occupy global slots while making no
   progress — with the cap they stay queued and edge jobs get the worker. Raise
   it (`kokoro=2,kitten=1`) only if you have sized the host for it.
+- **Kitten scripts are capped at 900 words** (`KOE_ENGINE_MAX_WORDS`, default
+  `kitten=900`) and rejected with `400` before queueing or charging. At ~3
+  words/s a longer script cannot finish inside the 300 s job deadline
+  (`KOE_JOB_DEADLINE_SEC`), so accepting it would only tie up the sidecar and
+  the caller's quota until the deadline failed the job. An empty value disables
+  the ceiling; edge/piper/kokoro keep the global 2,000-word cap.
 
 Set both in `~/koe-ops/koe.env` and re-run `rebuild.sh` — the values are baked
 into `docker run`, so a restart alone will not pick them up:

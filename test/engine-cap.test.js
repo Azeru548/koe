@@ -112,6 +112,35 @@ test("KOE_ENGINE_CONCURRENCY is parsed, with sidecars capped by default", () => 
   assert.equal(guard.publicLimits().global.engines.kitten, 1);
 });
 
+test("KOE_ENGINE_MAX_WORDS caps kitten below the global job cap", () => {
+  const guard = require("../guard");
+  // Kitten is too slow to finish more than ~900 words inside the 300 s
+  // deadline, so it is rejected up front instead of failing later.
+  assert.deepEqual(guard.cfg.engineMaxWords, { kitten: 900 });
+  assert.equal(guard.maxWordsFor("kitten"), 900);
+  assert.equal(guard.maxWordsFor("Kitten"), 900, "engine names are case-insensitive");
+  assert.equal(guard.maxWordsFor("edge"), guard.cfg.maxWordsPerJob, "uncapped engines keep the global cap");
+  assert.equal(guard.publicLimits().perJob.engineMaxWords.kitten, 900);
+});
+
+test("the per-engine word cap is env-tunable and never exceeds the global cap", () => {
+  const read = (value) =>
+    execFileSync(
+      process.execPath,
+      ["-e", "console.log(JSON.stringify({caps: require('./guard').cfg.engineMaxWords, kitten: require('./guard').maxWordsFor('kitten')}))"],
+      {
+        cwd: ROOT,
+        env: { ...process.env, KOE_DB_PATH: path.join(DIR, "probe.db"), KOE_ENGINE_MAX_WORDS: value },
+      }
+    ).toString().trim();
+
+  assert.deepEqual(JSON.parse(read("kitten=1200")), { caps: { kitten: 1200 }, kitten: 1200 });
+  // A per-engine cap above the global job cap is clamped, never raised.
+  assert.deepEqual(JSON.parse(read("kitten=9000")), { caps: { kitten: 9000 }, kitten: 2000 });
+  // Empty disables the ceiling: kitten falls back to the global cap.
+  assert.deepEqual(JSON.parse(read("")), { caps: {}, kitten: 2000 });
+});
+
 test("the env override is honoured, including turning the ceiling off", () => {
   const read = (value) =>
     execFileSync(

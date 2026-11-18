@@ -1,0 +1,167 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      background: var(--color-ground);
+      overflow: hidden;
+    }
+    #root::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("assets/noise.png");
+      background-size: 512px 512px;
+      opacity: 0.05;
+      mix-blend-mode: multiply;
+      pointer-events: none;
+      z-index: 60;
+    }
+    #s3-cam {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 50%;
+    }
+
+    /* the mark is carried in; the wordmark wipes in beside it */
+    #s3-lockup {
+      position: absolute;
+      left: 170px;
+      top: 330px;
+      display: flex;
+      align-items: center;
+      gap: 54px;
+      z-index: 2;
+    }
+    #s3-mark {
+      height: 320px;
+      width: auto;
+    }
+    #s3-word {
+      font-family: var(--font-display);
+      font-variation-settings: "opsz" 60;
+      font-weight: 600;
+      font-size: 250px;
+      letter-spacing: -0.04em;
+      line-height: 0.9;
+      color: var(--color-ink);
+    }
+    #s3-version {
+      position: absolute;
+      left: 176px;
+      top: 700px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      font-size: 30px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      z-index: 2;
+    }
+
+    /* the product's own code panel, with the one endpoint */
+    #s3-panel {
+      position: absolute;
+      right: 170px;
+      top: 360px;
+      width: 800px;
+      background: #181613;
+      border-radius: 4px;
+      padding: 30px 34px;
+      z-index: 3;
+      box-shadow: 0 10px 30px rgba(24, 22, 19, 0.12), 0 2px 6px rgba(24, 22, 19, 0.06);
+    }
+    #s3-panel-label {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8b949e;
+    }
+    #s3-url-wrap {
+      position: relative;
+      margin-top: 22px;
+      height: 56px;
+    }
+    #s3-url {
+      font-family: var(--font-mono);
+      font-size: 34px;
+      line-height: 1.4;
+      color: #7dd3fc;
+      white-space: nowrap;
+    }
+    #s3-caret {
+      display: inline-block;
+      width: 3px;
+      height: 38px;
+      margin-left: 4px;
+      vertical-align: -6px;
+      background: #7dd3fc;
+    }
+    #s3-url-mask {
+      position: absolute;
+      inset: 0;
+      background: #181613;
+      transform-origin: right center;
+    }
+    #s3-panel-foot {
+      margin-top: 18px;
+      font-family: var(--font-mono);
+      font-size: 20px;
+      color: #8b949e;
+    }
+  </style>
+
+  <div data-hf-id="hf-3xc5" id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-qiqo" id="s3-cam" data-layout-allow-overflow>
+      <div data-hf-id="hf-txpc" id="s3-lockup" class="clip" data-start="0" data-duration="5.6">
+        <img data-hf-id="hf-ekwm" id="s3-mark" src="assets/logo-mark.png" alt="" />
+        <span data-hf-id="hf-8y0a" id="s3-word">koe</span>
+      </div>
+      <div data-hf-id="hf-t1hc" id="s3-version" class="clip" data-start="0" data-duration="5.6">version 2</div>
+
+      <div data-hf-id="hf-mc1s" id="s3-panel" class="clip" data-start="3.5" data-duration="2.1">
+        <div data-hf-id="hf-03a8" id="s3-panel-label">Streamable HTTP · stateless</div>
+        <div data-hf-id="hf-dy74" id="s3-url-wrap">
+          <div data-hf-id="hf-wec9" id="s3-url">https://koe.kennedyazeru.space/mcp<span data-hf-id="hf-9xu2" id="s3-caret"></span></div>
+          <div data-hf-id="hf-4tk6" id="s3-url-mask" data-layout-allow-occlusion></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    tl.fromTo("#s3-cam", { scale: 1 }, { scale: 1.02, duration: 1.4, ease: "power2.out" }, 0);
+
+    /* "Koe" — the mark is carried in, the wordmark is printed after it */
+    tl.fromTo(
+      "#s3-mark",
+      { x: -160, opacity: 0 },
+      { x: 0, opacity: 1, duration: 0.45, ease: "power3.out" },
+      0,
+    );
+    tl.fromTo(
+      "#s3-word",
+      { clipPath: "inset(0 100% 0 0)" },
+      { clipPath: "inset(0 0% 0 0)", duration: 0.5, ease: "power2.out" },
+      0.16,
+    );
+
+    /* "version" */
+    tl.fromTo("#s3-version", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 1.02);
+
+    /* "at one URL" — the endpoint types itself into the product's own panel */
+    tl.fromTo("#s3-panel", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 3.5);
+    tl.fromTo(
+      "#s3-url-mask",
+      { scaleX: 1 },
+      { scaleX: 0, duration: 0.75, ease: "none" },
+      3.95,
+    );
+
+    window.__timelines["s3"] = tl;
+    tl.seek(0);
+  </script>
+</template>

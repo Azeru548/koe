@@ -1,0 +1,176 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      background: var(--color-ground);
+      overflow: hidden;
+    }
+    #root::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("assets/noise.png");
+      background-size: 512px 512px;
+      opacity: 0.05;
+      mix-blend-mode: multiply;
+      pointer-events: none;
+      z-index: 60;
+    }
+    #s4-cam {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 50%;
+    }
+
+    /* the product's own tab row */
+    #s4-tabs {
+      position: absolute;
+      left: 170px;
+      top: 170px;
+      display: flex;
+      gap: 10px;
+      z-index: 2;
+    }
+    .s4-tab {
+      font-family: var(--font-body);
+      font-size: 28px;
+      font-weight: 500;
+      color: var(--muted);
+      background: rgba(0, 0, 0, 0);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 15px 26px;
+    }
+
+    /* the product's own dark code panel */
+    #s4-panel {
+      position: absolute;
+      left: 170px;
+      top: 320px;
+      width: 1580px;
+      background: #181613;
+      border-radius: 4px;
+      padding: 46px 50px;
+      z-index: 3;
+      box-shadow: 0 10px 30px rgba(24, 22, 19, 0.12), 0 2px 6px rgba(24, 22, 19, 0.06);
+    }
+    #s4-head {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8b949e;
+      margin-bottom: 26px;
+    }
+    #s4-cmd-wrap {
+      position: relative;
+    }
+    #s4-cmd {
+      font-family: var(--font-mono);
+      font-size: 37px;
+      line-height: 1.75;
+      color: #e6edf3;
+      white-space: nowrap;
+    }
+    .s4-cmd-c {
+      color: #8b949e;
+    }
+    .s4-cmd-origin {
+      color: #7dd3fc;
+    }
+    .s4-cmd-key {
+      color: #fca5a5;
+    }
+    .s4-cmd-cmd {
+      color: #c4b5fd;
+    }
+    #s4-cmd-mask {
+      position: absolute;
+      inset: -6px -10px;
+      background: #181613;
+      transform-origin: right center;
+    }
+
+    /* the agent confirming itself */
+    #s4-ok {
+      position: absolute;
+      left: 170px;
+      top: 760px;
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      z-index: 4;
+    }
+    #s4-chip {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      font-weight: 500;
+      color: var(--healthy);
+      background: rgba(47, 107, 79, 0.08);
+      border: 1px solid rgba(47, 107, 79, 0.22);
+      border-radius: 4px;
+      padding: 16px 24px;
+    }
+    #s4-ok-note {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      color: var(--muted);
+    }
+  </style>
+
+  <div data-hf-id="hf-2tvg" id="root" data-composition-id="s4" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-51hj" id="s4-cam" data-layout-allow-overflow>
+      <div data-hf-id="hf-rnzg" id="s4-tabs" class="clip" data-start="0" data-duration="6.2">
+        <span data-hf-id="hf-cdfg" id="s4-tab-claude" class="s4-tab">Claude</span>
+        <span data-hf-id="hf-4e46" id="s4-tab-code" class="s4-tab">Claude Code</span>
+        <span data-hf-id="hf-6zlg" id="s4-tab-cursor" class="s4-tab">Cursor</span>
+        <span data-hf-id="hf-xs5z" id="s4-tab-other" class="s4-tab">Any client</span>
+      </div>
+
+      <div data-hf-id="hf-v8eq" id="s4-panel" class="clip" data-start="0" data-duration="6.2">
+        <div data-hf-id="hf-6tbw" id="s4-head">Let your agent set it up · one command</div>
+        <div data-hf-id="hf-3r7e" id="s4-cmd-wrap" data-layout-allow-occlusion>
+          <div data-hf-id="hf-jmg9" id="s4-cmd" data-layout-allow-occlusion>
+            <div data-hf-id="hf-op79" data-layout-allow-occlusion><span data-hf-id="hf-rje6" class="s4-cmd-cmd" data-layout-allow-occlusion>claude</span> mcp add <span data-hf-id="hf-92nw" class="s4-cmd-c" data-layout-allow-occlusion>--transport http</span> koe-tts \</div>
+            <div data-hf-id="hf-jpkj" data-layout-allow-occlusion>&nbsp;&nbsp;<span data-hf-id="hf-eg88" class="s4-cmd-origin" data-layout-allow-occlusion>https://koe.kennedyazeru.space/mcp</span> \</div>
+            <div data-hf-id="hf-55ml" data-layout-allow-occlusion>&nbsp;&nbsp;<span data-hf-id="hf-i9y6" class="s4-cmd-c" data-layout-allow-occlusion>--header</span> <span data-hf-id="hf-x4sl" class="s4-cmd-c" data-layout-allow-occlusion>"Authorization: Bearer</span> <span data-hf-id="hf-k2oc" class="s4-cmd-key" data-layout-allow-occlusion>koe_sk_••••••••••</span><span data-hf-id="hf-9vr1" class="s4-cmd-c" data-layout-allow-occlusion>"</span></div>
+          </div>
+          <div data-hf-id="hf-eltq" id="s4-cmd-mask" data-layout-allow-occlusion></div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-vzry" id="s4-ok" class="clip" data-start="4.2" data-duration="2">
+        <span data-hf-id="hf-iyet" id="s4-chip">studio_status → ok</span>
+        <span data-hf-id="hf-8lmc" id="s4-ok-note">saved to ~/.koe/credentials.json</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    tl.fromTo("#s4-cam", { scale: 1 }, { scale: 1.02, duration: 1.6, ease: "power2.out" }, 0);
+
+    const tabActive = { backgroundColor: "#fbfaf5", color: "#181613", borderColor: "#c3baa8" };
+    const tabIdle = { backgroundColor: "rgba(0,0,0,0)", color: "#6d675c", borderColor: "#d8d2c4" };
+
+    /* the tabs step as each client is named */
+    tl.fromTo("#s4-tab-claude", tabIdle, { ...tabActive, duration: 0.22, ease: "power2.out" }, 0.7);
+    tl.to("#s4-tab-claude", { ...tabIdle, duration: 0.22, ease: "power2.out" }, 1.42);
+    tl.fromTo("#s4-tab-cursor", tabIdle, { ...tabActive, duration: 0.22, ease: "power2.out" }, 1.42);
+    tl.to("#s4-tab-cursor", { ...tabIdle, duration: 0.22, ease: "power2.out" }, 2.06);
+    tl.fromTo("#s4-tab-other", tabIdle, { ...tabActive, duration: 0.22, ease: "power2.out" }, 2.06);
+    tl.to("#s4-tab-other", { ...tabIdle, duration: 0.22, ease: "power2.out" }, 3.02);
+    tl.fromTo("#s4-tab-code", tabIdle, { ...tabActive, duration: 0.22, ease: "power2.out" }, 3.02);
+
+    /* the panel is already built; the command types itself on "endpoint" */
+    tl.fromTo("#s4-panel", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0);
+    tl.fromTo("#s4-cmd-mask", { scaleX: 1 }, { scaleX: 0, duration: 2.4, ease: "none" }, 0.6);
+
+    /* "the agent sets itself up" */
+    tl.fromTo("#s4-ok", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 4.46);
+    window.__timelines["s4"] = tl;
+    tl.seek(0);
+  </script>
+</template>

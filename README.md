@@ -372,6 +372,7 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 | `KOE_ANON_WORDS_HOUR` | `500` | Words/hour per anonymous IP |
 | `KOE_ANON_WORDS_DAY` | `3000` | Words/day per anonymous IP |
 | `KOE_MAX_JOB_WORDS` | `2000` | Per-request word cap; larger jobs are `400` before counting *(legacy: `KOE_MAX_WORDS_PER_JOB`)* |
+| `KOE_ENGINE_MAX_WORDS` | `kitten=900` | Per-engine word cap, checked before the sidecar probe and before quota is charged. Kitten synthesizes at ~3 words/s, so more than ~900 words cannot finish inside the 300 s job deadline; a longer kitten job is a `400`. Same format as `KOE_ENGINE_CONCURRENCY`, empty disables |
 | `KOE_MAX_CHARS_PER_JOB` | `40000` | Per-request character cap (`413`) |
 | `KOE_MAX_CHARS_PER_PREVIEW` | `600` | Preview text cap |
 | `KOE_GLOBAL_CONCURRENCY` | `6` | Simultaneous upstream jobs |

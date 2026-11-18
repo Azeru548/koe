@@ -258,3 +258,23 @@ test("request validation happens after auth", async () => {
   const missing = await json("GET", "/job/does-not-exist", { key: keys[0] });
   assert.equal(missing.status, 404);
 });
+
+test("a script over its engine's word cap is rejected before the sidecar or quota", async () => {
+  // 901 words: inside the global 2,000-word cap, over kitten's 900-word cap.
+  const text = Array.from({ length: 901 }, (_, i) => `word${i % 10}`).join(" ");
+  const before = await json("GET", "/usage", { key: keys[0] });
+
+  const refused = await json("POST", "/tts", { key: keys[0], body: { text, engine: "kitten", voice: "bella" } });
+  assert.equal(refused.status, 400);
+  assert.equal(refused.data.engine, "kitten");
+  assert.equal(refused.data.maxWords, 900);
+  assert.equal(refused.data.wordCount, 901);
+  assert.match(refused.data.error, /max 900 words per kitten job/);
+
+  // A rejected job never consumes quota, and never reaches the sidecar: the
+  // kitten sidecar is not running in this test, so a 503 would mean the length
+  // gate had been missed.
+  const after = await json("GET", "/usage", { key: keys[0] });
+  assert.equal(after.data.usage.hour.words, before.data.usage.hour.words);
+  assert.equal(after.data.usage.hour.requests, before.data.usage.hour.requests);
+});

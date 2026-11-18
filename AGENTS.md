@@ -123,7 +123,7 @@ The main tool. Submits a TTS job, polls it to completion, downloads the result, 
 | --- | --- | --- | --- |
 | `text` | string, required | — | The script. Paragraph breaks allowed; blank-line-separated paragraphs are synthesized as separate parts (see §4). |
 | `voice` | string | `"en-US-GuyNeural"` | Voice id from `list_voices`. |
-| `engine` | `"edge" \| "piper" \| "kokoro" \| "kitten"` | `"edge"` | `edge` supports rate/pitch and is much higher quality. `kokoro` needs the sidecar (`docker compose up -d`); it is MP3, honours rate only (clamped to 1.0–2.0) and **ignores pitch**. `kitten` is the tiny local sidecar: WAV, rate honoured (0.5–2.0), **pitch ignored**. |
+| `engine` | `"edge" \| "piper" \| "kokoro" \| "kitten"` | `"edge"` | `edge` supports rate/pitch and is much higher quality. `kokoro` needs the sidecar (`docker compose up -d`); it is MP3, honours rate only (clamped to 1.0–2.0) and **ignores pitch**. `kitten` is the tiny local sidecar: WAV, rate honoured (0.5–2.0), **pitch ignored**, and capped at 900 words per job. |
 | `rate` | number 0.5–2 | `1` | Speed multiplier. 1 = normal, 1.25 = brisk, 0.85 = deliberate. |
 | `pitch` | integer −100–100 | `0` | Pitch shift in Hz. |
 | `file_name` | string, optional | `voiceover-<jobId>` | Output name without folder; `.mp3`/`.wav` suffix optional (it is added for you). Folders/special chars are sanitized. |
@@ -328,6 +328,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 | `503 {"error":"tts_unavailable","engine":"kokoro"}` | The optional Kokoro sidecar is not running (or still warming up) | Start it: `docker compose up -d` (see [DEPLOY.md](DEPLOY.md) §8). Or just use `engine: "edge"` — nothing else is affected and no quota was spent. |
 | `400 — Invalid voice '…' for engine 'kokoro'` (`validVoices` in the body) | An edge/piper voice id was passed to kokoro (or vice versa) — ids are never shared between engines | Pick one of the ids in `validVoices`, or call `list_voices` with that engine first. |
 | `400 — Job too long (N words)` | Over `KOE_MAX_JOB_WORDS` (2,000) in one call | Split into multiple `generate_voiceover` calls (one per scene) and keep the same voice/rate. |
+| `400 — Job too long for engine 'kitten' (N words)` | Over kitten's per-engine cap (900 words, `KOE_ENGINE_MAX_WORDS`) — it cannot finish that much inside the 300 s deadline | Split the script into shorter calls, or use `engine: "edge"` (up to 2,000 words). Nothing was charged. |
 | `413 — Script too long` | Over 40,000 characters in one call | Same fix: split the script per scene. |
 | `Timed out after Ns waiting for job <id>` | Script too long / slow instance | The job continues server-side — recover it per §2, or re-run with a bigger `timeout_seconds`. |
 | `403 — this job belongs to another tenant` | You used a different key/IP than the one that created the job | Use the same key (or the admin key). Jobs are tenant-isolated. |
@@ -339,7 +340,7 @@ Status codes: `400` bad input (empty text, invalid engine/voice/rate) **or a job
 
 - **Per registered free key:** 60 requests/hour, 2,000 words/hour, 20,000 words/day.
 - **Anonymous (no key):** 20 requests/hour, 500 words/hour, 3,000 words/day.
-- **Per job:** 2,000 words (`400`) / 40,000 characters (`413`). Previews: 600 characters.
+- **Per job:** 2,000 words (`400`) / 40,000 characters (`413`). Previews: 600 characters. **Per engine:** kitten accepts at most **900 words** (`KOE_ENGINE_MAX_WORDS`); a longer kitten script is a `400` *before* the sidecar is probed or quota charged, because it cannot finish inside the 300 s deadline. edge/piper/kokoro keep the full 2,000.
 - **Per IP:** 3 free keys/day (`429` once exhausted, `retryAfterSeconds` until UTC midnight).
 - **Instance-wide:** 6 concurrent jobs, 20-job queue, 30,000 words/day (`KOE_GLOBAL_DAILY_WORDS`). Per engine, it is 1 in flight for Kokoro and 1 for Kitten (`KOE_ENGINE_CONCURRENCY`): a sidecar engine at its cap is skipped so it cannot hold global slots while edge callers wait.
 - **Job deadline:** 300 s from submission, queue wait included (`KOE_JOB_DEADLINE_SEC`). A job still queued at the deadline fails with `Still waiting for a free synthesis slot…`; a job that overruns mid-synthesis fails with `Job exceeded its 300s limit…`. Either way the caller is refunded words and the request unit. Previews wait 30 s for a worker (`KOE_PREVIEW_WAIT_SEC`) and then answer `429` rather than holding the request open.
@@ -443,6 +444,11 @@ output, **rate honoured (0.5–2.0), no pitch**. Eight English speakers:
 The sidecar is authoritative (`GET /voices`); the list above is the fallback
 used while it is down. Kitten ids are not valid for any other engine, and other
 engines' ids are not valid for kitten.
+
+Kitten is the slowest engine (~3 words/s on the reference box), so one kitten
+job is capped at **900 words** (`KOE_ENGINE_MAX_WORDS`, default `kitten=900`).
+A longer script is rejected with `400` before the sidecar is probed and before
+any quota is charged. Keep kitten scenes short; use `edge` for long narration.
 
 ### Kokoro voices (`engine: "kokoro"`)
 

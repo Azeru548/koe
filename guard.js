@@ -89,6 +89,13 @@ const cfg = {
   // edge callers queue behind them. Format "kokoro=1,kitten=1"; empty disables.
   engineConcurrency: parseEngineCaps(process.env.KOE_ENGINE_CONCURRENCY),
 
+  // Per-engine word ceiling. An engine too slow to finish the script inside the
+  // job deadline cannot produce audio for it, so accepting the job only ties up
+  // a worker and the caller's quota until the deadline kills it. Kitten measures
+  // ~3 words/s on the reference box, so ~900 words is all that fits in 300 s.
+  // Format "kitten=900"; empty disables the per-engine ceiling.
+  engineMaxWords: parseEngineCaps(process.env.KOE_ENGINE_MAX_WORDS, "kitten=900"),
+
   // Instant kill switch: every generation answers 503 {"error":"temporarily_disabled"}.
   killSwitch: boolEnv("KOE_KILL_SWITCH", false),
 
@@ -123,8 +130,8 @@ const cfg = {
 // "kokoro=1,kitten=1" -> { kokoro: 1, kitten: 1 }. Unset means the sidecar
 // default; an empty string means no per-engine ceiling at all. Unknown engine
 // names are accepted and simply never match a job.
-function parseEngineCaps(raw) {
-  const source = raw === undefined || raw === null ? "kokoro=1,kitten=1" : String(raw);
+function parseEngineCaps(raw, fallback = "kokoro=1,kitten=1") {
+  const source = raw === undefined || raw === null ? fallback : String(raw);
   const caps = {};
   for (const part of source.split(",")) {
     const [name, value] = part.split("=").map((s) => String(s || "").trim());
@@ -135,6 +142,13 @@ function parseEngineCaps(raw) {
   return caps;
 }
 
+// The word ceiling for one engine: its per-engine cap, never above the global
+// per-job cap. Engines without a cap get the global one.
+function maxWordsFor(engine) {
+  const cap = cfg.engineMaxWords[String(engine || "").toLowerCase()];
+  return cap ? Math.min(cfg.maxWordsPerJob, cap) : cfg.maxWordsPerJob;
+}
+
 const keyLimits = () => ({ requestsPerHour: cfg.keyReqHour, wordsPerHour: cfg.keyWordsHour, wordsPerDay: cfg.keyWordsDay });
 const anonLimits = () => ({ requestsPerHour: cfg.anonReqHour, wordsPerHour: cfg.anonWordsHour, wordsPerDay: cfg.anonWordsDay });
 
@@ -143,7 +157,7 @@ function publicLimits() {
     register: { keysPerIpPerDay: cfg.registerIpDay },
     key: keyLimits(),
     anon: anonLimits(),
-    perJob: { maxWords: cfg.maxWordsPerJob, maxChars: cfg.maxCharsPerJob, maxPreviewChars: cfg.maxCharsPerPreview, maxSeconds: cfg.jobDeadlineSec },
+    perJob: { maxWords: cfg.maxWordsPerJob, maxChars: cfg.maxCharsPerJob, maxPreviewChars: cfg.maxCharsPerPreview, maxSeconds: cfg.jobDeadlineSec, engineMaxWords: cfg.engineMaxWords },
     global: { concurrency: cfg.globalConcurrency, queueMax: cfg.globalQueue, wordsPerDay: cfg.globalWordsDay, engines: cfg.engineConcurrency },
     queue: { waitSeconds: cfg.jobDeadlineSec, previewWaitSeconds: cfg.previewWaitSec },
     audio: {
@@ -534,6 +548,7 @@ function checkCircuit(now = Date.now()) {
 module.exports = {
   cfg,
   publicLimits,
+  maxWordsFor,
   mintKey,
   verifyKey,
   isValidKey,

@@ -698,6 +698,23 @@ app.post("/tts", async (req, res) => {
     return res.status(400).json({ error: "Invalid voice id." });
   }
 
+  const words = text.trim().split(/\s+/).length;
+
+  // A per-engine word ceiling. An engine too slow to finish this script inside
+  // the job deadline would only hold a worker slot and the caller's quota until
+  // the deadline failed it, so it is rejected up front — before the sidecar is
+  // probed and before anything is charged — with an error the caller can act on.
+  const engineWordCap = guard.maxWordsFor(engine);
+  if (words > engineWordCap) {
+    guard.logReject("job_too_long_engine", req.ctx.rawKey, req.ctx.ip, `engine=${engine} words=${words}`);
+    return res.status(400).json({
+      error: `Job too long for engine '${engine}' (${words} words) — max ${engineWordCap} words per ${engine} job. Split the script into shorter calls, or use engine "edge" (up to ${guard.cfg.maxWordsPerJob} words).`,
+      engine,
+      maxWords: engineWordCap,
+      wordCount: words,
+    });
+  }
+
   // Availability is checked BEFORE guard.charge(), exactly where the old
   // CAPABILITIES check sat: an unavailable engine never consumes quota, so
   // there is nothing to refund. Kokoro's 503 has its own documented shape.
@@ -727,7 +744,6 @@ app.post("/tts", async (req, res) => {
     }
   }
 
-  const words = text.trim().split(/\s+/).length;
   if (text.length > guard.cfg.maxCharsPerJob) {
     return res.status(413).json({ error: `Script too long (${text.length} chars) — max ${guard.cfg.maxCharsPerJob} chars per job.`, maxChars: guard.cfg.maxCharsPerJob });
   }
