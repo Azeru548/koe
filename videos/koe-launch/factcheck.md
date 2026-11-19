@@ -1,61 +1,72 @@
 # Fact-check — Koe launch film
 
 Every claim that appears on screen, its source, and its status. Sources were captured on
-2026-11-18 from the live instance. Nothing here is invented; the two items that are not
-literal quotes are marked **Illustrative** and are the only places the film is not quoting.
+2026-11-18 from the live instance. Nothing here is invented; the items that are not literal
+quotes are marked **Illustrative** and are the only places the film is not quoting.
+
+The film sells the product, not the quota: the free-tier numbers, the audio TTL and the
+protocol details were deliberately cut from both the narration and the on-screen text. The
+engines are named, never explained.
 
 | # | On screen | Where it is shown | Source | Status |
 |---|---|---|---|---|
 | 1 | "Give your agent a voice." | brand scene headline, end card | `https://koe.kennedyazeru.space/` — `<h1>` | Verified, verbatim |
-| 2 | "A hosted MCP server that turns a script into a finished voiceover." | brand scene sub | `/` hero paragraph: "Koe is a hosted MCP server that turns a script into a finished voiceover." | Verified, verbatim (first clause) |
-| 3 | "Text goes in. MP3 comes out." | what scene | `/` instrument section: "text in, MP3 out, quota counted against a free key" | Verified as the site's own phrasing. Note: MP3 applies to the edge and Kokoro engines; the Piper engine returns WAV. |
-| 4 | "29 voices" chip | what scene | `/` meta description: "Twenty-nine curated neural voices" | Verified |
+| 2 | "A hosted MCP server that turns a script into a finished voiceover." | brand scene sub | `/` hero paragraph, same sentence | Verified, verbatim |
+| 3 | "Text goes in. A voiceover comes out." | what scene | `/` instrument section: "text in, MP3 out" | Verified as the site's own phrasing, said without naming a file format |
+| 4 | "a host of voices" chip | what scene | `/voices` catalog: 29 curated neural voices plus the Kokoro and Piper catalogs | Verified |
 | 5 | "one URL" chip | what scene | `/` meta description: "one URL" | Verified |
-| 6 | "metered per key" chip | what scene | `/` instrument section: "quota counted against a free key" | Verified (paraphrase of the same fact) |
-| 7 | "One endpoint. Every MCP client." | what scene sub | `/` three-moves section: "One endpoint, every MCP client." | Verified, verbatim |
-| 8 | "Point your agent at it." + Claude Code / Cursor / Streamable HTTP tiles | fit scene | `/` hero: "point Claude, Cursor or any MCP client at it"; "Streamable HTTP" from the three-moves paragraph | Verified. No third-party logos are used; the trademark fine print is on screen. |
-| 9 | "Key. URL. Voiceover." | how scene steps | `/` "Three moves to a finished voiceover" — take a free key, point the agent at Koe, ask for a voiceover | Verified (compressed to three words) |
-| 10 | Button "Connect your agent" | how scene | `/` primary CTA: "CONNECT YOUR AGENT" | Verified, verbatim |
-| 11 | Dialog "Create your free key" / "Create key" | how scene | `/` step one: "Open the setup page and press Create key." | Verified |
-| 12 | Input "Add koe.kennedyazeru.space as an MCP server, then call generate_voiceover." | how scene | `/` step two (add the URL, send the key as a bearer header) + `/mcp` tools table (`generate_voiceover`) | Verified |
-| 13 | Chat: "Create key, send it as a bearer header." | how scene bubble | `/` step two: "Add the URL and send the key as a bearer header." | Verified (factual answer, as the schema requires for `how_a`) |
-| 14 | "No install. No SDK. No card." | how scene sub | `/` three-moves paragraph: "No install, no SDK, no key purchase"; footer: "No account. No card." | Verified, composed from two verbatim phrases |
-| 15 | "No account. No API bill." | proof scene headline | `/` meta description and hero paragraph: "no account and no API bill" | Verified, verbatim |
-| 16 | "A free key gets 60 requests an hour. Audio deletes itself after 15 minutes." | proof scene sub | `/` limits band: "FREE KEY 60 / hour"; "AUDIO LIFETIME 15 min · then deleted" | Verified |
-| 17 | "Hosted MCP. Twenty-nine voices. One URL." | end card sub | `/` meta description and hero | Verified |
-| 18 | koe.kennedyazeru.space | end card pill, workspace, input | live endpoint | Verified (the instance answered `/healthz` during the build) |
-| 19 | Sticker "Infinite free voices!!!" | workspace, struck out by the fact-checker | — | **Deliberately false.** The film's own fact-checker strikes it; it is the joke, not a claim. |
-| 20 | Result filenames `voiceovers/01-hook.mp3`, `02-tension.mp3`, `03-reveal.mp3` | how scene results | — | **Illustrative.** These are example output names in the shape the MCP returns (see AGENTS.md §1); the film does not claim these exact files exist. |
-| 21 | Chat: "Sixty an hour. That's a lot of talking." | proof scene | limits band (60 requests/hour) | Verified arithmetic; the rest is a joke about the crew |
-| 22 | Voiceover: "Twenty-nine voices, one URL, and no API bill." | end card, spoken | `/` meta description and hero | Verified |
+| 6 | "no API bill" chip | what scene | `/` meta description and hero: "no API bill" | Verified, verbatim |
+| 7 | "One URL. Every MCP client." | what scene sub | `/` three-moves section: "One endpoint, every MCP client." | Verified (endpoint → URL, the word the film uses everywhere) |
+| 8 | Wall categories: Studio, Voices, Engines, Samples | what scene, over the screenshot collage | `/studio`, `/voices`, `/docs` | Verified — all four are real pages/sections of the site |
+| 9 | "Point your agent at it." + Claude Code / Cursor / Streamable HTTP tiles | fit scene | `/` hero: "point Claude, Cursor or any MCP client at it"; "Streamable HTTP" from the three-moves paragraph | Verified. No third-party logos are used; the trademark fine print is on screen. |
+| 10 | "Key. URL. Voiceover." | how scene steps | `/` "Three moves to a finished voiceover" — take a free key, point the agent at Koe, ask for a voiceover | Verified (compressed to three words) |
+| 11 | Button "Connect your agent" | how scene | `/` primary CTA: "CONNECT YOUR AGENT" | Verified, verbatim |
+| 12 | Dialog "Create your free key" / "Create key" | how scene | `/` step one: "Open the setup page and press Create key." | Verified |
+| 13 | Input "Add koe.kennedyazeru.space as an MCP server, then call generate_voiceover." | how scene | `/` step two + `/mcp` tools table (`generate_voiceover`) | Verified |
+| 14 | Chat: "Do I need to install anything?" → "No install. Just point it at the URL." | how scene bubbles | `/` three-moves paragraph: "No install, no SDK, no key purchase"; step two: add the URL | Verified |
+| 15 | "No install. No SDK. No card." | how scene sub | `/` three-moves paragraph and footer: "No account. No card." | Verified, composed from two verbatim phrases |
+| 16 | "No account. No API bill." | proof scene headline | `/` meta description and hero: "no account and no API bill" | Verified, verbatim |
+| 17 | "A host of voices, the studio, and the MCP server. Free to start." | proof scene sub | `/voices`, `/studio`, `/mcp`; `/` footer "free to start" | Verified |
+| 18 | "Hosted MCP. A host of voices. One URL." | end card sub | `/` meta description and hero | Verified |
+| 19 | koe.kennedyazeru.space | end card pill, workspace, input | live endpoint | Verified (the instance answered `/healthz` during the build) |
+| 20 | Sticker "Infinite free voices!!!" | workspace, struck out by the fact-checker | — | **Deliberately false.** The film's own fact-checker strikes it; it is the joke, not a claim. |
+| 21 | Result filenames `voiceovers/01-hook.mp3`, `02-tension.mp3`, `03-reveal.mp3` | how scene results | — | **Illustrative.** These are example output names in the shape the MCP returns (see AGENTS.md §1); the film does not claim these exact files exist. |
+| 22 | Chat: "Wait, my agent can narrate itself?" | proof scene | — | Crew banter, not a claim about Koe. |
+| 23 | Spoken: "Kokoro, Piper, and dozens more." | what scene | `/voices?engine=kokoro`, `/voices?engine=piper`, `/voices?engine=edge` — the server reports `engines: { edge, piper, kokoro, kitten }` all true | Verified. The engines are named only; how they run is not stated and not implied. |
 
 ## Spoken script
 
-Ten lines, all generated by Koe itself on `en-US-EmmaNeural` (`assets/vo-01..10.mp3`). Marks in
-seconds against the picture are in `.crew/mix.mjs`.
+One continuous read, generated by Koe itself on `en-US-EmmaNeural` and saved as
+`assets/vo-take.mp3` (82 words, 29.57 s, one job — that is what keeps the prosody from
+resetting between sentences). The engines line is not in the script any more; the old
+per-line clips `assets/vo-01..10.mp3` are kept for reference but unused. The take is cut
+at its own sentence pauses, and the resulting marks in seconds against the picture live in
+`.crew/mix.mjs`.
 
 | At | Line | Status |
 |---|---|---|
-| 1.3 | "Koe is a text-to-speech MCP server. Most agents still don't have a voice." | Verified: `/` hero — "Koe is a hosted MCP server that turns a script into a finished voiceover"; `/mcp` tool table. Second sentence is rhetorical, not a claim about Koe. |
-| 7.15 | "Give your agent a voice." | Verified, verbatim (site `<h1>`) |
-| 9.6 | "Text goes in. An MP3 comes out." | Verified (see #3 — MP3 for edge/Kokoro, WAV for Piper) |
-| 12.85 | "Kokoro and Piper run offline." | Verified — both are local engines (`GET /voices?engine=`, `engines/kokoro.js`); neither calls a cloud TTS API. Piper on the server host, Kokoro as a local sidecar. "Offline" describes the engines, not the hosted service, which still streams audio over the network. |
-| 15.6 | "Point your agent at one URL." | Verified (see #5) |
-| 19.3 | "Create a key. Send it as a bearer header." | Verified (`/` step two) |
-| 22.8 | "Claude Code connects with one command." | Verified — `claude mcp add koe-tts -- node mcp/index.js` (AGENTS.md §9) |
-| 25.6 | "A free key gets sixty requests an hour. The audio deletes itself after fifteen minutes." | Verified (see #16) |
-| 34.6 | "Twenty-nine voices, one URL, and no API bill." | Verified (see #22) |
-| 38.6 | "Free to start. No account, no card." | Verified, from the site's own footer and hero copy |
+| 1.10 | "Agents can research, write, and ship whole projects. They just can't speak." | Rhetorical setup, not a claim about Koe. The point (agents have no voice) is the product's premise on `/`. |
+| 6.05 | "That's where Koe comes in." | Transition, ends exactly on the brand-card cut at 7.5 s. |
+| 9.00 | "Koe is a text-to-speech server with a host of voice models." | Verified: `/` hero and `/voices` catalog. Plays over the voice wall (9.5 s). |
+| 13.85 | "Point your agent at it." | Verified, verbatim (see #9). Lands on the fit scene (cut 13.5 s). |
+| 17.55 | "Take a free key, connect your agent, and ask for a voiceover." | Verified: `/` three moves. No protocol detail. Enters on the how cut (17.5 s). |
+| 23.50 | "No account. No API bill. Nothing to install." | Verified (see #15, #16). Over the proof cards (23.5 s) into the headlines (24.5 / 25.5 s). |
+| 29.15 | "Or play in the studio — type a line, pick a voice, and hear it." | Verified: `/studio` is the public playground with a text box, a voice picker and instant preview. |
+| 34.05 | "A host of voices. One URL." | Verified (see #18). "One URL" lands on the url pill (35.5 s). |
+| 37.15 | "Free to start. Give your agent a voice." | Verified — site footer "Free to start" and the `<h1>`. |
 
 ## Free / price language
 
-The film uses "No API bill", "No card", "No account" and "free key". Each comes from the site's
-own copy, and none of them promises an unlimited free product: the same film states the free
-key's 60-per-hour limit and the 15-minute audio lifetime in the proof scene. There is no pricing
-page on the site, so no price, plan or trial wording appears anywhere in the film.
+The film uses "No API bill", "No card", "No account", "no install" and "free to start", all from the
+site's own copy. It no longer states the free key's 60-per-hour limit or the 15-minute audio
+lifetime: those are real and documented on `/` and in AGENTS.md, but a 42-second launch film is a
+pitch, not a spec sheet, and the limits read as fine print in a medium where fine print is never
+read.
 
 ## Not claimed anywhere in the film
 
+- No rate limits, quotas, word counts, TTLs or request budgets — on screen or in the voiceover.
+- No claim about how an engine runs (local, cloud, offline, model size). The engines are named.
 - No uptime, customer, review or benchmark figures.
 - No claim that the crew editor is a real feature: `conceptLabel` is off because this is Koe's
   own product, and the workspace is the film's own frame story, which the narration never

@@ -1,203 +1,255 @@
 {
-  "lang": "en",
-  "style": "bots",
-  "product": {
-    "name": "Koe",
-    "url": "koe.kennedyazeru.space",
-    "mark": "capture/media/logo-0.png",
-    "markBg": "#ECE3D2",
-    "markPad": 0.2,
-    "markFill": false
+ "lang": "en",
+ "style": "bots",
+ "product": {
+  "name": "Koe",
+  "url": "koe.kennedyazeru.space",
+  "mark": "../assets/logo-mark.png",
+  "markBg": "#ECE3D2",
+  "markPad": 0.2,
+  "markFill": false
+ },
+ "palette": {
+  "brand": "#B23A2B",
+  "accents": [
+   "#C8A24A",
+   "#1A1712"
+  ],
+  "highlight": "#EBC8BE"
+ },
+ "fonts": {
+  "display": "Source Serif 4",
+  "ui": "IBM Plex Sans"
+ },
+ "human": {
+  "name": "Kennedy",
+  "role": "Koe team"
+ },
+ "workspace": {
+  "projectTitle": "Koe in 40 seconds",
+  "channel": "#explain-koe",
+  "conceptLabel": null,
+  "sticker": "Infinite free voices!!!"
+ },
+ "chat": {
+  "open": {
+   "text": "Who can explain Koe in 40 seconds?"
   },
-  "palette": {
-    "brand": "#B23A2B",
-    "accents": ["#C8A24A", "#1A1712"],
-    "highlight": "#EBC8BE"
+  "hero_joke": {
+   "text": "Does it do a dramatic sigh?",
+   "icon": "mic"
   },
-  "fonts": {
-    "display": "Source Serif 4",
-    "ui": "IBM Plex Sans"
+  "wall_q": {
+   "text": "Are those real Koe screens?"
   },
-  "human": {
-    "name": "Kennedy",
-    "role": "Koe team"
+  "wall_a": {
+   "text": "All real. Straight from the Koe site.",
+   "icon": "images"
   },
-  "workspace": {
-    "projectTitle": "Koe in 40 seconds",
-    "channel": "#explain-koe",
-    "conceptLabel": null,
-    "sticker": "Infinite free voices!!!"
+  "slot_q": {
+   "text": "I'm an agent. Does it speak to me?",
+   "icon": "bot"
   },
-  "chat": {
-    "open": {
-      "text": "Who can explain Koe in 40 seconds?"
+  "how_q": {
+   "text": "Do I need to install anything?",
+   "icon": "key-round"
+  },
+  "how_a": {
+   "text": "No install. Just point it at the URL."
+  },
+  "proof_joke": {
+   "text": "Wait, my agent can narrate itself?"
+  },
+  "taste": {
+   "text": "Tasted the render. Warm and articulate.",
+   "icon": "headphones"
+  }
+ },
+ "scenes": {
+  "brand": {
+   "label": "Koe",
+   "headline": [
+    "Give your",
+    "agent a voice."
+   ],
+   "highlight": "a voice",
+   "sub": "A hosted MCP server that turns a script into a finished voiceover.",
+   "peeks": [
+    "images/studio.jpg",
+    "images/hearit.jpg",
+    "images/hero.jpg",
+    "images/index-text.jpg"
+   ]
+  },
+  "what": {
+   "label": "What it is",
+   "kind": "MCP server",
+   "headline": [
+    "Text goes in.",
+    "A voiceover comes out."
+   ],
+   "highlight": [
+    "in",
+    "out"
+   ],
+   "sub": "One URL. Every MCP client.",
+   "chips": [
+    {
+     "icon": "audio-lines",
+     "text": "a host of voices"
     },
-    "hero_joke": {
-      "text": "Does it do a dramatic sigh?",
-      "icon": "mic"
+    {
+     "icon": "globe",
+     "text": "one URL"
     },
-    "wall_q": {
-      "text": "Are those real Koe screens?"
-    },
-    "wall_a": {
-      "text": "All real. Straight from the Koe site.",
-      "icon": "images"
-    },
-    "slot_q": {
-      "text": "I'm an agent. Does it speak to me?",
-      "icon": "bot"
-    },
-    "how_q": {
-      "text": "Where do I put the API key?",
-      "icon": "key-round"
-    },
-    "how_a": {
-      "text": "Create key, send it as a bearer header."
-    },
-    "proof_joke": {
-      "text": "Sixty an hour. That's a lot of talking."
-    },
-    "taste": {
-      "text": "Tasted the render. Warm and articulate.",
-      "icon": "headphones"
+    {
+     "icon": "gauge",
+     "text": "no API bill"
     }
+   ],
+   "categories": [
+    "Studio",
+    "Voices",
+    "Engines",
+    "Samples"
+   ],
+   "wall": [
+    "images/studio.jpg",
+    "images/hearit.jpg",
+    "images/threemoves.jpg",
+    "images/tools.jpg",
+    "images/prompts.jpg",
+    "images/hero.jpg",
+    "images/building.jpg",
+    "images/singer.jpg"
+   ]
   },
-  "scenes": {
-    "brand": {
-      "label": "Koe",
-      "headline": ["Give your", "agent a voice."],
-      "highlight": "a voice",
-      "sub": "A hosted MCP server that turns a script into a finished voiceover.",
-      "peeks": [
-        "images/studio.jpg",
-        "images/hearit.jpg",
-        "images/hero.jpg",
-        "images/index-text.jpg"
-      ]
+  "fit": {
+   "label": "Works with",
+   "headline": [
+    "Point your",
+    "agent at it."
+   ],
+   "chip": "Works",
+   "more": "+ any MCP client",
+   "items": [
+    {
+     "name": "Claude Code",
+     "logo": null,
+     "icon": "terminal"
     },
-    "what": {
-      "label": "What it is",
-      "kind": "MCP server",
-      "headline": ["Text goes in.", "MP3 comes out."],
-      "highlight": ["in", "out"],
-      "sub": "One endpoint. Every MCP client.",
-      "chips": [
-        { "icon": "audio-lines", "text": "29 voices" },
-        { "icon": "globe", "text": "one URL" },
-        { "icon": "gauge", "text": "metered per key" }
-      ],
-      "categories": ["Studio", "Samples", "Tools", "Limits"],
-      "wall": [
-        "images/studio.jpg",
-        "images/hearit.jpg",
-        "images/threemoves.jpg",
-        "images/tools.jpg",
-        "images/prompts.jpg",
-        "images/limits.jpg",
-        "images/building.jpg",
-        "images/singer.jpg"
-      ]
+    {
+     "name": "Cursor",
+     "logo": null,
+     "icon": "mouse-pointer-2"
     },
-    "fit": {
-      "label": "Works with",
-      "headline": ["Point your", "agent at it."],
-      "chip": "Works",
-      "more": "+ any MCP client",
-      "items": [
-        { "name": "Claude Code", "logo": null, "icon": "terminal" },
-        { "name": "Cursor", "logo": null, "icon": "mouse-pointer-2" },
-        { "name": "Streamable HTTP", "logo": null, "icon": "plug" }
-      ],
-      "finePrint": "Claude and Cursor are trademarks of their respective owners. Koe is not affiliated with or endorsed by them."
-    },
-    "how": {
-      "label": "Three moves",
-      "steps": ["Key.", "URL.", "Voiceover."],
-      "button": "Connect your agent",
-      "buttonDone": "Connected",
-      "buttonIcon": "link",
-      "cardTitle": "Claude Code",
-      "input": "Add koe.kennedyazeru.space as an MCP server, then call generate_voiceover.",
-      "inputHighlight": "koe.kennedyazeru.space",
-      "dialog": {
-        "title": "Create your free key",
-        "label": "Key",
-        "value": "koe_sk_••••••••••",
-        "approve": "Create key",
-        "deny": "Cancel"
-      },
-      "results": [
-        "images/studio.jpg",
-        "images/hearit.jpg",
-        "images/tools.jpg"
-      ],
-      "resultPrefix": "→",
-      "resultLine": "{x}",
-      "resultValues": [
-        "voiceovers/01-hook.mp3",
-        "voiceovers/02-tension.mp3",
-        "voiceovers/03-reveal.mp3"
-      ],
-      "sub": "No install. No SDK. No card."
-    },
-    "proof": {
-      "label": "Why trust it",
-      "headline": ["No account.", "No API bill."],
-      "sub": "A free key gets 60 requests an hour. Audio deletes itself after 15 minutes.",
-      "stamp": "Real",
-      "stampIcon": "badge-check",
-      "cards": [
-        "images/studio.jpg",
-        "images/hero.jpg",
-        "images/hearit.jpg",
-        "images/index-text.jpg",
-        "images/building.jpg",
-        "images/singer.jpg"
-      ]
+    {
+     "name": "Streamable HTTP",
+     "logo": null,
+     "icon": "plug"
     }
+   ],
+   "finePrint": "Claude and Cursor are trademarks of their respective owners. Koe is not affiliated with or endorsed by them."
   },
-  "end": {
-    "headline": ["Give your agent", "a voice."],
-    "highlight": "a voice",
-    "sub": "Hosted MCP. Twenty-nine voices. One URL.",
-    "url": "koe.kennedyazeru.space"
+  "how": {
+   "label": "Three moves",
+   "steps": [
+    "Key.",
+    "URL.",
+    "Voiceover."
+   ],
+   "button": "Connect your agent",
+   "buttonDone": "Connected",
+   "buttonIcon": "link",
+   "cardTitle": "Claude Code",
+   "input": "Add koe.kennedyazeru.space as an MCP server, then call generate_voiceover.",
+   "inputHighlight": "koe.kennedyazeru.space",
+   "dialog": {
+    "title": "Create your free key",
+    "label": "Key",
+    "value": "koe_sk_••••••••••",
+    "approve": "Create key",
+    "deny": "Cancel"
+   },
+   "results": [
+    "images/studio.jpg",
+    "images/hearit.jpg",
+    "images/tools.jpg"
+   ],
+   "resultPrefix": "→",
+   "resultLine": "{x}",
+   "resultValues": [
+    "voiceovers/01-hook.mp3",
+    "voiceovers/02-tension.mp3",
+    "voiceovers/03-reveal.mp3"
+   ],
+   "sub": "No install. No SDK. No card."
   },
-  "sources": [
-    {
-      "fact": "Hero line 'Give your agent a voice.'",
-      "url": "https://koe.kennedyazeru.space/ (h1)"
-    },
-    {
-      "fact": "Koe is a hosted MCP server that turns a script into a finished voiceover",
-      "url": "https://koe.kennedyazeru.space/ (meta description and hero paragraph)"
-    },
-    {
-      "fact": "Twenty-nine curated neural voices, one URL, no account, no API bill",
-      "url": "https://koe.kennedyazeru.space/ (meta description)"
-    },
-    {
-      "fact": "Point Claude, Cursor or any MCP client at it",
-      "url": "https://koe.kennedyazeru.space/ (hero paragraph)"
-    },
-    {
-      "fact": "Three moves: take a free key, point the agent at Koe, ask for a voiceover",
-      "url": "https://koe.kennedyazeru.space/ (h2 'Three moves to a finished voiceover')"
-    },
-    {
-      "fact": "Free key: 60 requests an hour, 2,000 words; one job up to 2,000 words / 40,000 chars; audio lifetime 15 minutes then deleted",
-      "url": "https://koe.kennedyazeru.space/ (limits band under the three moves)"
-    },
-    {
-      "fact": "The six MCP tools: studio_status, list_voices, generate_voiceover, get_voiceover_status, list_recent_voiceovers, get_usage",
-      "url": "https://koe.kennedyazeru.space/mcp (Tools table)"
-    },
-    {
-      "fact": "No install, no SDK, no key purchase; the endpoint is stateless and speaks plain JSON over Streamable HTTP",
-      "url": "https://koe.kennedyazeru.space/ (three moves section paragraph)"
-    },
-    {
-      "fact": "The Studio interface with 29 voices, engine, rate and pitch controls",
-      "url": "https://koe.kennedyazeru.space/studio (live screen, captured)"
-    }
-  ]
+  "proof": {
+   "label": "Why trust it",
+   "headline": [
+    "No account.",
+    "No API bill."
+   ],
+   "sub": "A host of voices, the studio, and the MCP server. Free to start.",
+   "stamp": "Real",
+   "stampIcon": "badge-check",
+   "cards": [
+    "images/studio.jpg",
+    "images/hero.jpg",
+    "images/hearit.jpg",
+    "images/index-text.jpg",
+    "images/building.jpg",
+    "images/singer.jpg"
+   ]
+  }
+ },
+ "end": {
+  "headline": [
+   "Give your agent",
+   "a voice."
+  ],
+  "highlight": "a voice",
+  "sub": "Hosted MCP. A host of voices. One URL.",
+  "url": "koe.kennedyazeru.space",
+  "credit": "Made with Koe"
+ },
+ "sources": [
+  {
+   "fact": "Hero line 'Give your agent a voice.'",
+   "url": "https://koe.kennedyazeru.space/ (h1)"
+  },
+  {
+   "fact": "Koe is a hosted MCP server that turns a script into a finished voiceover",
+   "url": "https://koe.kennedyazeru.space/ (meta description and hero paragraph)"
+  },
+  {
+   "fact": "A host of voice models — Kokoro, Piper and a curated neural catalog — on one URL, with no account and no API bill",
+   "url": "https://koe.kennedyazeru.space/ (meta description) and https://koe.kennedyazeru.space/voices"
+  },
+  {
+   "fact": "Point Claude, Cursor or any MCP client at it",
+   "url": "https://koe.kennedyazeru.space/ (hero paragraph)"
+  },
+  {
+   "fact": "Three moves: take a free key, point the agent at Koe, ask for a voiceover",
+   "url": "https://koe.kennedyazeru.space/ (h2 'Three moves to a finished voiceover')"
+  },
+  {
+   "fact": "Free to start: a free key with no account and no card (limits are not stated on screen — the film sells the product, not the quota)",
+   "url": "https://koe.kennedyazeru.space/ (three moves section)"
+  },
+  {
+   "fact": "The six MCP tools: studio_status, list_voices, generate_voiceover, get_voiceover_status, list_recent_voiceovers, get_usage",
+   "url": "https://koe.kennedyazeru.space/mcp (Tools table)"
+  },
+  {
+   "fact": "No install, no SDK, no key purchase; the endpoint is stateless and speaks plain JSON over Streamable HTTP",
+   "url": "https://koe.kennedyazeru.space/ (three moves section paragraph)"
+  },
+  {
+   "fact": "The Studio interface with 29 voices, engine, rate and pitch controls",
+   "url": "https://koe.kennedyazeru.space/studio (live screen, captured)"
+  }
+ ]
 }

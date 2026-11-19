@@ -4,7 +4,7 @@
  "product": {
   "name": "Koe",
   "url": "koe.kennedyazeru.space",
-  "mark": "assets/logo-0-fc78782b.png",
+  "mark": "assets/logo-mark-fc78782b.png",
   "markBg": "#ECE3D2",
   "markPad": 0.2,
   "wordmark": null
@@ -138,11 +138,11 @@
    "icon": "bot"
   },
   "how_q": {
-   "text": "Where do I put the API key?",
+   "text": "Do I need to install anything?",
    "icon": "key-round"
   },
   "how_a": {
-   "text": "Create key, send it as a bearer header."
+   "text": "No install. Just point it at the URL."
   },
   "sticker": {
    "text": "Adding one tiny sticker.",
@@ -156,7 +156,7 @@
    "text": "Fair."
   },
   "proof_joke": {
-   "text": "Sixty an hour. That's a lot of talking."
+   "text": "Wait, my agent can narrate itself?"
   },
   "tagline": {
    "text": "It's literally the tagline.",
@@ -204,17 +204,17 @@
    "kind": "MCP server",
    "headline": [
     "Text goes in.",
-    "MP3 comes out."
+    "A voiceover comes out."
    ],
    "highlight": [
     "in",
     "out"
    ],
-   "sub": "One endpoint. Every MCP client.",
+   "sub": "One URL. Every MCP client.",
    "chips": [
     {
      "icon": "audio-lines",
-     "text": "29 voices"
+     "text": "a host of voices"
     },
     {
      "icon": "globe",
@@ -222,14 +222,14 @@
     },
     {
      "icon": "gauge",
-     "text": "metered per key"
+     "text": "no API bill"
     }
    ],
    "categories": [
     "Studio",
-    "Samples",
-    "Tools",
-    "Limits"
+    "Voices",
+    "Engines",
+    "Samples"
    ],
    "wall": [
     {
@@ -253,7 +253,7 @@
      "cat": 0
     },
     {
-     "src": "assets/limits-6a86a0a1.jpg",
+     "src": "assets/hero-10d0e23a.jpg",
      "cat": 1
     },
     {
@@ -333,7 +333,7 @@
     "No account.",
     "No API bill."
    ],
-   "sub": "A free key gets 60 requests an hour. Audio deletes itself after 15 minutes.",
+   "sub": "A host of voices, the studio, and the MCP server. Free to start.",
    "stamp": "Real",
    "stampIcon": "badge-check",
    "cards": [
@@ -352,8 +352,9 @@
    "a voice."
   ],
   "highlight": "a voice",
-  "sub": "Hosted MCP. Twenty-nine voices. One URL.",
-  "url": "koe.kennedyazeru.space"
+  "sub": "Hosted MCP. A host of voices. One URL.",
+  "url": "koe.kennedyazeru.space",
+  "credit": "Made with Koe"
  },
  "sources": [
   {
@@ -365,8 +366,8 @@
    "url": "https://koe.kennedyazeru.space/ (meta description and hero paragraph)"
   },
   {
-   "fact": "Twenty-nine curated neural voices, one URL, no account, no API bill",
-   "url": "https://koe.kennedyazeru.space/ (meta description)"
+   "fact": "A host of voice models — Kokoro, Piper and a curated neural catalog — on one URL, with no account and no API bill",
+   "url": "https://koe.kennedyazeru.space/ (meta description) and https://koe.kennedyazeru.space/voices"
   },
   {
    "fact": "Point Claude, Cursor or any MCP client at it",
@@ -377,8 +378,8 @@
    "url": "https://koe.kennedyazeru.space/ (h2 'Three moves to a finished voiceover')"
   },
   {
-   "fact": "Free key: 60 requests an hour, 2,000 words; one job up to 2,000 words / 40,000 chars; audio lifetime 15 minutes then deleted",
-   "url": "https://koe.kennedyazeru.space/ (limits band under the three moves)"
+   "fact": "Free to start: a free key with no account and no card (limits are not stated on screen — the film sells the product, not the quota)",
+   "url": "https://koe.kennedyazeru.space/ (three moves section)"
   },
   {
    "fact": "The six MCP tools: studio_status, list_voices, generate_voiceover, get_voiceover_status, list_recent_voiceovers, get_usage",

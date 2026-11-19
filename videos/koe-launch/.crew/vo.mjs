@@ -55,21 +55,21 @@ async function call(url, init = {}, label = "") {
   throw new Error(`${label}: gave up after retries`);
 }
 
-// Line order matches the visual beats in beat-sheet.md: intro build, hero card, what,
-// fit, how (key / client / voiceover), proof, end card (claim + close).
+// Line order matches the visual beats in beat-sheet.jpg: intro build, hero card, what,
+// the wall (engines), fit, how (key / client / voiceover), proof, end card (claim + close).
+// Marketing read: no rate limits, no protocol detail, no engine internals — the engines
+// are named, never explained. Placement order lives in mix.mjs.
 const lines = [
-  { file: "vo-01.mp3", text: "Koe is a text-to-speech MCP server. Most agents still don't have a voice." },
-  { file: "vo-02.mp3", text: "Give your agent a voice." },
-  { file: "vo-03.mp3", text: "Text goes in. An MP3 comes out." },
-  { file: "vo-04.mp3", text: "Point your agent at one URL." },
-  { file: "vo-05.mp3", text: "Create a key. Send it as a bearer header." },
-  { file: "vo-06.mp3", text: "Claude Code connects with one command." },
-  { file: "vo-07.mp3", text: "A free key gets sixty requests an hour. The audio deletes itself after fifteen minutes." },
-  { file: "vo-08.mp3", text: "Twenty-nine voices, one URL, and no API bill." },
-  { file: "vo-09.mp3", text: "Free to start. No account, no card." },
-  // added after the first cut: naming the local engines. Numbering is creation order;
-  // placement order lives in mix.mjs.
-  { file: "vo-10.mp3", text: "Kokoro and Piper run offline." },
+  { file: "vo-01.mp3", text: "Agents can research, write, and ship whole projects. They just can't speak." },
+  { file: "vo-02.mp3", text: "That's where Koe comes in." },
+  { file: "vo-03.mp3", text: "Koe is a text-to-speech server with a host of voice models." },
+  { file: "vo-04.mp3", text: "Kokoro, Piper, and dozens more." },
+  { file: "vo-05.mp3", text: "Point your agent at it." },
+  { file: "vo-06.mp3", text: "Take a free key, connect your agent, and ask for a voiceover." },
+  { file: "vo-07.mp3", text: "No account. No API bill. Nothing to install." },
+  { file: "vo-08.mp3", text: "Or play in the studio — type a line, pick a voice, and hear it." },
+  { file: "vo-09.mp3", text: "A host of voices. One URL." },
+  { file: "vo-10.mp3", text: "Free to start. Give your agent a voice." },
 ];
 
 const engine = process.env.VO_ENGINE || "edge";

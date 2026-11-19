@@ -318,6 +318,8 @@ function endCard(root, E, crew) {
   h.spans.forEach((s, i) => { s.c2 = !!parts[i].c2; });
   const pill = el('div', 'abs', root, { top: '556px', height: '84px', padding: '0 40px', borderRadius: '999px', background: INK, color: '#fff', display: 'flex', alignItems: 'center', gap: '14px', font: '600 40px var(--ui)', whiteSpace: 'nowrap' }); pill.innerHTML = icon('globe', 34, HL, 2.2) + esc(E.url);
   const sub = el('div', 'fs', root, { top: '664px', left: '0', width: '1920px', textAlign: 'center', fontSize: '40px' }); sub.textContent = E.sub || '';
+  const credit = E.credit ? el('div', 'abs', root, { top: '728px', left: '0', width: '1920px', textAlign: 'center', font: '600 26px var(--ui)', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(18,19,19,.55)', opacity: '0' }) : null;
+  if (credit) credit.textContent = E.credit;
   const shadows = [0, 1, 2, 3, 4].map(i => el('div', 'abs', root, { width: '120px', height: '22px', left: 960 + (i - 2) * 210 - 60 + 'px', top: '1036px', borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(110,92,60,.4), rgba(110,92,60,0))' }));
   const crewImgs = ['c5', 'c4', 'c1', 'c3', 'c2'].map((id, i) => img(root, crew[id].file, { width: '170px', height: '170px', left: 960 + (i - 2) * 210 - 85 + 'px', top: '876px', transformOrigin: '50% 95%' }));
   let meas = null;
@@ -340,6 +342,7 @@ function endCard(root, E, crew) {
     const flash = b >= 74 && b < 74.3 ? 1.08 : 1; h.hl(eOut((b - 71.5) / .35) * flash);
     const pk = eOut((b - 72) / .4); pill.style.opacity = pk; pill.style.transform = `translateY(${(1 - pk) * 60}px)`;
     sub.style.opacity = clamp((b - 72.5) / .4);
+    if (credit) credit.style.opacity = clamp((b - 73.2) / .4) * .95;
     // the crew peek up, squash on the pre-hit dip, jump on the final hit and freeze at the top
     crewImgs.forEach((c, i) => {
       const up = eBack((b - 72.5 - i * .06) / .5); let y = lerp(220, 0, up), sx = 1, sy = 1;
