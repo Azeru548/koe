@@ -61,3 +61,26 @@ ops/koe.env
 # Python bytecode (the Kitten sidecar is Python)
 __pycache__/
 *.pyc
+
+# Launch-film render intermediates — regenerable from .crew/*.mjs plus the assets,
+# and an order of magnitude bigger than the film they produce (.chunks/ alone was
+# 58 MB of 4K parts, and every qa*/ frame is a throwaway contact sheet).
+# The deliverable MP4 and every source file stay tracked: film.json, scenes.css/js,
+# assets/, soundtrack.wav, koe-en-4k.mp4.
+**/.chunks/
+**/.crew/qa*/
+**/.crew/capture/
+**/.crew/*.wav
+**/.crew/*.zip
+**/.crew/*.log
+**/*.tmp.mp4
+**/*.part*.mp4
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
