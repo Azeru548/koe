@@ -39,6 +39,90 @@ function errorResult(message) {
   return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
 }
 
+// One description per tool, used both when the tool is registered and when the
+// static server card is published, so the metadata directories read can never
+// drift from what the server actually does.
+const TOOL_DOCS = {
+  studio_status: "Check that the Koe TTS Studio is reachable, which engines it has, and your free-tier usage. Call this first if a generate call fails — the studio runs on a free host that sleeps after ~15 minutes idle, so the first call can take up to ~60s.",
+  list_voices: "List the available voices for an engine. 'edge' = Microsoft neural voices (cloud, many languages); 'piper' = offline on the studio host; 'kokoro' = the local Kokoro sidecar (offline, MP3); 'kitten' = the local Kitten sidecar (offline, WAV, tiny). Voice ids are never shared between engines — always list the engine you intend to use. Pass an id to generate_voiceover.",
+  generate_voiceover: "Generate a voiceover from text and return it as a short-lived download link (plus inline audio for short clips). Free: the studio applies per-caller hourly/daily word limits. Generated audio is ephemeral — the link works for ~15 minutes, so download the file during the session. Call list_voices first to pick a voice id.",
+  get_voiceover_status: "Check the status of one of your TTS jobs by id (useful when generate_voiceover timed out). Jobs expire after about an hour; audio expires sooner.",
+  list_recent_voiceovers: "List your 10 most recent jobs on the studio (newest first). Jobs are tenant-isolated: you only see your own.",
+  get_usage: "Show your free-tier usage: requests/words this hour and today, the limits, and when they reset.",
+};
+
+// JSON Schema mirror of each tool's zod shape (SDK types as Smithery reads them).
+const TOOL_SCHEMAS = {
+  studio_status: { type: "object", properties: {}, additionalProperties: false },
+  list_voices: {
+    type: "object",
+    properties: {
+      engine: { type: "string", enum: ["edge", "piper", "kokoro", "kitten"], default: "edge" },
+      lang: { type: "string" },
+    },
+  },
+  generate_voiceover: {
+    type: "object",
+    properties: {
+      text: { type: "string", minLength: 1, maxLength: 40000 },
+      voice: { type: "string", default: "en-US-GuyNeural" },
+      engine: { type: "string", enum: ["edge", "piper", "kokoro", "kitten"], default: "edge" },
+      rate: { type: "number", minimum: 0.5, maximum: 2, default: 1 },
+      pitch: { type: "integer", minimum: -100, maximum: 100, default: 0 },
+      timeout_seconds: { type: "integer", minimum: 30, maximum: 900, default: 300 },
+    },
+    required: ["text"],
+  },
+  get_voiceover_status: {
+    type: "object",
+    properties: { job_id: { type: "string" } },
+    required: ["job_id"],
+  },
+  list_recent_voiceovers: { type: "object", properties: {}, additionalProperties: false },
+  get_usage: { type: "object", properties: {}, additionalProperties: false },
+};
+
+/**
+ * The static card served at /.well-known/mcp/server-card.json.
+ *
+ * Directory scanners (Smithery, Glama, registries) can only READ; they cannot
+ * mint a free key, and POST /mcp always answers 401 without one. Without this
+ * card they cannot see the tools at all and list the server as broken, so it is
+ * public, keyless and cached for a few minutes.
+ */
+function serverCard({ publicBase = "https://koe.kennedyazeru.space" } = {}) {
+  const base = String(publicBase).replace(/\/+$/, "");
+  return {
+    $schema: "static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+    name: "space.kennedyazeru/koe",
+    title: "Koe TTS Studio",
+    version: VERSION,
+    description:
+      "Free text-to-speech for any MCP client: one hosted Streamable HTTP endpoint, six tools, " +
+      "four engines (Microsoft neural, piper, kokoro, kitten) and dozens of voices, MP3 or WAV. " +
+      "A free key is minted on the setup page — no account, no card. Generated audio is " +
+      "ephemeral and deleted after 15 minutes.",
+    websiteUrl: `${base}/mcp`,
+    remotes: [{ type: "streamable-http", url: `${base}/mcp` }],
+    serverInfo: { name: "koe-tts-studio", version: VERSION },
+    authentication: {
+      required: true,
+      schemes: ["api-key"],
+      instructions:
+        "Create a free key at /mcp (proof-of-work, no account) and send it as " +
+        "\"Authorization: Bearer <key>\" or \"x-api-key: <key>\".",
+    },
+    capabilities: { tools: true, resources: false, prompts: false },
+    tools: Object.keys(TOOL_DOCS).map((name) => ({
+      name,
+      description: TOOL_DOCS[name],
+      inputSchema: TOOL_SCHEMAS[name],
+    })),
+    resources: [],
+    prompts: [],
+  };
+}
+
 /**
  * @param {object} opts
  * @param {object} opts.client studio client (health/usage/submit/job/listJobs/download/signAudioUrl/…)
@@ -51,7 +135,7 @@ function createHostedMcp({ client }) {
 
   server.tool(
     "studio_status",
-    "Check that the Koe TTS Studio is reachable, which engines it has, and your free-tier usage. Call this first if a generate call fails — the studio runs on a free host that sleeps after ~15 minutes idle, so the first call can take up to ~60s.",
+    TOOL_DOCS.studio_status,
     {},
     async () => {
       try {
@@ -72,7 +156,7 @@ function createHostedMcp({ client }) {
 
   server.tool(
     "list_voices",
-    "List the available voices for an engine. 'edge' = Microsoft neural voices (cloud, many languages); 'piper' = offline on the studio host; 'kokoro' = the local Kokoro sidecar (offline, MP3); 'kitten' = the local Kitten sidecar (offline, WAV, tiny). Voice ids are never shared between engines — always list the engine you intend to use. Pass an id to generate_voiceover.",
+    TOOL_DOCS.list_voices,
     {
       engine: z.enum(["edge", "piper", "kokoro", "kitten"]).default("edge").describe("Which engine's voices to list"),
       lang: z.string().optional().describe("Optional language prefix filter, e.g. 'en', 'en-GB', 'fr'"),
@@ -93,7 +177,7 @@ function createHostedMcp({ client }) {
 
   server.tool(
     "generate_voiceover",
-    "Generate a voiceover from text and return it as a short-lived download link (plus inline audio for short clips). Free: the studio applies per-caller hourly/daily word limits. Generated audio is ephemeral — the link works for ~15 minutes, so download the file during the session. Call list_voices first to pick a voice id.",
+    TOOL_DOCS.generate_voiceover,
     {
       text: z.string().min(1).max(40000).describe("The script to narrate. Paragraph breaks are allowed; long scripts are split into parts automatically."),
       voice: z.string().default("en-US-GuyNeural").describe("Voice id from list_voices, e.g. 'en-US-AndrewNeural'"),
@@ -187,7 +271,7 @@ function createHostedMcp({ client }) {
 
   server.tool(
     "get_voiceover_status",
-    "Check the status of one of your TTS jobs by id (useful when generate_voiceover timed out). Jobs expire after about an hour; audio expires sooner.",
+    TOOL_DOCS.get_voiceover_status,
     {
       job_id: z.string().describe("Job id returned by generate_voiceover"),
     },
@@ -202,7 +286,7 @@ function createHostedMcp({ client }) {
 
   server.tool(
     "list_recent_voiceovers",
-    "List your 10 most recent jobs on the studio (newest first). Jobs are tenant-isolated: you only see your own.",
+    TOOL_DOCS.list_recent_voiceovers,
     {},
     async () => {
       try {
@@ -221,7 +305,7 @@ function createHostedMcp({ client }) {
 
   server.tool(
     "get_usage",
-    "Show your free-tier usage: requests/words this hour and today, the limits, and when they reset.",
+    TOOL_DOCS.get_usage,
     {},
     async () => {
       try {
@@ -236,4 +320,4 @@ function createHostedMcp({ client }) {
   return server;
 }
 
-module.exports = { createHostedMcp, VERSION };
+module.exports = { createHostedMcp, serverCard, TOOL_DOCS, VERSION };

@@ -102,6 +102,25 @@ test("health is public and advertises the free-tier policy", async () => {
   assert.equal(data.limits.key.wordsPerHour, 2000);
 });
 
+test("the MCP server card is public and lists every registered tool", async () => {
+  const { status, data } = await json("GET", "/.well-known/mcp/server-card.json");
+  assert.equal(status, 200);
+  assert.equal(data.serverInfo.name, "koe-tts-studio");
+  assert.equal(data.authentication.required, true);
+  assert.equal(data.remotes[0].type, "streamable-http");
+  assert.ok(data.remotes[0].url.endsWith("/mcp"));
+  assert.deepEqual(data.tools.map((t) => t.name), [
+    "studio_status",
+    "list_voices",
+    "generate_voiceover",
+    "get_voiceover_status",
+    "list_recent_voiceovers",
+    "get_usage",
+  ]);
+  for (const tool of data.tools) assert.ok(tool.description && tool.description.length > 20);
+  assert.deepEqual(data.tools[2].inputSchema.required, ["text"]);
+});
+
 test("public policy endpoints do not require a key", async () => {
   const limits = await json("GET", "/api/limits");
   assert.equal(limits.status, 200);

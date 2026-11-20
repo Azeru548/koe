@@ -7,7 +7,7 @@ const archiver = require("archiver");
 const guard = require("./guard");
 const stats = require("./stats");
 const { mergeZipAudio } = require("./audio");
-const { createHostedMcp } = require("./hosted-mcp");
+const { createHostedMcp, serverCard } = require("./hosted-mcp");
 const { StreamableHTTPServerTransport } = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
 const engines = require("./engines");
 const { TTS_BACKEND } = require("./engines/backend");
@@ -104,6 +104,7 @@ const OPEN_PATHS = new Set([
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
   "/oiran.png", // landing hero artwork — must load before anyone has a key
   "/stats.html", // the dashboard SHELL is public; its data comes from admin-only /stats.json
+  "/.well-known/mcp/server-card.json", // static MCP metadata for directory scanners (they cannot mint a key)
 ]);
 
 // POST /mcp is the only API surface that ALWAYS needs a live keys-row key.
@@ -1144,6 +1145,16 @@ function makeStudioClient(req) {
     signAudioUrl: (id) => `${publicBase}/audio/${encodeURIComponent(id)}?dl=${guard.signDownload(id)}`,
   };
 }
+
+// GET /.well-known/mcp/server-card.json → static MCP metadata for directory
+// scanners (Smithery, Glama, registries). Keyless by necessity: those crawlers
+// cannot mint a key and POST /mcp answers 401 without one, so without this they
+// cannot see the tools and list the server as broken.
+app.get("/.well-known/mcp/server-card.json", (req, res) => {
+  const publicBase = (process.env.KOE_PUBLIC_URL || `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
+  res.set("Cache-Control", "public, max-age=300");
+  res.type("application/json").send(JSON.stringify(serverCard({ publicBase }), null, 2));
+});
 
 // GET /mcp → human setup page (browsers); MCP clients use POST /mcp.
 app.get("/mcp", (req, res) => {
