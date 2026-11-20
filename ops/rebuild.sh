@@ -30,12 +30,41 @@ command -v docker >/dev/null || sudo dnf install -y docker git
 sudo systemctl enable --now docker
 
 echo "=== [3/6] repo ==="
-if [ ! -d "$REPO_DIR/.git" ]; then
-  git clone --branch "$BRANCH" "$REPO_URL" "$REPO_DIR"
+# This script is run two ways: by hand as ec2-user, and by the deploy workflow
+# over SSM, which runs it as root. Root must not be the one talking to git — the
+# checkout belongs to ec2-user, so git refuses it as "dubious ownership", and
+# root has none of that user's credentials, which is what turned a deployment
+# into `fatal: could not read Username for 'https://github.com'`. Do the clone,
+# fetch and reset as the directory's owner, keeping that user's HOME so their
+# credential helper (or deploy key) still applies.
+_repo_owner="$(stat -c '%U' "$REPO_DIR" 2>/dev/null || stat -f '%Su' "$REPO_DIR" 2>/dev/null || echo root)"
+_as_owner() {
+  if [ "$(id -u)" = 0 ] && [ "$_repo_owner" != root ]; then
+    sudo -u "$_repo_owner" -H "$@"
+  else
+    "$@"
+  fi
+}
+# A read-only token is the fallback for a box whose user has no credential
+# helper. It goes in a header, never in the remote URL, so it cannot end up
+# written into .git/config or FETCH_HEAD.
+_git_auth=()
+if [ -n "${KOE_REPO_TOKEN:-}" ]; then
+  _basic="$(printf 'x-access-token:%s' "$KOE_REPO_TOKEN" | base64 | tr -d '\n')"
+  _git_auth=(-c "http.extraHeader=Authorization: Basic $_basic")
 fi
-git -C "$REPO_DIR" fetch --prune origin "$BRANCH"
+
+if [ ! -d "$REPO_DIR/.git" ]; then
+  _as_owner git "${_git_auth[@]}" clone --branch "$BRANCH" "$REPO_URL" "$REPO_DIR"
+fi
+if ! _as_owner git -C "$REPO_DIR" "${_git_auth[@]}" fetch --prune origin "$BRANCH"; then
+  echo "      git could not reach $REPO_URL as $_repo_owner." >&2
+  echo "      Set KOE_REPO_TOKEN=<read-only token for this repo> in $ENV_FILE," >&2
+  echo "      or give $_repo_owner a credential helper that can clone it." >&2
+  exit 1
+fi
 # The instance is a deployment target, not a working copy: make it match Git.
-git -C "$REPO_DIR" reset --hard "origin/$BRANCH"
+_as_owner git -C "$REPO_DIR" reset --hard "origin/$BRANCH"
 
 # ── keep the copies in $OPS_DIR in step with the repo ──
 # The scripts in ~/koe-ops are hand-copied at bootstrap, and nothing used to
