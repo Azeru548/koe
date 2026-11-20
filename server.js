@@ -104,6 +104,7 @@ const OPEN_PATHS = new Set([
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
   "/oiran.png", // landing hero artwork — must load before anyone has a key
   "/stats.html", // the dashboard SHELL is public; its data comes from admin-only /stats.json
+  "/robots.txt", "/sitemap.xml", // crawlers cannot hold a key
   "/.well-known/mcp/server-card.json", // static MCP metadata for directory scanners (they cannot mint a key)
 ]);
 
@@ -196,6 +197,16 @@ function callerSubject(req) {
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "landing.html")));
 app.get("/studio", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.get("/docs", (req, res) => res.sendFile(path.join(__dirname, "docs.html")));
+
+// Crawler files. Served explicitly: there is no express.static for the root.
+app.get("/robots.txt", (req, res) => {
+  res.type("text/plain");
+  res.sendFile(path.join(__dirname, "robots.txt"), { maxAge: "1d" });
+});
+app.get("/sitemap.xml", (req, res) => {
+  res.type("application/xml");
+  res.sendFile(path.join(__dirname, "sitemap.xml"), { maxAge: "1h" });
+});
 
 // Brand assets are public and cacheable — no key needed.
 const PUBLIC_ASSETS = {

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# The operator dashboard is not content; its data endpoint is admin-only anyway.
+Disallow: /stats.html
+
+Sitemap: https://koe.kennedyazeru.space/sitemap.xml
