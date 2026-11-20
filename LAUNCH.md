@@ -94,12 +94,16 @@ it will letterbox, don't use it for the listing.
    behind it.
 2. The MCP one-liner as code, big and readable: `claude mcp add koe-tts …`.
 3. `/studio` — voice rail, script box, generate button, waveform.
-4. A frame from `videos/koe-launch/koe-en-4k.mp4` (the 42 s launch film).
+4. A frame from the 42 s launch film — the landscape master lives in
+   `output/koe-en-4k.mp4` (a build artifact, not in the repo; the repo ships
+   the portrait cut at `videos/koe-launch/koe-vertical-1080x1920.mp4`).
 5. An honest limits panel: "Free tier — 60 requests/hour, 2,000 words/hour,
    20,000 words/day per key. Audio deleted after 15 minutes."
 
-**Video:** upload the 42 s film (`koe-en-4k.mp4`, 29.9 MB, 3840×2160). PH
-re-encodes; if the upload is rejected for size, a 1080p cut works.
+**Video:** upload the 42 s film (`output/koe-en-4k.mp4`, 3840×2160 — kept out
+of the repo as a build artifact). The tracked deliverable is the portrait cut,
+`videos/koe-launch/koe-vertical-1080x1920.mp4`. PH re-encodes; if the upload is
+rejected for size, a 1080p cut works.
 
 ---
 
