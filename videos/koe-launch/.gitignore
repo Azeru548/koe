@@ -6,3 +6,7 @@
 .crew/*.log
 
 node_modules/
+
+# hyperframes render/check artifacts
+.hyperframes/
+vertical/.hyperframes/

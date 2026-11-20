@@ -1,0 +1,75 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Plex";
+      src: url("assets/fonts/ibm-plex-sans-0.woff2") format("woff2");
+      font-weight: 100 700;
+      font-display: block;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      font-family: "Plex", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .cap-wrap {
+      position: absolute;
+      left: 152px;
+      right: 152px;
+      bottom: 700px;
+      text-align: center;
+    }
+
+    .cap {
+      margin: 0;
+      font-size: 54px;
+      line-height: 1.26;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: #121313;
+      overflow: visible;
+      text-wrap: balance;
+    }
+
+    /* Scene 4 runs on the ink ground: captions there invert with it. */
+    .cap-invert .cap {
+      color: #f4f1e9;
+    }
+  </style>
+
+  <div id="root" data-composition-id="captions" data-width="1080" data-height="1920">
+    <div class="cap-wrap">
+      <div class="clip" id="cg3" data-start="6.15" data-duration="2.7" data-track-index="9">
+        <p class="cap" id="c3">That's where Koe comes in.</p>
+      </div>
+      <div class="clip" id="cg6" data-start="17.65" data-duration="5.65" data-track-index="9">
+        <p class="cap" id="c6">Take a free key, connect your agent, and ask for a voiceover.</p>
+      </div>
+      <div class="clip" id="cg8" data-start="29.25" data-duration="4.65" data-track-index="9">
+        <p class="cap" id="c8">Or play in the studio — type a line, pick a voice, and hear it.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    // Each group opens with a soft cut and is hard-killed at its window's end,
+    // so no stale line can linger over the next beat.
+    const groups = [
+      { id: "#c3", at: 6.15, end: 8.85 },
+      { id: "#c6", at: 17.65, end: 23.3 },
+      { id: "#c8", at: 29.25, end: 33.9 },
+    ];
+
+    for (const g of groups) {
+      tl.fromTo(g.id, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.16, ease: "power2.out" }, g.at);
+      tl.to(g.id, { opacity: 0, duration: 0.12, ease: "power2.in" }, Math.max(g.at + 0.16, g.end - 0.12));
+      tl.set(g.id, { visibility: "hidden" }, g.end);
+    }
+
+    window.__timelines["captions"] = tl;
+  </script>
+</template>

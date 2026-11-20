@@ -1,0 +1,176 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Serif4";
+      src: url("assets/fonts/source-serif-4-0.woff2") format("woff2");
+      font-weight: 400 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Plex";
+      src: url("assets/fonts/ibm-plex-sans-0.woff2") format("woff2");
+      font-weight: 100 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "JBMono";
+      src: url("assets/fonts/jbmono-500.woff2") format("woff2");
+      font-weight: 500;
+      font-display: block;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #f4f1e9;
+      color: #121313;
+      font-family: "Plex", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .s1-pad {
+      position: absolute;
+      left: 96px;
+      right: 96px;
+      top: 300px;
+    }
+
+    .s1-kicker {
+      margin: 0 0 36px;
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #6f6a60;
+    }
+    .s1-kicker::before {
+      content: "";
+      display: inline-block;
+      width: 34px;
+      height: 2px;
+      margin-right: 14px;
+      vertical-align: 8px;
+      background: #b23a2b;
+    }
+
+    .s1-title {
+      margin: 0;
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 100px;
+      line-height: 0.98;
+      letter-spacing: -0.035em;
+    }
+    .s1-title span {
+      display: block;
+    }
+    .s1-title .s1-soft {
+      color: #6f6a60;
+    }
+
+    .s1-rows {
+      list-style: none;
+      margin: 52px 0 0;
+      padding: 0;
+      border-top: 1px solid #e3ded3;
+    }
+    .s1-rows li {
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+      padding: 18px 2px;
+      border-bottom: 1px solid #e3ded3;
+      font-size: 34px;
+      color: #4a463f;
+    }
+    .s1-rows b {
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      color: #b23a2b;
+      font-weight: 500;
+    }
+
+    .s1-turn {
+      position: absolute;
+      left: 96px;
+      right: 96px;
+      top: 1040px;
+      margin: 0;
+      font-family: "Serif4", serif;
+      font-size: 112px;
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+    .s1-turn em {
+      font-style: normal;
+      color: #b23a2b;
+    }
+    .s1-rule {
+      position: absolute;
+      left: 96px;
+      top: 1256px;
+      width: 320px;
+      height: 10px;
+      border-radius: 999px;
+      background: #ebc8be;
+      transform-origin: left center;
+    }
+  </style>
+
+  <div id="root" data-composition-id="s1" data-width="1080" data-height="1920">
+    <div class="s1-pad">
+      <p class="s1-kicker clip" id="s1-kicker" data-start="0" data-duration="6.05" data-track-index="1">
+        Koe · hosted MCP
+      </p>
+
+      <h1 class="s1-title clip" id="s1-title" data-start="0" data-duration="6.05" data-track-index="2">
+        <span id="s1-l1">Your agent can</span>
+        <span id="s1-l2">ship the whole</span>
+        <span id="s1-l3" class="s1-soft">project.</span>
+      </h1>
+
+      <ul class="s1-rows">
+        <li class="clip" id="s1-r1" data-start="0.55" data-duration="5.5" data-track-index="3">
+          <b>01</b> research
+        </li>
+        <li class="clip" id="s1-r2" data-start="1.05" data-duration="5" data-track-index="3">
+          <b>02</b> write
+        </li>
+        <li class="clip" id="s1-r3" data-start="1.55" data-duration="4.5" data-track-index="3">
+          <b>03</b> ship
+        </li>
+      </ul>
+    </div>
+
+    <h2 class="s1-turn clip" id="s1-turn" data-start="3.1" data-duration="2.95" data-track-index="4">
+      <span id="s1-turn-in" data-layout-allow-overlap>They just<br />can't <em>speak.</em></span>
+    </h2>
+    <div class="s1-rule clip" id="s1-rule" data-start="3.6" data-duration="2.45" data-track-index="4" data-layout-ignore></div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    tl.fromTo("#s1-kicker", { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0);
+
+    // Frame 0 is the thumbnail, so the hook is already on screen; the title
+    // only drifts, never fades in from nothing.
+    tl.fromTo("#s1-title", { y: 0 }, { y: -14, duration: 2.6, ease: "none" }, 0.2);
+    tl.fromTo("#s1-title", { scale: 1 }, { scale: 1.012, duration: 2.6, ease: "none" }, 0.2);
+
+    // The three powers land on the downbeat, one per beat.
+    ["#s1-r1", "#s1-r2", "#s1-r3"].forEach((id, i) => {
+      tl.fromTo(id, { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.34, ease: "power3.out" }, 0.55 + i * 0.5);
+    });
+
+    tl.fromTo("#s1-turn-in", { y: 46, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power4.out" }, 3.1);
+    tl.fromTo("#s1-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "power3.inOut" }, 3.6);
+
+    // A little drift through the hold, so the last second is not a frozen frame.
+    tl.to("#s1-turn-in", { y: -12, duration: 2.3, ease: "none" }, 3.7);
+
+    tl.to({}, { duration: 0.01 }, 6.04);
+
+    window.__timelines["s1"] = tl;
+  </script>
+</template>

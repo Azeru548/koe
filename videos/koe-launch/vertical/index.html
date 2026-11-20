@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Koe — give your agent a voice (vertical)</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #f4f1e9;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="42"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div
+        id="s1"
+        data-composition-id="s1"
+        data-composition-src="compositions/s1-hook.html"
+        data-start="0"
+        data-duration="6.05"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1080"
+        data-height="1920"
+      ></div>
+
+      <div
+        id="s2"
+        data-composition-id="s2"
+        data-composition-src="compositions/s2-voice.html"
+        data-start="6.05"
+        data-duration="7.8"
+        data-track-index="2"
+        data-track-kind="graphics"
+        data-width="1080"
+        data-height="1920"
+      ></div>
+
+      <div
+        id="s3"
+        data-composition-id="s3"
+        data-composition-src="compositions/s3-connect.html"
+        data-start="13.85"
+        data-duration="9.65"
+        data-track-index="3"
+        data-track-kind="graphics"
+        data-width="1080"
+        data-height="1920"
+      ></div>
+
+      <div
+        id="s4"
+        data-composition-id="s4"
+        data-composition-src="compositions/s4-free.html"
+        data-start="23.5"
+        data-duration="5.65"
+        data-track-index="4"
+        data-track-kind="graphics"
+        data-width="1080"
+        data-height="1920"
+      ></div>
+
+      <div
+        id="s5"
+        data-composition-id="s5"
+        data-composition-src="compositions/s5-claim.html"
+        data-start="29.15"
+        data-duration="12.85"
+        data-track-index="5"
+        data-track-kind="graphics"
+        data-width="1080"
+        data-height="1920"
+      ></div>
+
+      <div
+        id="captions"
+        data-composition-id="captions"
+        data-composition-src="compositions/captions.html"
+        data-start="0"
+        data-duration="42"
+        data-track-index="9"
+        data-track-kind="captions"
+        data-width="1080"
+        data-height="1920"
+      ></div>
+
+      <audio
+        id="score"
+        class="clip"
+        data-start="0"
+        data-duration="42"
+        data-track-index="10"
+        data-volume="1"
+        src="assets/audio/score.wav"
+      ></audio>
+    </div>
+
+    <script>
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

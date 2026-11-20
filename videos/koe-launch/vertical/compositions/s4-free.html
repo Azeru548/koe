@@ -1,0 +1,81 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Serif4";
+      src: url("assets/fonts/source-serif-4-0.woff2") format("woff2");
+      font-weight: 400 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Plex";
+      src: url("assets/fonts/ibm-plex-sans-0.woff2") format("woff2");
+      font-weight: 100 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "JBMono";
+      src: url("assets/fonts/jbmono-500.woff2") format("woff2");
+      font-weight: 500;
+      font-display: block;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #121313;
+      color: #f4f1e9;
+      font-family: "Plex", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .s4-stack {
+      position: absolute;
+      left: 152px;
+      right: 152px;
+      top: 560px;
+    }
+    .s4-line {
+      margin: 0 0 26px;
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 118px;
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+    .s4-line em {
+      font-style: normal;
+      color: #e2b3a6;
+    }
+    .s4-rule {
+      position: absolute;
+      left: 152px;
+      top: 420px;
+      width: 84px;
+      height: 3px;
+      background: #b23a2b;
+      transform-origin: left center;
+    }
+  </style>
+
+  <div id="root" data-composition-id="s4" data-width="1080" data-height="1920">
+    <div class="s4-rule" id="s4-rule"></div>
+    <div class="s4-stack">
+      <p class="s4-line" id="s4-1">No account.</p>
+      <p class="s4-line" id="s4-2">No API bill.</p>
+      <p class="s4-line" id="s4-3"><em>Nothing</em> to install.</p>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    tl.fromTo("#s4-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.4, ease: "power3.out" }, 0.02);
+    tl.fromTo("#s4-1", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 0.05);
+    tl.fromTo("#s4-2", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 1.1);
+    tl.fromTo("#s4-3", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power4.out" }, 2.2);
+
+    tl.to({}, { duration: 0.01 }, 5.64);
+
+    window.__timelines["s4"] = tl;
+  </script>
+</template>

@@ -1,0 +1,190 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Serif4";
+      src: url("assets/fonts/source-serif-4-0.woff2") format("woff2");
+      font-weight: 400 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Plex";
+      src: url("assets/fonts/ibm-plex-sans-0.woff2") format("woff2");
+      font-weight: 100 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "JBMono";
+      src: url("assets/fonts/jbmono-500.woff2") format("woff2");
+      font-weight: 500;
+      font-display: block;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #f4f1e9;
+      color: #121313;
+      font-family: "Plex", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .s2-a {
+      position: absolute;
+      left: 152px;
+      right: 152px;
+      top: 560px;
+    }
+    .s2-mark {
+      width: 132px;
+      height: 132px;
+      border-radius: 26px;
+      background: #ece3d2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .s2-mark img {
+      width: 96px;
+      height: 96px;
+    }
+    .s2-word {
+      margin: 40px 0 0;
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 190px;
+      line-height: 0.9;
+      letter-spacing: -0.05em;
+    }
+    .s2-sub {
+      margin: 22px 0 0;
+      font-size: 40px;
+      line-height: 1.3;
+      color: #4a463f;
+      max-width: 780px;
+    }
+
+    .s2-b {
+      position: absolute;
+      opacity: 0;
+      left: 152px;
+      right: 152px;
+      top: 380px;
+    }
+    .s2-head {
+      margin: 0;
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 78px;
+      line-height: 1.04;
+      letter-spacing: -0.035em;
+    }
+    .s2-head em {
+      font-style: normal;
+      color: #b23a2b;
+    }
+    .s2-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 34px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .s2-chips li {
+      padding: 12px 22px;
+      border-radius: 999px;
+      background: #ebc8be;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .s2-chips li.s2-ghost {
+      background: transparent;
+      border: 1px solid #d8d2c6;
+      color: #4a463f;
+    }
+    .s2-voices {
+      margin: 46px 0 0;
+      padding: 0;
+      list-style: none;
+      border-top: 1px solid #e3ded3;
+    }
+    .s2-voices li {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 20px;
+      padding: 18px 2px;
+      border-bottom: 1px solid #e3ded3;
+      font-size: 30px;
+    }
+    .s2-voices span {
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #6f6a60;
+    }
+  </style>
+
+  <div id="root" data-composition-id="s2" data-width="1080" data-height="1920">
+    <div class="s2-a" id="s2-a">
+      <div class="s2-mark" id="s2-mark">
+        <img src="assets/img/logo-mark.png" alt="Koe mark" />
+      </div>
+      <h1 class="s2-word" id="s2-word">Koe</h1>
+      <p class="s2-sub" id="s2-sub">Text to speech for your agent.</p>
+    </div>
+
+    <div class="s2-b" id="s2-b">
+      <h2 class="s2-head" id="s2-head">A text-to-speech<br />server, with a host<br />of <em>voices.</em></h2>
+
+      <ul class="s2-chips">
+        <li id="s2-c1">Microsoft Neural</li>
+        <li id="s2-c2">Piper</li>
+        <li id="s2-c3">Kokoro</li>
+        <li id="s2-c4" class="s2-ghost">Kitten</li>
+      </ul>
+
+      <ul class="s2-voices">
+        <li class="clip" id="s2-v1" data-start="3.9" data-duration="3.9" data-track-index="2">
+          Andrew <span>warm · en-US</span>
+        </li>
+        <li class="clip" id="s2-v2" data-start="4.25" data-duration="3.55" data-track-index="2">
+          Jenny <span>friendly · en-US</span>
+        </li>
+        <li class="clip" id="s2-v3" data-start="4.6" data-duration="3.2" data-track-index="2">
+          Sonia <span>formal · en-GB</span>
+        </li>
+        <li class="clip" id="s2-v4" data-start="4.95" data-duration="2.85" data-track-index="2">
+          Nanami <span>polite · ja-JP</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    // "That's where Koe comes in." — the mark arrives, then the wordmark.
+    tl.fromTo("#s2-a", { opacity: 1 }, { opacity: 1, duration: 0.0001 }, 0);
+    tl.fromTo("#s2-mark", { scale: 0.86, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.6)" }, 0.05);
+    tl.fromTo("#s2-word", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power4.out" }, 0.12);
+    tl.fromTo("#s2-sub", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 0.4);
+
+    // "Koe is a text-to-speech server with a host of voice models."
+    tl.to("#s2-a", { y: -40, opacity: 0, duration: 0.4, ease: "power2.in" }, 2.55);
+
+    tl.fromTo("#s2-b", { opacity: 0 }, { opacity: 1, duration: 0.001 }, 2.62)
+    tl.fromTo("#s2-head", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, ease: "power4.out" }, 2.95);
+    tl.fromTo(["#s2-c1", "#s2-c2", "#s2-c3", "#s2-c4"], { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.32, stagger: 0.09, ease: "power3.out" }, 3.3);
+
+    ["#s2-v1", "#s2-v2", "#s2-v3", "#s2-v4"].forEach((id, i) => {
+      tl.fromTo(id, { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.34, ease: "power3.out" }, 3.9 + i * 0.35);
+    });
+
+    tl.to({}, { duration: 0.01 }, 7.79);
+
+    window.__timelines["s2"] = tl;
+  </script>
+</template>

@@ -1,0 +1,204 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Serif4";
+      src: url("assets/fonts/source-serif-4-0.woff2") format("woff2");
+      font-weight: 400 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Plex";
+      src: url("assets/fonts/ibm-plex-sans-0.woff2") format("woff2");
+      font-weight: 100 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "JBMono";
+      src: url("assets/fonts/jbmono-500.woff2") format("woff2");
+      font-weight: 500;
+      font-display: block;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #f4f1e9;
+      color: #121313;
+      font-family: "Plex", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .s3-a {
+      position: absolute;
+      left: 152px;
+      right: 152px;
+      top: 360px;
+    }
+    .s3-head {
+      margin: 0 0 34px;
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 92px;
+      line-height: 1;
+      letter-spacing: -0.035em;
+    }
+    .s3-code {
+      background: #fbfaf6;
+      border: 1px solid #e3ded3;
+      border-radius: 18px;
+      padding: 26px 24px;
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      line-height: 1.6;
+      color: #4a463f;
+      overflow: hidden;
+    }
+    .s3-code div {
+      white-space: pre;
+    }
+    .s3-code .s3-key {
+      color: #b23a2b;
+    }
+    .s3-url {
+      margin: 26px 0 0;
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      color: #121313;
+    }
+
+    .s3-b {
+      position: absolute;
+      left: 152px;
+      right: 152px;
+      top: 360px;
+    }
+    .s3-step {
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+      margin: 0 0 18px;
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #6f6a60;
+    }
+    .s3-step b {
+      color: #b23a2b;
+      font-weight: 500;
+    }
+    .s3-line {
+      margin: 0 0 20px;
+      font-family: "Serif4", serif;
+      font-size: 84px;
+      line-height: 1.02;
+      letter-spacing: -0.035em;
+    }
+    .s3-card {
+      background: #fbfaf6;
+      border: 1px solid #e3ded3;
+      border-radius: 18px;
+      padding: 24px;
+      margin: 0 0 22px;
+    }
+    .s3-card .s3-k {
+      display: block;
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6f6a60;
+      margin-bottom: 10px;
+    }
+    .s3-card .s3-v {
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      color: #121313;
+      word-break: break-all;
+    }
+    .s3-card .s3-v span {
+      color: #b23a2b;
+    }
+    .s3-out {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .s3-out .s3-tool {
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+    }
+    .s3-out .s3-mp3 {
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #b23a2b;
+      border: 1px solid #ebc8be;
+      background: #f7efec;
+      border-radius: 999px;
+      padding: 10px 18px;
+      white-space: nowrap;
+    }
+  </style>
+
+  <div id="root" data-composition-id="s3" data-width="1080" data-height="1920">
+    <div class="s3-a" id="s3-a">
+      <h2 class="s3-head" id="s3-head">Point your agent<br />at it.</h2>
+
+      <div class="s3-code" id="s3-code">
+        <div id="s3-l1">{ "mcpServers": {</div>
+        <div id="s3-l2">    "koe": {</div>
+        <div id="s3-l3">    "url": "koe.kennedyazeru.space/mcp",</div>
+        <div id="s3-l4">    "headers": { "x-api-key": <span class="s3-key">"koe_sk_…"</span> }</div>
+        <div id="s3-l5">    }</div>
+        <div id="s3-l6">} }</div>
+      </div>
+
+      <p class="s3-url" id="s3-url">one endpoint · every MCP client</p>
+    </div>
+
+    <div class="s3-b" id="s3-b">
+      <p class="s3-step" id="s3-step1"><b>01</b> free key</p>
+      <h3 class="s3-line" id="s3-l-head">No signup.</h3>
+
+      <div class="s3-card" id="s3-keycard">
+        <span class="s3-k">your key</span>
+        <span class="s3-v">koe_sk_<span>4f2c…</span></span>
+      </div>
+
+      <div class="s3-card" id="s3-call">
+        <div class="s3-out">
+          <span class="s3-tool">generate_voiceover</span>
+          <span class="s3-mp3">→ mp3 · 8 s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    // "Point your agent at it."
+    tl.fromTo("#s3-head", { y: 38, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power4.out" }, 0.05);
+
+    // The config types itself in, line by line.
+    ["#s3-l1", "#s3-l2", "#s3-l3", "#s3-l4", "#s3-l5", "#s3-l6"].forEach((id, i) => {
+      tl.fromTo(id, { opacity: 0 }, { opacity: 1, duration: 0.18, ease: "none" }, 0.45 + i * 0.22);
+    });
+    tl.fromTo("#s3-url", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 2.1);
+
+    // "Take a free key, connect your agent, and ask for a voiceover."
+    tl.to("#s3-a", { y: -30, opacity: 0, duration: 0.38, ease: "power2.in" }, 3.45);
+
+    tl.fromTo("#s3-step1", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 3.7);
+    tl.fromTo("#s3-l-head", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power4.out" }, 3.9);
+    tl.fromTo("#s3-keycard", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 4.4);
+    tl.fromTo("#s3-call", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 5.9);
+
+    tl.to({}, { duration: 0.01 }, 9.64);
+
+    window.__timelines["s3"] = tl;
+  </script>
+</template>

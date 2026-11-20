@@ -1,0 +1,206 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Serif4";
+      src: url("assets/fonts/source-serif-4-0.woff2") format("woff2");
+      font-weight: 400 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Plex";
+      src: url("assets/fonts/ibm-plex-sans-0.woff2") format("woff2");
+      font-weight: 100 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "JBMono";
+      src: url("assets/fonts/jbmono-500.woff2") format("woff2");
+      font-weight: 500;
+      font-display: block;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #f4f1e9;
+      color: #121313;
+      font-family: "Plex", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .s5-a {
+      position: absolute;
+      left: 152px;
+      right: 152px;
+      top: 340px;
+    }
+    .s5-head {
+      margin: 0 0 30px;
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 84px;
+      line-height: 1.02;
+      letter-spacing: -0.035em;
+    }
+    .s5-shot {
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid #e3ded3;
+      background: #fbfaf6;
+      box-shadow: 0 34px 60px -34px rgba(18, 19, 19, 0.4);
+    }
+    .s5-shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .s5-b {
+      position: absolute;
+      left: 152px;
+      right: 152px;
+      top: 540px;
+    }
+    .s5-title {
+      margin: 0 0 40px;
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 96px;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+    .s5-title em {
+      font-style: normal;
+      color: #b23a2b;
+    }
+    .s5-figs {
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid #e3ded3;
+    }
+    .s5-figs div {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 22px 2px;
+      border-bottom: 1px solid #e3ded3;
+    }
+    .s5-figs b {
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 66px;
+      letter-spacing: -0.03em;
+    }
+    .s5-figs span {
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6f6a60;
+    }
+
+    .s5-c {
+      position: absolute;
+      left: 152px;
+      right: 152px;
+      top: 470px;
+      text-align: center;
+    }
+    .s5-c .s5-mark {
+      width: 116px;
+      height: 116px;
+      margin: 0 auto 36px;
+      border-radius: 24px;
+      background: #ece3d2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .s5-c .s5-mark img {
+      width: 84px;
+      height: 84px;
+    }
+    .s5-c h2 {
+      margin: 0 0 30px;
+      font-family: "Serif4", serif;
+      font-weight: 400;
+      font-size: 100px;
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+    .s5-c h2 em {
+      font-style: normal;
+      color: #b23a2b;
+    }
+    .s5-c .s5-url {
+      display: inline-block;
+      margin: 0 0 26px;
+      padding: 16px 26px;
+      border-radius: 999px;
+      background: #121313;
+      color: #f4f1e9;
+      font-family: "JBMono", monospace;
+      font-size: 30px;
+    }
+    .s5-c .s5-fine {
+      margin: 0;
+      font-family: "JBMono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #6f6a60;
+    }
+  </style>
+
+  <div id="root" data-composition-id="s5" data-width="1080" data-height="1920">
+    <div class="s5-a" id="s5-a">
+      <h2 class="s5-head" id="s5-head">Or play in the studio.</h2>
+      <div class="s5-shot" id="s5-shot">
+        <img src="assets/img/studio.jpg" alt="The Koe studio" id="s5-img" />
+      </div>
+    </div>
+
+    <div class="s5-b" id="s5-b">
+      <h2 class="s5-title" id="s5-title">A host of voices.<br /><em>One URL.</em></h2>
+      <div class="s5-figs">
+        <div id="s5-f1"><b>29</b><span>voices on edge</span></div>
+        <div id="s5-f2"><b>4</b><span>engines</span></div>
+        <div id="s5-f3"><b>1</b><span>endpoint</span></div>
+      </div>
+    </div>
+
+    <div class="s5-c" id="s5-c">
+      <div class="s5-mark" id="s5-mark"><img src="assets/img/logo-mark.png" alt="Koe mark" /></div>
+      <h2 id="s5-cta">Give your agent<br />a <em>voice.</em></h2>
+      <p><span class="s5-url" id="s5-curl">koe.kennedyazeru.space</span></p>
+      <p class="s5-fine" id="s5-fine">free to start · no account · no card</p>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+
+    // "Or play in the studio — type a line, pick a voice, and hear it."
+    tl.fromTo("#s5-head", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power4.out" }, 0.05);
+    tl.fromTo("#s5-shot", { y: 60, opacity: 0, scale: 0.97 }, { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power3.out" }, 0.25);
+    // A slow push-in while the line plays, so the still screen keeps moving.
+    tl.fromTo("#s5-img", { scale: 1 }, { scale: 1.06, duration: 4.4, ease: "none" }, 0.85);
+
+    // "A host of voices. One URL."
+    tl.to("#s5-a", { y: -50, opacity: 0, duration: 0.4, ease: "power2.in" }, 4.6);
+    tl.fromTo("#s5-title", { y: 36, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power4.out" }, 4.9);
+    tl.fromTo(["#s5-f1", "#s5-f2", "#s5-f3"], { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.34, stagger: 0.12, ease: "power3.out" }, 5.2);
+
+    // "Free to start. Give your agent a voice."
+    tl.to("#s5-b", { opacity: 0, duration: 0.35, ease: "power2.in" }, 7.6);
+    tl.fromTo("#s5-mark", { scale: 0.88, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(1.5)" }, 8.05);
+    tl.fromTo("#s5-cta", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power4.out" }, 8.2);
+    tl.fromTo("#s5-curl", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 8.7);
+    tl.fromTo("#s5-fine", { opacity: 0 }, { opacity: 1, duration: 0.35 }, 9.05);
+
+    tl.to({}, { duration: 0.01 }, 12.84);
+
+    window.__timelines["s5"] = tl;
+  </script>
+</template>
