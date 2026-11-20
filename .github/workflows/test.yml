@@ -147,17 +147,39 @@ jobs:
       - name: Rebuild the instance
         env:
           INSTANCE_ID: ${{ vars.KOE_INSTANCE_ID }}
+          REPO_TOKEN: ${{ secrets.KOE_REPO_TOKEN }}
         run: |
           # Systems Manager runs commands as root, and git refuses to touch a
           # checkout owned by another user ("detected dubious ownership"), so
-          # drop to ec2-user first. KOE_OPS_DIR is what makes the script read the
-          # operator's koe.env instead of a fresh example file.
-          command_id="$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name AWS-RunShellScript \
-            --comment "koe deploy ${GITHUB_SHA::7}" \
-            --timeout-seconds 2400 \
-            --parameters 'commands=["sudo -u ec2-user -H git -C /home/ec2-user/koe fetch --prune origin main","sudo -u ec2-user -H git -C /home/ec2-user/koe reset --hard origin/main","sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe/ops/rebuild.sh"]' \
+          # every command below drops to ec2-user. KOE_OPS_DIR is what makes
+          # rebuild.sh read the operator's koe.env instead of a fresh example.
+          #
+          # That user has no credential helper for this private repo, so a bare
+          # `git fetch` there answers "could not read Username for
+          # 'https://github.com'". The read-only token in the KOE_REPO_TOKEN
+          # secret is therefore handed over in a temp file, used for this fetch,
+          # and installed into ~/koe-ops/koe.env — from then on rebuild.sh (and
+          # the first run, which is still the old copy on a box that has never
+          # fetched successfully) authenticates by itself.
+          commands=()
+          if [ -n "${REPO_TOKEN:-}" ]; then
+            echo "::add-mask::$REPO_TOKEN"
+            token_b64="$(printf '%s' "$REPO_TOKEN" | base64 -w0)"
+            commands+=("umask 077; printf %s '$token_b64' | base64 -d > /tmp/koe.token")
+            commands+=("sudo -u ec2-user -H bash -c 'f=/home/ec2-user/koe-ops/koe.env; sed -i \"/^KOE_REPO_TOKEN=/d\" \"\$f\"; printf \"KOE_REPO_TOKEN=\" >> \"\$f\"; tr -d \"\\n\" < /tmp/koe.token >> \"\$f\"; printf \"\\n\" >> \"\$f\"; chmod 600 \"\$f\"; echo \"KOE_REPO_TOKEN installed in \$f\"'")
+            commands+=("sudo -u ec2-user -H bash -c 'h=\$(printf \"x-access-token:%s\" \"\$(cat /tmp/koe.token)\" | base64 | tr -d \"\\n\"); git -C /home/ec2-user/koe -c \"http.extraHeader=Authorization: Basic \$h\" fetch --prune origin main && git -C /home/ec2-user/koe reset --hard origin/main'")
+            commands+=("rm -f /tmp/koe.token")
+          fi
+          commands+=("sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe/ops/rebuild.sh")
+
+          # jq builds the parameters document so a token or a quoting character
+          # can never change the shape of the request.
+          input="$(jq -n \
+            --arg iid "$INSTANCE_ID" \
+            --arg comment "koe deploy ${GITHUB_SHA::7}" \
+            --argjson cmds "$(printf '%s\n' "${commands[@]}" | jq -R . | jq -s .)" \
+            '{InstanceIds: [$iid], DocumentName: "AWS-RunShellScript", Comment: $comment, TimeoutSeconds: 2400, Parameters: {commands: $cmds}}')"
+          command_id="$(aws ssm send-command --cli-input-json "$input" \
             --query 'Command.CommandId' --output text)"
           echo "command id: $command_id"
 

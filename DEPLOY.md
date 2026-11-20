@@ -295,16 +295,45 @@ status is not `Success`, then re-checks `/health` and **fails the build if
 across recreates. If the image build fails, `rebuild.sh` exits before touching the
 running container, so the site keeps serving the previous version.
 
-The job runs the script as `ec2-user`. Systems Manager executes commands as root,
-and `git` refuses to operate on a checkout owned by another user (`detected
-dubious ownership`), so the command it sends is:
+The job runs the script as `ec2-user`, because Systems Manager executes commands
+as root and `git` refuses to operate on a checkout owned by another user
+(`detected dubious ownership`):
 
 ```
-sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe-ops/rebuild.sh
+sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe/ops/rebuild.sh
 ```
 
-Keep both parts if you run it by hand for the same reason — and keep
-`KOE_OPS_DIR`, which is what makes the script read `~/koe-ops/koe.env`.
+Keep both parts if you run it by hand — and keep `KOE_OPS_DIR`, which is what
+makes the script read `~/koe-ops/koe.env`.
+
+That user also needs a way to **authenticate to this private repo**, which is the
+one part the workflow cannot inherit from Systems Manager. Without it the fetch
+fails with `could not read Username for 'https://github.com'` — and because the
+reset runs even when the fetch failed, the instance falls back to whatever
+`origin/main` it last saw and the deploy stops before rebuilding, leaving the old
+image serving.
+
+Add a fine-grained token (**Contents: read** on this repository only) as a
+repository **secret**:
+
+```
+Settings → Secrets and variables → Actions → New repository secret
+name: KOE_REPO_TOKEN
+```
+
+The deploy job passes it to the instance in a temp file, uses it for the fetch,
+then installs it into `~/koe-ops/koe.env` (mode 600) so `rebuild.sh` — and every
+later deploy, including the current run — can fetch on its own. It is sent as an
+authorization header, never written into `.git/config`. If you prefer to do it by
+hand instead, put the same line in `~/koe-ops/koe.env`:
+
+```
+KOE_REPO_TOKEN=<token>
+```
+
+Note that a secret passed through Systems Manager is visible in that command's
+history for its retention window, which is a reason to keep the token read-only
+and scoped to this one repository.
 
 The job uses the `production` environment, so you can later require a reviewer
 (one click per deploy) without editing the workflow. The trust policy above
