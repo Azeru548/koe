@@ -439,6 +439,37 @@ Coffee can't do for a Nigerian account.
 
 ## Licence
 
-Proprietary. © Azeru548, all rights reserved. See [LICENSE](LICENSE): this
-source is not open source and may not be copied, modified or redistributed
-without permission.
+Koe is free software under the **GNU Affero General Public License v3.0**
+(AGPL-3.0). © 2026 Azeru548. See [LICENSE](LICENSE) for the full text.
+
+You can use it, change it and run it — for your own videos, inside your
+company, or as part of a paid product. Two obligations are what make that safe
+for everyone:
+
+- **Share changes when you host it.** If you modify Koe and let other people use
+  that modified version over a network — a public instance, a SaaS, an internal
+  portal that other teams reach over HTTP — you must offer those users the
+  complete corresponding source of your version, under the AGPL (§13). Running
+  it privately for yourself or your own business requires no disclosure.
+- **Keep the notices.** Don't strip the copyright or the license, and mark a
+  fork as changed (AGPL §5) — "based on Koe" is the fair way to say it.
+
+There is no warranty and no support contract. If the public instance is down or
+rate-limited, the license is what lets you run your own.
+
+## What the license does not cover
+
+The AGPL covers this source code. It grants nothing for the **Koe name, the
+logo, or the domain `koe.kennedyazeru.space`**, and it does not permit presenting
+a fork as the official project or implying endorsement by it. If you run a
+public instance of your own, give it its own name — "based on Koe" is welcome,
+"Koe" as your brand is not. The hosted instance itself (its keys, its quota, its
+uptime) is not part of what this repository licenses.
+
+## Contributing
+
+Issues and pull requests are welcome. For anything larger than a bug fix, open
+an issue first so the scope is agreed before you write code. Contributions are
+accepted under the project's AGPL-3.0 license — no CLA and no copyright
+assignment. Please keep keys, secrets and other people's audio out of issues and
+pull requests.

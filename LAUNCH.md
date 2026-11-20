@@ -36,8 +36,10 @@ nothing piles up.
 - MCP setup — https://koe.kennedyazeru.space/mcp
 - Studio — https://koe.kennedyazeru.space/studio
 
-**Do not claim:** open source. `LICENSE` says proprietary, all rights
-reserved. PH voters check; claim "free to use", never "open source".
+**Do claim:** open source, AGPL-3.0, with the repo link
+(https://github.com/Azeru548/koe). PH voters check, so the claim has to be
+exactly right: the *source* is open; the hosted instance is a free, rate-limited
+courtesy that the license does not guarantee.
 
 ---
 
@@ -66,8 +68,9 @@ What it deliberately isn't:
 · Not another API key dashboard. No accounts, no card, no "contact sales".
 · Not a storage service. Audio lives 15 minutes, then it's gone — your local
   copy is the permanent one.
-· Not open source. It's one person's small box; the free tier is real and
-  rate-limited so it stays up for everyone.
+· Not a lock-in. The source is open (AGPL-3.0) — fork it, self-host it, tune
+  it. The hosted box is one person's, so it is rate-limited to stay up for
+  everyone.
 
 It is free because I run it for my own videos and it had room left over. If it
 earns a place in your workflow, there's a "buy me a malt" card in the nav —

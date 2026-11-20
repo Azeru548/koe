@@ -24,7 +24,7 @@
     "kitten"
   ],
   "author": "Azeru548",
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "adm-zip": "^0.6.1",

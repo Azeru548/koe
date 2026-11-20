@@ -49,10 +49,11 @@ who already want a voice for their agent, and make Koe findable where they look.
 2. Video and faceless-channel creators tired of ElevenLabs pricing.
 3. Self-hosters who want TTS on their own box (the Docker path).
 
-**Never say:** open source (`LICENSE` is proprietary, all rights reserved).
-Say "free to use". **Never** put a word count of 6,000 in copy — the live
-per-job cap is **2,000 words / 40,000 characters**; the wider number is stale in
-`AGENTS.md`.
+**Say:** open source, AGPL-3.0, link the repo. **Never** imply that the license
+covers the Koe name or that the hosted tier is unlimited — "free to use,
+rate-limited, and yours to self-host" is the accurate sentence. **Never** put a
+word count of 6,000 in copy — the live per-job cap is **2,000 words / 40,000
+characters**; the wider number is stale in `AGENTS.md`.
 
 ---
 
