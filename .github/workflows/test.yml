@@ -157,18 +157,23 @@ jobs:
           # That user has no credential helper for this private repo, so a bare
           # `git fetch` there answers "could not read Username for
           # 'https://github.com'". The read-only token in the KOE_REPO_TOKEN
-          # secret is therefore handed over in a temp file, used for this fetch,
-          # and installed into ~/koe-ops/koe.env — from then on rebuild.sh (and
-          # the first run, which is still the old copy on a box that has never
-          # fetched successfully) authenticates by itself.
+          # secret is passed to that user as an environment variable and used
+          # for this fetch, then installed into ~/koe-ops/koe.env — from then on
+          # rebuild.sh (and the stale copy still on a box that has never fetched
+          # successfully) authenticates by itself.
+          #
+          # Deliberately no temp file on the instance: an earlier version wrote
+          # the token to /tmp with umask 077 and then tried to read it back as
+          # ec2-user, which can never work, and left a root-owned path behind
+          # that made every later write fail too. The token stays in the
+          # variable and in koe.env (mode 600), and never lands in argv of git —
+          # the header is built inside the shell.
           commands=()
           if [ -n "${REPO_TOKEN:-}" ]; then
             echo "::add-mask::$REPO_TOKEN"
             token_b64="$(printf '%s' "$REPO_TOKEN" | base64 -w0)"
-            commands+=("umask 077; printf %s '$token_b64' | base64 -d > /tmp/koe.token")
-            commands+=("sudo -u ec2-user -H bash -c 'f=/home/ec2-user/koe-ops/koe.env; sed -i \"/^KOE_REPO_TOKEN=/d\" \"\$f\"; printf \"KOE_REPO_TOKEN=\" >> \"\$f\"; tr -d \"\\n\" < /tmp/koe.token >> \"\$f\"; printf \"\\n\" >> \"\$f\"; chmod 600 \"\$f\"; echo \"KOE_REPO_TOKEN installed in \$f\"'")
-            commands+=("sudo -u ec2-user -H bash -c 'h=\$(printf \"x-access-token:%s\" \"\$(cat /tmp/koe.token)\" | base64 | tr -d \"\\n\"); git -C /home/ec2-user/koe -c \"http.extraHeader=Authorization: Basic \$h\" fetch --prune origin main && git -C /home/ec2-user/koe reset --hard origin/main'")
-            commands+=("rm -f /tmp/koe.token")
+            commands+=("rm -f /tmp/koe.token 2>/dev/null; true")
+            commands+=("sudo -u ec2-user -H env KOE_TOKEN_B64='$token_b64' bash -c 'set -e; t=\"\$(printf %s \"\$KOE_TOKEN_B64\" | base64 -d)\"; f=/home/ec2-user/koe-ops/koe.env; mkdir -p \"\$(dirname \"\$f\")\"; touch \"\$f\"; sed -i \"/^KOE_REPO_TOKEN=/d\" \"\$f\"; printf \"KOE_REPO_TOKEN=%s\\n\" \"\$t\" >> \"\$f\"; chmod 600 \"\$f\"; h=\"\$(printf \"x-access-token:%s\" \"\$t\" | base64 | tr -d \"\\n\")\"; git -C /home/ec2-user/koe -c \"http.extraHeader=Authorization: Basic \$h\" fetch --prune origin main; git -C /home/ec2-user/koe reset --hard origin/main; unset t h; echo \"KOE_REPO_TOKEN installed in \$f; repo now at \$(git -C /home/ec2-user/koe rev-parse --short HEAD)\"'")
           fi
           commands+=("sudo -u ec2-user -H env KOE_OPS_DIR=/home/ec2-user/koe-ops bash /home/ec2-user/koe/ops/rebuild.sh")
 
