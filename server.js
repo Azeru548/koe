@@ -103,6 +103,7 @@ const OPEN_PATHS = new Set([
   "/voices", // public voice catalog — already public in the studio UI
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
   "/oiran.png", // landing hero artwork — must load before anyone has a key
+  "/og-cover.jpg", // 1200x630 social card — link-preview crawlers cannot hold a key
   "/stats.html", // the dashboard SHELL is public; its data comes from admin-only /stats.json
   "/robots.txt", "/sitemap.xml", // crawlers cannot hold a key
   "/.well-known/mcp/server-card.json", // static MCP metadata for directory scanners (they cannot mint a key)
@@ -211,6 +212,7 @@ app.get("/sitemap.xml", (req, res) => {
 // Brand assets are public and cacheable — no key needed.
 const PUBLIC_ASSETS = {
   "/logo-mark.png": "logo-mark.png",
+  "/og-cover.jpg": "og-cover.jpg",     // 1200x630 social card: the landing hero
   "/favicon-32.png": "favicon-32.png",
   "/apple-touch-icon.png": "apple-touch-icon.png",
   "/oiran.png": "oiran.png",           // landing hero artwork

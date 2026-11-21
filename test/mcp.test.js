@@ -130,6 +130,38 @@ test("brand assets are served publicly", async () => {
   }
 });
 
+test("the homepage advertises a 1200x630 social card that is actually served", async () => {
+  const html = await (await fetch(`${base}/`)).text();
+  assert.match(html, /<meta property="og:image" content="https:\/\/koe\.kennedyazeru\.space\/og-cover\.jpg">/);
+  assert.match(html, /og:image:width" content="1200"/);
+  assert.match(html, /og:image:height" content="630"/);
+  assert.match(html, /og:image:alt" content="[^"]+"/);
+  assert.match(html, /name="twitter:card" content="summary_large_image"/);
+  assert.match(html, /name="twitter:image" content="https:\/\/koe\.kennedyazeru\.space\/og-cover\.jpg">/);
+
+  // An unreachable card is the whole bug: the crawler needs a 200 with a real
+  // image content type, at a URL that needs no key.
+  const res = await fetch(`${base}/og-cover.jpg`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") || "", /image\/jpeg/);
+  const bytes = Buffer.from(await res.arrayBuffer());
+  assert.ok(bytes.length > 30_000, "the card must be a real photo, not a 1px placeholder");
+  // JPEG SOF marker carries the real pixel dimensions; assert them so the tag
+  // cannot drift from the file.
+  let dims = null;
+  for (let i = 2; i < bytes.length - 9; ) {
+    if (bytes[i] !== 0xff) { i += 1; continue; }
+    const marker = bytes[i + 1];
+    const len = bytes.readUInt16BE(i + 2);
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      dims = { height: bytes.readUInt16BE(i + 5), width: bytes.readUInt16BE(i + 7) };
+      break;
+    }
+    i += 2 + len;
+  }
+  assert.deepEqual(dims, { width: 1200, height: 630 });
+});
+
 test("GET /mcp without HTML Accept returns a text hint, not a 405", async () => {
   const res = await fetch(`${base}/mcp`, { headers: { Accept: "application/json" } });
   assert.equal(res.status, 200);
