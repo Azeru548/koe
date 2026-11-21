@@ -1,0 +1,26 @@
+{
+  "$schema": "static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "space.kennedyazeru/koe",
+  "title": "Koe TTS Studio",
+  "description": "Free text-to-speech for any MCP client: one hosted endpoint, four engines, no API bill.",
+  "version": "1.3.0",
+  "websiteUrl": "https://koe.kennedyazeru.space/mcp",
+  "repository": {
+    "url": "https://github.com/Azeru548/koe",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://koe.kennedyazeru.space/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Free key from https://koe.kennedyazeru.space/mcp (press Create key; no account, no card). Sent as: Bearer <key>",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
