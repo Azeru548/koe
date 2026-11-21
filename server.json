@@ -1,5 +1,5 @@
 {
-  "$schema": "static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "space.kennedyazeru/koe",
   "title": "Koe TTS Studio",
   "description": "Free text-to-speech for any MCP client: one hosted endpoint, four engines, no API bill.",
