@@ -103,7 +103,7 @@ const OPEN_PATHS = new Set([
   "/voices", // public voice catalog — already public in the studio UI
   "/studio", "/logo-mark.png", "/favicon-32.png", "/apple-touch-icon.png",
   "/oiran.png", // landing hero artwork — must load before anyone has a key
-  "/og-cover.jpg", // 1200x630 social card — link-preview crawlers cannot hold a key
+  "/og-cover.jpg", "/og-docs.jpg", "/og-mcp.jpg", "/og-studio.jpg", // 1200x630 social cards — link-preview crawlers cannot hold a key
   "/stats.html", // the dashboard SHELL is public; its data comes from admin-only /stats.json
   "/robots.txt", "/sitemap.xml", // crawlers cannot hold a key
   "/.well-known/mcp/server-card.json", // static MCP metadata for directory scanners (they cannot mint a key)
@@ -213,6 +213,9 @@ app.get("/sitemap.xml", (req, res) => {
 const PUBLIC_ASSETS = {
   "/logo-mark.png": "logo-mark.png",
   "/og-cover.jpg": "og-cover.jpg",     // 1200x630 social card: the landing hero
+  "/og-docs.jpg": "og-docs.jpg",       // 1200x630 social card: the docs hero
+  "/og-mcp.jpg": "og-mcp.jpg",         // 1200x630 social card: the setup page hero
+  "/og-studio.jpg": "og-studio.jpg",   // 1200x630 social card: the studio workspace
   "/favicon-32.png": "favicon-32.png",
   "/apple-touch-icon.png": "apple-touch-icon.png",
   "/oiran.png": "oiran.png",           // landing hero artwork

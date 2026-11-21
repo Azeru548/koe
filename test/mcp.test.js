@@ -30,6 +30,20 @@ let base;
 let key = "";
 let tenant = "";
 
+// JPEG SOF markers carry the real pixel dimensions; assert them so a social
+// card tag cannot drift from the file it points at.
+function jpegDims(bytes) {
+  for (let i = 2; i < bytes.length - 9; ) {
+    if (bytes[i] !== 0xff) { i += 1; continue; }
+    const marker = bytes[i + 1];
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      return { height: bytes.readUInt16BE(i + 5), width: bytes.readUInt16BE(i + 7) };
+    }
+    i += 2 + bytes.readUInt16BE(i + 2);
+  }
+  return null;
+}
+
 test.before(async () => {
   fs.mkdirSync(AUDIO_DIR, { recursive: true });
   studio = await startStudio({
@@ -148,18 +162,42 @@ test("the homepage advertises a 1200x630 social card that is actually served", a
   assert.ok(bytes.length > 30_000, "the card must be a real photo, not a 1px placeholder");
   // JPEG SOF marker carries the real pixel dimensions; assert them so the tag
   // cannot drift from the file.
-  let dims = null;
-  for (let i = 2; i < bytes.length - 9; ) {
-    if (bytes[i] !== 0xff) { i += 1; continue; }
-    const marker = bytes[i + 1];
-    const len = bytes.readUInt16BE(i + 2);
-    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
-      dims = { height: bytes.readUInt16BE(i + 5), width: bytes.readUInt16BE(i + 7) };
-      break;
-    }
-    i += 2 + len;
+  assert.deepEqual(jpegDims(bytes), { width: 1200, height: 630 });
+});
+
+test("every public page advertises a 1200x630 card that is actually served", async () => {
+  const pages = [
+    ["/docs", "og-docs.jpg"],
+    ["/mcp", "og-mcp.jpg"],
+    ["/studio", "og-studio.jpg"],
+  ];
+  for (const [page, card] of pages) {
+    const html = await (await fetch(`${base}${page}`, { headers: { Accept: "text/html" } })).text();
+    assert.match(
+      html,
+      new RegExp(`<meta property="og:image" content="https:\\/\\/koe\\.kennedyazeru\\.space\\/${card.replace(".", "\\.")}">`),
+      page
+    );
+    assert.match(html, /og:image:type" content="image\/jpeg"/, page);
+    assert.match(html, /og:image:width" content="1200"/, page);
+    assert.match(html, /og:image:height" content="630"/, page);
+    assert.match(html, /og:image:alt" content="[^"]+"/, page);
+    assert.match(html, /name="twitter:card" content="summary_large_image"/, page);
+    assert.match(
+      html,
+      new RegExp(`name="twitter:image" content="https:\\/\\/koe\\.kennedyazeru\\.space\\/${card.replace(".", "\\.")}"`),
+      page
+    );
+
+    // Keyless and a real JPEG: a crawler cannot mint a key, and a placeholder
+    // would still be a broken preview.
+    const res = await fetch(`${base}/${card}`);
+    assert.equal(res.status, 200, card);
+    assert.match(res.headers.get("content-type") || "", /image\/jpeg/, card);
+    const bytes = Buffer.from(await res.arrayBuffer());
+    assert.ok(bytes.length > 30_000, `${card} must be a real photo, not a 1px placeholder`);
+    assert.deepEqual(jpegDims(bytes), { width: 1200, height: 630 }, card);
   }
-  assert.deepEqual(dims, { width: 1200, height: 630 });
 });
 
 test("GET /mcp without HTML Accept returns a text hint, not a 405", async () => {
