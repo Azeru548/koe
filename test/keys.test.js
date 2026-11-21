@@ -25,7 +25,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const fs = require("fs");
-const net = require("net");
 const os = require("os");
 const path = require("path");
 
@@ -34,31 +33,22 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-keys-test-"));
 const ADMIN_KEY = "keys-test-admin";
 const SYSTEM32 = path.join(process.env.WINDIR || "C:\\Windows", "System32");
 
-const { json, mintKey } = require("./helpers");
+const { json, mintKey, freePort, stop } = require("./helpers");
 
 const children = [];
 
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.on("error", reject);
-    srv.listen(0, "127.0.0.1", () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitFor(base, logs, timeoutMs = 30000) {
+// Same generous budget as helpers.startStudio: these servers boot alongside
+// every other suite when `npm test` runs the files in parallel.
+async function waitFor(base, logs, timeoutMs = 90000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
       const res = await fetch(`${base}/healthz`);
       if (res.ok) return;
     } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error(`Server did not become healthy.\n${logs()}`);
+  throw new Error(`timed out after ${timeoutMs}ms waiting for ${base}/healthz\n${logs()}`);
 }
 
 // Boots server.js with an isolated KOE_DB_PATH. `name` doubles as the DB
@@ -104,17 +94,6 @@ async function startServer(name, env = {}) {
 
   await waitFor(base, () => logs);
   return { base, dbPath, child, logs: () => logs };
-}
-
-function stop(child) {
-  return new Promise((resolve) => {
-    if (!child || child.exitCode !== null) return resolve();
-    const done = () => resolve();
-    child.once("exit", done);
-    child.kill();
-    const t = setTimeout(() => { try { child.kill("SIGKILL"); } catch { /* gone */ } resolve(); }, 3000);
-    if (t.unref) t.unref();
-  });
 }
 
 test.after(async () => {

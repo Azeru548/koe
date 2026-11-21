@@ -231,11 +231,9 @@ visitor→voiceover, 3 new keys/day. At 2 users and 184 words/day today you are 
 under 1 % of the 30,000-word daily ceiling, so capacity is a non-issue until
 launch day.
 
-Two blind spots worth closing, both small:
-- `registers` counts `POST /api/register` only, but the MCP mints through
-  `POST /keys` — **signups are undercounted** on the dashboard.
-- There is no referrer breakdown, so you cannot say which platform earned the
-  click. Caddy's access log has the `Referer`; the dashboard does not.
+One blind spot worth closing, and it is small: there is no referrer
+breakdown, so you cannot say which platform earned the click. Caddy's access
+log has the `Referer`; the dashboard does not.
 
 ---
 

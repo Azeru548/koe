@@ -5,13 +5,12 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
 const fs = require("fs");
-const net = require("net");
 const os = require("os");
 const path = require("path");
 
-const ROOT = path.join(__dirname, "..");
+const { startStudio } = require("./helpers");
+
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-ephemeral-test-"));
 const OUTPUT_DIR = path.join(TMP, "output");
 const AUDIO_DIR = path.join(OUTPUT_DIR, "audio");
@@ -22,32 +21,8 @@ const DONE_ID = "1700000000000-aaaaa";
 const EXPIRED_ID = "1600000000000-bbbbb";
 const RUNNING_ID = "1799999999999-ccccc";
 
-let child;
+let studio;
 let base;
-let logs = "";
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.on("error", reject);
-    srv.listen(0, "127.0.0.1", () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitFor(url, timeoutMs = 30000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return;
-    } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`Server did not become healthy.\n${logs}`);
-}
 
 async function json(method, pathname, { key, body } = {}) {
   const res = await fetch(`${base}${pathname}`, {
@@ -91,14 +66,9 @@ test.before(async () => {
     ], null, 2)
   );
 
-  const port = await freePort();
-  base = `http://127.0.0.1:${port}`;
-  child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
-    cwd: ROOT,
+  studio = await startStudio({
+    readyPath: "/health",
     env: {
-      ...process.env,
-      PORT: String(port),
-      TTS_BACKEND: "native",
       KOE_SECRET: "ephemeral-test-secret",
       API_KEY: ADMIN_KEY,
       KOE_REQUIRE_KEY: "false",
@@ -107,16 +77,12 @@ test.before(async () => {
       KOE_OUTPUT_DIR: OUTPUT_DIR,
       KOE_JOBS_FILE: JOBS_FILE,
     },
-    stdio: ["ignore", "pipe", "pipe"],
   });
-  child.stdout.on("data", (d) => { logs += d.toString(); });
-  child.stderr.on("data", (d) => { logs += d.toString(); });
-  child.on("exit", (code) => { logs += `\n[server exited ${code}]`; });
-  await waitFor(`${base}/health`);
+  base = studio.base;
 });
 
-test.after(() => {
-  if (child && !child.killed) child.kill();
+test.after(async () => {
+  if (studio) await studio.stop();
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch {}
 });
 

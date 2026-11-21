@@ -93,7 +93,9 @@ function pathKind(method, p) {
   if (p === "/tts") return "tts";
   if (p === "/tts-preview" || p === "/tts-preview-piper") return "previews";
   if (p.startsWith("/download/") || p.startsWith("/audio/")) return "downloads";
-  if (p === "/api/register") return "registers";
+  // `/keys` is the canonical mint; `/api/register` is its legacy alias, and a
+  // mint on either path is a registration.
+  if (p === "/keys" || p === "/api/register") return "registers";
   if (p === "/mcp" && method === "POST") return "mcp";
   return null; // plain requests: counted in total only
 }

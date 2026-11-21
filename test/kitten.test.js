@@ -5,20 +5,10 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
-const net = require("node:net");
+
+const { freePort } = require("./helpers");
 
 const FAKE_WAV = Buffer.from("RIFF\x24\x00\x00\x00WAVEfmt fake-kitten-audio");
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.once("error", reject);
-    srv.listen(0, "127.0.0.1", () => {
-      const { port } = srv.address();
-      srv.close(() => resolve(port));
-    });
-  });
-}
 
 // Mutable stub: each test sets `stub.mode` / `stub.voices`.
 const stub = {

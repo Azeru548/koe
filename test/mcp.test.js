@@ -5,14 +5,12 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
+const { startStudio, mintKey: mintViaHttp } = require("./helpers");
 const fs = require("fs");
-const net = require("net");
 const os = require("os");
 const path = require("path");
 const AdmZip = require("adm-zip");
 
-const ROOT = path.join(__dirname, "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-mcp-test-"));
 const OUTPUT = path.join(TMP, "output");
 const JOBS_FILE = path.join(OUTPUT, "jobs.json");
@@ -27,47 +25,16 @@ process.env.KOE_SECRET = SECRET;
 process.env.KOE_STATE_FILE = path.join(TMP, "guard-state.json");
 process.env.KOE_DB_PATH = path.join(TMP, "koe.db");
 
-const { mintKey: mintViaHttp } = require("./helpers");
-
-let child;
+let studio;
 let base;
-let logs = "";
 let key = "";
 let tenant = "";
 
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.on("error", reject);
-    srv.listen(0, "127.0.0.1", () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitFor(url, timeoutMs = 30000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return;
-    } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`Server did not become healthy.\n${logs}`);
-}
-
 test.before(async () => {
   fs.mkdirSync(AUDIO_DIR, { recursive: true });
-  const port = await freePort();
-  base = `http://127.0.0.1:${port}`;
-  child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
-    cwd: ROOT,
+  studio = await startStudio({
+    readyPath: "/health",
     env: {
-      ...process.env,
-      PORT: String(port),
-      TTS_BACKEND: "native",
       KOE_SECRET: SECRET,
       KOE_REQUIRE_KEY: "true",
       KOE_STATE_FILE: path.join(TMP, "state.json"),
@@ -76,12 +43,8 @@ test.before(async () => {
       KOE_JOBS_FILE: JOBS_FILE,
       KOE_SWEEP_INTERVAL_SEC: "15",
     },
-    stdio: ["ignore", "pipe", "pipe"],
   });
-  child.stdout.on("data", (d) => { logs += d.toString(); });
-  child.stderr.on("data", (d) => { logs += d.toString(); });
-  child.on("exit", (code) => { logs += `\n[server exited ${code}]`; });
-  await waitFor(`${base}/health`);
+  base = studio.base;
 
   const minted = await mintViaHttp(base);
   assert.equal(minted.status, 201);
@@ -89,8 +52,8 @@ test.before(async () => {
   tenant = minted.data.tenant;
 });
 
-test.after(() => {
-  if (child && !child.killed) child.kill();
+test.after(async () => {
+  if (studio) await studio.stop();
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch {}
 });
 

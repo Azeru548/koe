@@ -13,45 +13,18 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
 const fs = require("fs");
-const net = require("net");
 const os = require("os");
 const path = require("path");
 
-const ROOT = path.join(__dirname, "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-kokoro-test-"));
 const JOBS_FILE = path.join(TMP, "output", "jobs.json");
 const ADMIN_KEY = "admin-kokoro-test";
-const { mintKey } = require("./helpers");
+const { startStudio, mintKey, freePort } = require("./helpers");
 
-let child;
+let studio;
 let base;
-let logs = "";
 let key = "";
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.on("error", reject);
-    srv.listen(0, "127.0.0.1", () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitFor(url, timeoutMs = 30000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return;
-    } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`Server did not become healthy.\n${logs}`);
-}
 
 async function json(method, pathname, { key: k, body } = {}) {
   const res = await fetch(`${base}${pathname}`, {
@@ -67,15 +40,10 @@ async function json(method, pathname, { key: k, body } = {}) {
 }
 
 test.before(async () => {
-  const port = await freePort();
   const deadPort = await freePort(); // reserved then released = guaranteed closed
-  base = `http://127.0.0.1:${port}`;
 
-  child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
-    cwd: ROOT,
+  studio = await startStudio({
     env: {
-      ...process.env,
-      PORT: String(port),
       // "docker" reports both CLI engines as available without probing for a
       // binary or needing a daemon, so this file proves that a DEAD SIDECAR
       // is what blocks kokoro — not the host's toolchain. (On a host with the
@@ -95,20 +63,15 @@ test.before(async () => {
       KOKORO_BASE_URL: `http://127.0.0.1:${deadPort}`,
       KOKORO_CONNECT_TIMEOUT_MS: "1500",
     },
-    stdio: ["ignore", "pipe", "pipe"],
   });
-
-  child.stdout.on("data", (d) => { logs += d.toString(); });
-  child.stderr.on("data", (d) => { logs += d.toString(); });
-
-  await waitFor(`${base}/healthz`);
+  base = studio.base;
   const minted = await mintKey(base);
   key = minted.data.key;
   assert.ok(key, `key mint failed: ${JSON.stringify(minted.data)}`);
 });
 
-test.after(() => {
-  if (child) child.kill();
+test.after(async () => {
+  if (studio) await studio.stop();
 });
 
 test("healthz stays 200 and reports kokoro as unavailable", async () => {
@@ -217,5 +180,5 @@ test("the server process is still healthy after every kokoro failure", async () 
   assert.equal(res.status, 200);
   assert.equal(data.status, "ok");
   assert.equal(data.db.ok, true);
-  assert.match(logs, /engine=kokoro/, "failures are logged with their engine");
+  assert.match(studio.logs(), /engine=kokoro/, "failures are logged with their engine");
 });

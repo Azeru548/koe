@@ -390,7 +390,11 @@ server.tool(
       if (!entries.length) throw new Error(`Job ${jobId} zip contained no audio parts`);
 
       const buffers = entries.map((e) => e.getData());
-      const ext = (job.engine || args.engine) === "piper" ? "wav" : "mp3";
+      // The container belongs to the engine that produced the audio (piper and
+      // kitten are WAV), so it comes from the registry rather than a piper-only
+      // ternary. Required here, not at start-up: loading the registry probes the
+      // local CLIs, which a client talking to a remote studio does not need.
+      const ext = require("../engines").extFor(job.engine || args.engine);
 
       fs.mkdirSync(OUT_DIR, { recursive: true });
       const stem = safeFileName((args.file_name || `voiceover-${jobId}`).replace(/\.(mp3|wav)$/i, ""));

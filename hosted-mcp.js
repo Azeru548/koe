@@ -201,7 +201,6 @@ function createHostedMcp({ client }) {
         return errorResult(err.message);
       }
 
-      const ext = args.engine === "piper" ? "wav" : "mp3";
       const deadline = Date.now() + args.timeout_seconds * 1000;
       let job;
       try {
@@ -236,6 +235,9 @@ function createHostedMcp({ client }) {
         return errorResult(`TTS job failed on the studio server: ${job.error}`);
       }
 
+      // The container belongs to the engine that actually ran (piper and kitten
+      // are WAV), so it comes from the registry, not a piper-only ternary.
+      const ext = engines.extFor(job.engine || args.engine);
       const downloadUrl = client.signAudioUrl(jobId);
       const payload = {
         jobId,

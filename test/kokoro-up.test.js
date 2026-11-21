@@ -12,18 +12,15 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
 const http = require("node:http");
 const fs = require("fs");
-const net = require("net");
 const os = require("os");
 const path = require("path");
 
-const ROOT = path.join(__dirname, "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-kokoro-up-"));
 const JOBS_FILE = path.join(TMP, "output", "jobs.json");
 const ADMIN_KEY = "admin-kokoro-up";
-const { mintKey } = require("./helpers");
+const { startStudio, mintKey } = require("./helpers");
 
 // What the mock sidecar "synthesises" — recognisable, so we can prove the
 // bytes survived the job loop, the zip, and /audio/:id unchanged.
@@ -32,33 +29,9 @@ const SIDECAR_VOICES = ["af_heart", "am_adam", "bm_george", "ff_siwis"];
 
 let sidecar;
 let sidecarHits = { speech: 0 };
-let child;
+let studio;
 let base;
-let logs = "";
 let key = "";
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.on("error", reject);
-    srv.listen(0, "127.0.0.1", () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitFor(url, timeoutMs = 30000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return;
-    } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`Server did not become healthy.\n${logs}`);
-}
 
 async function json(method, pathname, { key: k, body } = {}) {
   const res = await fetch(`${base}${pathname}`, {
@@ -104,14 +77,8 @@ function startSidecar() {
 test.before(async () => {
   sidecar = await startSidecar();
   const sidecarPort = sidecar.address().port;
-  const port = await freePort();
-  base = `http://127.0.0.1:${port}`;
-
-  child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
-    cwd: ROOT,
+  studio = await startStudio({
     env: {
-      ...process.env,
-      PORT: String(port),
       TTS_BACKEND: "docker",
       KOE_SECRET: "kokoro-up-test-secret",
       API_KEY: ADMIN_KEY,
@@ -125,20 +92,15 @@ test.before(async () => {
       KOE_SWEEP_INTERVAL_SEC: "15",
       KOKORO_BASE_URL: `http://127.0.0.1:${sidecarPort}`,
     },
-    stdio: ["ignore", "pipe", "pipe"],
   });
-
-  child.stdout.on("data", (d) => { logs += d.toString(); });
-  child.stderr.on("data", (d) => { logs += d.toString(); });
-
-  await waitFor(`${base}/healthz`);
+  base = studio.base;
   const minted = await mintKey(base);
   key = minted.data.key;
   assert.ok(key, `key mint failed: ${JSON.stringify(minted.data)}`);
 });
 
-test.after(() => {
-  if (child) child.kill();
+test.after(async () => {
+  if (studio) await studio.stop();
   if (sidecar) sidecar.close();
 });
 
@@ -216,7 +178,7 @@ test("the server stays healthy after the kokoro round trip", async () => {
   const data = await res.json();
   assert.equal(res.status, 200);
   assert.equal(data.status, "ok");
-  assert.match(logs, /engine=kokoro/, "generation is logged with its engine");
-  assert.match(logs, /\[gen\] key=koe_sk_/, "the success line exists");
-  assert.ok(!logs.includes(key), "a full key must never reach stdout");
+  assert.match(studio.logs(), /engine=kokoro/, "generation is logged with its engine");
+  assert.match(studio.logs(), /\[gen\] key=koe_sk_/, "the success line exists");
+  assert.ok(!studio.logs().includes(key), "a full key must never reach stdout");
 });

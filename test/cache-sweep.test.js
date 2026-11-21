@@ -7,16 +7,14 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
 const fs = require("fs");
 const http = require("http");
-const net = require("net");
 const os = require("os");
 const path = require("path");
 
+const { startStudio } = require("./helpers");
 const { seedJob, readJob } = require("./dbseed");
 
-const ROOT = path.join(__dirname, "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "koe-sweep-test-"));
 const OUTPUT = path.join(TMP, "output");
 const WORK = path.join(OUTPUT, "work");
@@ -28,10 +26,9 @@ const SWEEP_SEC = 2;
 const FAKE_MP3 = Buffer.from("ID3-fake-mp3-from-the-sidecar-0123456789");
 const SIDECAR_VOICES = ["af_heart", "am_adam"];
 
-let child;
+let studio;
 let sidecar;
 let base;
-let logs = "";
 
 // The engine is stubbed, not installed: CI has no edge-tts and no Kokoro
 // container, so a test that synthesises for real would only pass on a dev box.
@@ -66,28 +63,6 @@ function startSidecar() {
   });
 }
 
-function freePort() {
-  return new Promise((resolve) => {
-    const srv = net.createServer();
-    srv.listen(0, "127.0.0.1", () => {
-      const { port } = srv.address();
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitFor(url, ms = 20000) {
-  const until = Date.now() + ms;
-  while (Date.now() < until) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return true;
-    } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 120));
-  }
-  throw new Error(`timed out waiting for ${url}\n${logs}`);
-}
-
 async function json(method, p, body, key = ADMIN_KEY) {
   const res = await fetch(`${base}${p}`, {
     method,
@@ -105,7 +80,7 @@ async function waitJob(id, ms = 60000) {
     if (last.data && ["done", "failed"].includes(last.data.status)) return last.data;
     await new Promise((r) => setTimeout(r, 250));
   }
-  throw new Error(`job ${id} did not finish: ${JSON.stringify(last && last.data)}\n${logs}`);
+  throw new Error(`job ${id} did not finish: ${JSON.stringify(last && last.data)}\n${studio.logs()}`);
 }
 
 const scriptPath = (id) => path.join(WORK, `${id}.parts.json`);
@@ -114,14 +89,8 @@ const exists = (p) => fs.existsSync(p);
 test.before(async () => {
   sidecar = await startSidecar();
   const sidecarPort = sidecar.address().port;
-  const port = await freePort();
-  base = `http://127.0.0.1:${port}`;
-  child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
-    cwd: ROOT,
+  studio = await startStudio({
     env: {
-      ...process.env,
-      PORT: String(port),
-      TTS_BACKEND: "native",
       KOE_SECRET: "sweep-test-secret",
       API_KEY: ADMIN_KEY,
       KOE_STATE_FILE: path.join(TMP, "state.json"),
@@ -134,15 +103,12 @@ test.before(async () => {
       KOE_CACHE_MAX_MB: "1",
       KOKORO_BASE_URL: `http://127.0.0.1:${sidecarPort}`,
     },
-    stdio: ["ignore", "pipe", "pipe"],
   });
-  child.stdout.on("data", (d) => { logs += d.toString(); });
-  child.stderr.on("data", (d) => { logs += d.toString(); });
-  await waitFor(`${base}/healthz`);
+  base = studio.base;
 });
 
-test.after(() => {
-  if (child && !child.killed) child.kill();
+test.after(async () => {
+  if (studio) await studio.stop();
   if (sidecar) sidecar.close();
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch {}
 });

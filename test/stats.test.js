@@ -77,6 +77,24 @@ test("health, dashboard polling, and private IPs are not counted", () => {
   assert.deepEqual(after.windows, before.windows);
 });
 
+test("POST /keys counts as a new registration", () => {
+  const before = stats.query();
+  stats.observe({ path: "/keys", method: "POST", ctx: { ip: "198.51.100.11", tid: null, admin: false } });
+  const after = stats.query();
+
+  assert.equal(after.allTime.registers, before.allTime.registers + 1, "the canonical mint path is a registration");
+  assert.equal(after.today.registers, before.today.registers + 1);
+  const row = stats.topSubjects(50, "requests").find((s) => s.id === guard.anonSubject("198.51.100.11"));
+  assert.ok(row, "the minting visitor is recorded");
+  assert.equal(row.actions, 1, "registering makes the subject a product user");
+});
+
+test("the legacy /api/register alias still counts as a registration", () => {
+  const before = stats.query();
+  stats.observe({ path: "/api/register", method: "POST", ctx: { ip: "198.51.100.12", tid: null, admin: false } });
+  assert.equal(stats.query().allTime.registers, before.allTime.registers + 1);
+});
+
 test("static assets count as HTTP hits but do not create visitors", () => {
   const before = stats.query();
   stats.observe({ path: "/favicon-32.png", method: "GET", ctx: { ip: "198.51.100.10", tid: null, admin: false } });
