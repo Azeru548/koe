@@ -220,13 +220,18 @@ test("unknown /mcp-sample-*.mp3 names are rejected", async () => {
   assert.equal(res.status, 404);
 });
 
-test("POST /mcp requires a free key", async () => {
-  const res = await fetch(`${base}/mcp`, {
+test("POST /mcp opens discovery but requires a free key for tool calls", async () => {
+  const rpc = (body) => fetch(`${base}/mcp`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+    headers: { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" },
+    body: JSON.stringify(body),
   });
-  assert.equal(res.status, 401);
+
+  const init = await rpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "probe", version: "0" } } });
+  assert.equal(init.status, 200, "a client must be able to inspect the tools before signing up");
+
+  const call = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "generate_voiceover", arguments: { text: "hello" } } });
+  assert.equal(call.status, 401, "generating audio still needs a key");
 });
 
 test("hosted MCP lists the expected tools and answers calls", async () => {

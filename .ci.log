@@ -1,0 +1,1110 @@
+﻿2026-11-22T16:42:08.0701108Z Current runner version: '2.338.2'
+2026-11-22T16:42:08.0726693Z ##[group]Runner Image Provisioner
+2026-11-22T16:42:08.0727595Z Hosted Compute Agent
+2026-11-22T16:42:08.0728198Z Version: 20261111.635
+2026-11-22T16:42:08.0729146Z Commit: b8a594ea514ff44cadb5342986c68b1eac6e22ed
+2026-11-22T16:42:08.0729904Z Build Date: 2026-11-11T01:49:01Z
+2026-11-22T16:42:08.0730616Z Worker ID: {315beb20-5705-4cc1-97d9-89b7928a0ac2}
+2026-11-22T16:42:08.0731401Z Region: westus2
+2026-11-22T16:42:08.0731966Z Cloud: Azure
+2026-11-22T16:42:08.0732541Z ##[endgroup]
+2026-11-22T16:42:08.0734048Z ##[group]Operating System
+2026-11-22T16:42:08.0734715Z Ubuntu
+2026-11-22T16:42:08.0735331Z 26.04.1
+2026-11-22T16:42:08.0735968Z LTS
+2026-11-22T16:42:08.0736533Z ##[endgroup]
+2026-11-22T16:42:08.0737124Z ##[group]Runner Image
+2026-11-22T16:42:08.0737757Z Image: ubuntu-26.04
+2026-11-22T16:42:08.0738377Z Version: 20261116.202.1
+2026-11-22T16:42:08.0740059Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261116.202/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-22T16:42:08.0741735Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261116.202
+2026-11-22T16:42:08.0742741Z ##[endgroup]
+2026-11-22T16:42:08.0744465Z ##[group]GITHUB_TOKEN Permissions
+2026-11-22T16:42:08.0746448Z Contents: read
+2026-11-22T16:42:08.0747166Z Metadata: read
+2026-11-22T16:42:08.0747812Z Packages: read
+2026-11-22T16:42:08.0748412Z ##[endgroup]
+2026-11-22T16:42:08.0751287Z Secret source: Actions
+2026-11-22T16:42:08.0752209Z Cache mode: write
+2026-11-22T16:42:08.0753268Z Prepare workflow directory
+2026-11-22T16:42:08.1169893Z Prepare all required actions
+2026-11-22T16:42:08.1217815Z Getting action download info
+2026-11-22T16:42:08.4663200Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-22T16:42:08.5696891Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-11-22T16:42:08.7404083Z Complete job name: test (22)
+2026-11-22T16:42:08.8325169Z ##[group]Run actions/checkout@v4
+2026-11-22T16:42:08.8326149Z with:
+2026-11-22T16:42:08.8326638Z   repository: Azeru548/koe
+2026-11-22T16:42:08.8331229Z   token: ***
+2026-11-22T16:42:08.8331715Z   ssh-strict: true
+2026-11-22T16:42:08.8332248Z   ssh-user: git
+2026-11-22T16:42:08.8332737Z   persist-credentials: true
+2026-11-22T16:42:08.8333268Z   clean: true
+2026-11-22T16:42:08.8333755Z   sparse-checkout-cone-mode: true
+2026-11-22T16:42:08.8334321Z   fetch-depth: 1
+2026-11-22T16:42:08.8334803Z   fetch-tags: false
+2026-11-22T16:42:08.8335302Z   show-progress: true
+2026-11-22T16:42:08.8335803Z   lfs: false
+2026-11-22T16:42:08.8336255Z   submodules: false
+2026-11-22T16:42:08.8336741Z   set-safe-directory: true
+2026-11-22T16:42:08.8337302Z   allow-unsafe-pr-checkout: false
+2026-11-22T16:42:08.8338159Z ##[endgroup]
+2026-11-22T16:42:09.1501842Z Syncing repository: Azeru548/koe
+2026-11-22T16:42:09.1505679Z ##[group]Getting Git version info
+2026-11-22T16:42:09.1507339Z Working directory is '/home/runner/work/koe/koe'
+2026-11-22T16:42:09.1510670Z [command]/usr/bin/git version
+2026-11-22T16:42:09.1547812Z git version 2.56.1
+2026-11-22T16:42:09.1613020Z ##[endgroup]
+2026-11-22T16:42:09.1623695Z Temporarily overriding HOME='/home/runner/work/_temp/d008634b-721e-4659-9a04-597577a28368' before making global git config changes
+2026-11-22T16:42:09.1628799Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-22T16:42:09.1633955Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/koe/koe
+2026-11-22T16:42:09.1707563Z Deleting the contents of '/home/runner/work/koe/koe'
+2026-11-22T16:42:09.1714226Z ##[group]Initializing the repository
+2026-11-22T16:42:09.1721291Z [command]/usr/bin/git init /home/runner/work/koe/koe
+2026-11-22T16:42:09.1868214Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-22T16:42:09.1872637Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-22T16:42:09.1877500Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-22T16:42:09.1883775Z hint: call:
+2026-11-22T16:42:09.1886490Z hint:
+2026-11-22T16:42:09.1888762Z hint: 	git config --global init.defaultBranch <name>
+2026-11-22T16:42:09.1891307Z hint:
+2026-11-22T16:42:09.1893823Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-22T16:42:09.1897074Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-22T16:42:09.1899606Z hint:
+2026-11-22T16:42:09.1900897Z hint: 	git branch -m <name>
+2026-11-22T16:42:09.1902454Z hint:
+2026-11-22T16:42:09.1904559Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-22T16:42:09.1907454Z Initialized empty Git repository in /home/runner/work/koe/koe/.git/
+2026-11-22T16:42:09.1916780Z [command]/usr/bin/git remote add origin https://github.com/Azeru548/koe
+2026-11-22T16:42:09.1986402Z ##[endgroup]
+2026-11-22T16:42:09.1989487Z ##[group]Disabling automatic garbage collection
+2026-11-22T16:42:09.1992049Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-22T16:42:09.2050541Z ##[endgroup]
+2026-11-22T16:42:09.2053388Z ##[group]Setting up auth
+2026-11-22T16:42:09.2056617Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-22T16:42:09.2104879Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-22T16:42:09.2629292Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-22T16:42:09.2665975Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-22T16:42:09.2960025Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-22T16:42:09.3005065Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-22T16:42:09.3291071Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-22T16:42:09.3333973Z ##[endgroup]
+2026-11-22T16:42:09.3335816Z ##[group]Fetching the repository
+2026-11-22T16:42:09.3344984Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d6fce8d196dd90d7283231bc3fb0cf2f6dcabd9f:refs/remotes/origin/main
+2026-11-22T16:42:09.7069044Z From https://github.com/Azeru548/koe
+2026-11-22T16:42:09.7071443Z  * [new ref]         d6fce8d196dd90d7283231bc3fb0cf2f6dcabd9f -> origin/main
+2026-11-22T16:42:09.7077505Z ##[endgroup]
+2026-11-22T16:42:09.7080001Z ##[group]Determining the checkout info
+2026-11-22T16:42:09.7082809Z ##[endgroup]
+2026-11-22T16:42:09.7085006Z [command]/usr/bin/git sparse-checkout disable
+2026-11-22T16:42:09.7145276Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-22T16:42:09.7179867Z ##[group]Checking out the ref
+2026-11-22T16:42:09.7183943Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-22T16:42:09.7594548Z Switched to a new branch 'main'
+2026-11-22T16:42:09.7599782Z branch 'main' set up to track 'origin/main'.
+2026-11-22T16:42:09.7610435Z ##[endgroup]
+2026-11-22T16:42:09.7662390Z [command]/usr/bin/git log -1 --format=%H
+2026-11-22T16:42:09.7689566Z d6fce8d196dd90d7283231bc3fb0cf2f6dcabd9f
+2026-11-22T16:42:09.8086532Z ##[group]Run actions/setup-node@v4
+2026-11-22T16:42:09.8087668Z with:
+2026-11-22T16:42:09.8088619Z   node-version: 22
+2026-11-22T16:42:09.8089501Z   cache: npm
+2026-11-22T16:42:09.8090349Z   always-auth: false
+2026-11-22T16:42:09.8091280Z   check-latest: false
+2026-11-22T16:42:09.8101692Z   token: ***
+2026-11-22T16:42:09.8102540Z ##[endgroup]
+2026-11-22T16:42:09.9646306Z Found in cache @ /opt/hostedtoolcache/node/22.23.5/x64
+2026-11-22T16:42:09.9649623Z ##[group]Environment details
+2026-11-22T16:42:09.9652033Z (node:3025) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-22T16:42:09.9655499Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-22T16:42:10.4241230Z node: v22.23.5
+2026-11-22T16:42:10.4243914Z npm: 10.9.9
+2026-11-22T16:42:10.4245421Z yarn: 1.22.22
+2026-11-22T16:42:10.4248318Z ##[endgroup]
+2026-11-22T16:42:10.4267816Z [command]/opt/hostedtoolcache/node/22.23.5/x64/bin/npm config get cache
+2026-11-22T16:42:10.5410806Z /home/runner/.npm
+2026-11-22T16:42:10.7990612Z Cache hit for: node-cache-Linux-x64-npm-dc41073312c8bba91183dbd7946115800a586aed04c09a2b56a63e9e73988201
+2026-11-22T16:42:10.8103640Z (node:3025) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-22T16:42:11.7440513Z Received 4569497 of 4569497 (100.0%), 6.5 MBs/sec
+2026-11-22T16:42:11.7465426Z Cache Size: ~4 MB (4569497 B)
+2026-11-22T16:42:11.7466409Z [command]/usr/bin/tar -xf /home/runner/work/_temp/9eb49a45-e97f-4dd2-8f53-fb121c4ceb15/cache.tzst -P -C /home/runner/work/koe/koe --use-compress-program unzstd
+2026-11-22T16:42:11.7867191Z Cache restored successfully
+2026-11-22T16:42:11.7873992Z Cache restored from key: node-cache-Linux-x64-npm-dc41073312c8bba91183dbd7946115800a586aed04c09a2b56a63e9e73988201
+2026-11-22T16:42:11.8142759Z ##[group]Run npm ci
+2026-11-22T16:42:11.8143093Z [36;1mnpm ci[0m
+2026-11-22T16:42:11.8197852Z shell: /usr/bin/bash -e {0}
+2026-11-22T16:42:11.8198179Z ##[endgroup]
+2026-11-22T16:42:12.9784070Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-11-22T16:42:13.0093227Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-11-22T16:42:13.8561141Z 
+2026-11-22T16:42:13.8563798Z added 143 packages, and audited 144 packages in 2s
+2026-11-22T16:42:13.8564362Z 
+2026-11-22T16:42:13.8564692Z 37 packages are looking for funding
+2026-11-22T16:42:13.8565433Z   run `npm fund` for details
+2026-11-22T16:42:13.8574438Z 
+2026-11-22T16:42:13.8575003Z found 0 vulnerabilities
+2026-11-22T16:42:13.9083416Z ##[group]Run npm test
+2026-11-22T16:42:13.9083745Z [36;1mnpm test[0m
+2026-11-22T16:42:13.9117888Z shell: /usr/bin/bash -e {0}
+2026-11-22T16:42:13.9118181Z ##[endgroup]
+2026-11-22T16:42:14.0437454Z 
+2026-11-22T16:42:14.0438041Z > tts-web@1.0.0 test
+2026-11-22T16:42:14.1056963Z > node --test test/guard.test.js test/pow.test.js test/keys.test.js test/stats.test.js test/server.test.js test/ephemeral.test.js test/mcp.test.js test/kokoro.test.js test/kokoro-server.test.js test/kokoro-up.test.js test/errors.test.js test/jobs.test.js test/cache.test.js test/cache-sweep.test.js test/kitten.test.js test/engine-cap.test.js test/mcp-kitten.test.js test/test-registry.test.js
+2026-11-22T16:42:14.1060050Z 
+2026-11-22T16:42:14.1060389Z TAP version 13
+2026-11-22T16:42:15.8116118Z # Subtest: a successful job deletes its script once the audio is ready
+2026-11-22T16:42:15.8137412Z ok 1 - a successful job deletes its script once the audio is ready
+2026-11-22T16:42:15.8138439Z   ---
+2026-11-22T16:42:15.8169788Z   duration_ms: 1644.541669
+2026-11-22T16:42:15.8191257Z   type: 'test'
+2026-11-22T16:42:15.8219481Z   ...
+2026-11-22T16:42:17.2386189Z # Subtest: a failed job deletes its script too
+2026-11-22T16:42:17.2470090Z ok 2 - a failed job deletes its script too
+2026-11-22T16:42:17.2499652Z   ---
+2026-11-22T16:42:17.2523759Z   duration_ms: 1302.159126
+2026-11-22T16:42:17.2579772Z   type: 'test'
+2026-11-22T16:42:17.2629568Z   ...
+2026-11-22T16:42:30.1823060Z # Subtest: a job reaped after its worker died is failed and its script cleaned up
+2026-11-22T16:42:30.1837716Z ok 3 - a job reaped after its worker died is failed and its script cleaned up
+2026-11-22T16:42:30.1838822Z   ---
+2026-11-22T16:42:30.1839248Z   duration_ms: 13067.355045
+2026-11-22T16:42:30.1839727Z   type: 'test'
+2026-11-22T16:42:30.1840174Z   ...
+2026-11-22T16:42:45.2087707Z # Subtest: the periodic sweep enforces the cache budget, not just writes
+2026-11-22T16:42:45.2090232Z ok 4 - the periodic sweep enforces the cache budget, not just writes
+2026-11-22T16:42:45.2091099Z   ---
+2026-11-22T16:42:45.2091952Z   duration_ms: 15027.195875
+2026-11-22T16:42:45.2092731Z   type: 'test'
+2026-11-22T16:42:45.2093252Z   ...
+2026-11-22T16:42:45.2403922Z # Subtest: a cache under its budget is left alone
+2026-11-22T16:42:45.2404810Z ok 5 - a cache under its budget is left alone
+2026-11-22T16:42:45.2405402Z   ---
+2026-11-22T16:42:45.2405806Z   duration_ms: 1.963696
+2026-11-22T16:42:45.2406310Z   type: 'test'
+2026-11-22T16:42:45.2406709Z   ...
+2026-11-22T16:42:45.2407406Z # Subtest: pruning deletes oldest first until the budget is met
+2026-11-22T16:42:45.2409287Z ok 6 - pruning deletes oldest first until the budget is met
+2026-11-22T16:42:45.2409956Z   ---
+2026-11-22T16:42:45.2410368Z   duration_ms: 1.461106
+2026-11-22T16:42:45.2410842Z   type: 'test'
+2026-11-22T16:42:45.2411216Z   ...
+2026-11-22T16:42:45.2429694Z # Subtest: a write prunes the directory it lands in
+2026-11-22T16:42:45.2439982Z ok 7 - a write prunes the directory it lands in
+2026-11-22T16:42:45.2440657Z   ---
+2026-11-22T16:42:45.2441076Z   duration_ms: 0.876732
+2026-11-22T16:42:45.2441538Z   type: 'test'
+2026-11-22T16:42:45.2441948Z   ...
+2026-11-22T16:42:45.2442603Z # Subtest: reading a missing entry is a miss, not an error
+2026-11-22T16:42:45.2443491Z ok 8 - reading a missing entry is a miss, not an error
+2026-11-22T16:42:45.2444105Z   ---
+2026-11-22T16:42:45.2444500Z   duration_ms: 0.285094
+2026-11-22T16:42:45.2444952Z   type: 'test'
+2026-11-22T16:42:45.2445413Z   ...
+2026-11-22T16:42:45.2447084Z # [guard] KOE_SECRET not set — generated an ephemeral one; tenant keys will NOT survive a server restart. Set KOE_SECRET in production.
+2026-11-22T16:42:45.2448819Z # Subtest: an engine at its cap is skipped so other engines get the slot
+2026-11-22T16:42:45.2449896Z ok 9 - an engine at its cap is skipped so other engines get the slot
+2026-11-22T16:42:45.2450583Z   ---
+2026-11-22T16:42:45.2450982Z   duration_ms: 219.404199
+2026-11-22T16:42:45.2451502Z   type: 'test'
+2026-11-22T16:42:45.2451886Z   ...
+2026-11-22T16:42:45.2453009Z # Subtest: the capped engine is claimable again below its cap
+2026-11-22T16:42:45.2453990Z ok 10 - the capped engine is claimable again below its cap
+2026-11-22T16:42:45.2454631Z   ---
+2026-11-22T16:42:45.2455023Z   duration_ms: 48.26993
+2026-11-22T16:42:45.2455476Z   type: 'test'
+2026-11-22T16:42:45.2455864Z   ...
+2026-11-22T16:42:45.2456511Z # Subtest: an engine with no configured cap is never skipped
+2026-11-22T16:42:45.2457452Z ok 11 - an engine with no configured cap is never skipped
+2026-11-22T16:42:45.2458081Z   ---
+2026-11-22T16:42:45.2458467Z   duration_ms: 18.940777
+2026-11-22T16:42:45.2459168Z   type: 'test'
+2026-11-22T16:42:45.2459561Z   ...
+2026-11-22T16:42:45.2460357Z # Subtest: null or empty caps behave exactly like the old global-only admission
+2026-11-22T16:42:45.2461550Z ok 12 - null or empty caps behave exactly like the old global-only admission
+2026-11-22T16:42:45.2462294Z   ---
+2026-11-22T16:42:45.2462683Z   duration_ms: 58.551447
+2026-11-22T16:42:45.2463163Z   type: 'test'
+2026-11-22T16:42:45.2463556Z   ...
+2026-11-22T16:42:45.2464314Z # Subtest: the global limit still applies when every engine is under its cap
+2026-11-22T16:42:45.2465451Z ok 13 - the global limit still applies when every engine is under its cap
+2026-11-22T16:42:45.2466194Z   ---
+2026-11-22T16:42:45.2466586Z   duration_ms: 47.96823
+2026-11-22T16:42:45.2467033Z   type: 'test'
+2026-11-22T16:42:45.2467427Z   ...
+2026-11-22T16:42:45.2468779Z # Subtest: jobs with no engine recorded are not mistaken for a capped engine
+2026-11-22T16:42:45.2470038Z ok 14 - jobs with no engine recorded are not mistaken for a capped engine
+2026-11-22T16:42:45.2470777Z   ---
+2026-11-22T16:42:45.2471166Z   duration_ms: 23.01089
+2026-11-22T16:42:45.2471652Z   type: 'test'
+2026-11-22T16:42:45.2472139Z   ...
+2026-11-22T16:42:45.2472853Z # Subtest: countRunningByEngine reports the live pool per engine
+2026-11-22T16:42:45.2473864Z ok 15 - countRunningByEngine reports the live pool per engine
+2026-11-22T16:42:45.2474540Z   ---
+2026-11-22T16:42:45.2474943Z   duration_ms: 33.380969
+2026-11-22T16:42:45.2475398Z   type: 'test'
+2026-11-22T16:42:45.2475791Z   ...
+2026-11-22T16:42:45.2476566Z # Subtest: KOE_ENGINE_CONCURRENCY is parsed, with sidecars capped by default
+2026-11-22T16:42:45.2477713Z ok 16 - KOE_ENGINE_CONCURRENCY is parsed, with sidecars capped by default
+2026-11-22T16:42:45.2478463Z   ---
+2026-11-22T16:42:45.2479062Z   duration_ms: 18.232931
+2026-11-22T16:42:45.2479519Z   type: 'test'
+2026-11-22T16:42:45.2479908Z   ...
+2026-11-22T16:42:45.2480629Z # Subtest: KOE_ENGINE_MAX_WORDS caps kitten below the global job cap
+2026-11-22T16:42:45.2481674Z ok 17 - KOE_ENGINE_MAX_WORDS caps kitten below the global job cap
+2026-11-22T16:42:45.2482350Z   ---
+2026-11-22T16:42:45.2482747Z   duration_ms: 0.991215
+2026-11-22T16:42:45.2483192Z   type: 'test'
+2026-11-22T16:42:45.2483588Z   ...
+2026-11-22T16:42:45.2484502Z # Subtest: the per-engine word cap is env-tunable and never exceeds the global cap
+2026-11-22T16:42:45.2485756Z ok 18 - the per-engine word cap is env-tunable and never exceeds the global cap
+2026-11-22T16:42:45.2486515Z   ---
+2026-11-22T16:42:45.2486902Z   duration_ms: 273.562815
+2026-11-22T16:42:45.2487347Z   type: 'test'
+2026-11-22T16:42:45.2487704Z   ...
+2026-11-22T16:42:45.2488431Z # Subtest: the env override is honoured, including turning the ceiling off
+2026-11-22T16:42:45.2495761Z ok 19 - the env override is honoured, including turning the ceiling off
+2026-11-22T16:42:45.2496452Z   ---
+2026-11-22T16:42:45.2496814Z   duration_ms: 262.890873
+2026-11-22T16:42:45.2497240Z   type: 'test'
+2026-11-22T16:42:45.2497590Z   ...
+2026-11-22T16:42:45.2498052Z # Subtest: boot deletes all stored audio
+2026-11-22T16:42:45.2498838Z ok 20 - boot deletes all stored audio
+2026-11-22T16:42:45.2499301Z   ---
+2026-11-22T16:42:45.2499660Z   duration_ms: 834.742445
+2026-11-22T16:42:45.2500073Z   type: 'test'
+2026-11-22T16:42:45.2500425Z   ...
+2026-11-22T16:42:45.2500933Z # Subtest: jobs older than the job TTL are pruned
+2026-11-22T16:42:45.2501910Z ok 21 - jobs older than the job TTL are pruned
+2026-11-22T16:42:45.2502441Z   ---
+2026-11-22T16:42:45.2502783Z   duration_ms: 8.933894
+2026-11-22T16:42:45.2503181Z   type: 'test'
+2026-11-22T16:42:45.2503523Z   ...
+2026-11-22T16:42:45.2504180Z # Subtest: in-flight jobs from before the restart are marked failed
+2026-11-22T16:42:45.2505104Z ok 22 - in-flight jobs from before the restart are marked failed
+2026-11-22T16:42:45.2505716Z   ---
+2026-11-22T16:42:45.2506078Z   duration_ms: 11.403917
+2026-11-22T16:42:45.2506485Z   type: 'test'
+2026-11-22T16:42:45.2506842Z   ...
+2026-11-22T16:42:45.2507432Z # Subtest: a traceback collapses to its exception line
+2026-11-22T16:42:45.2508182Z ok 23 - a traceback collapses to its exception line
+2026-11-22T16:42:45.2508877Z   ---
+2026-11-22T16:42:45.2509219Z   duration_ms: 1.873107
+2026-11-22T16:42:45.2509628Z   type: 'test'
+2026-11-22T16:42:45.2509971Z   ...
+2026-11-22T16:42:45.2510646Z # Subtest: a traceback with no recognisable exception keeps its last line
+2026-11-22T16:42:45.2511464Z ok 24 - a traceback with no recognisable exception keeps its last line
+2026-11-22T16:42:45.2511835Z   ---
+2026-11-22T16:42:45.2512037Z   duration_ms: 0.265577
+2026-11-22T16:42:45.2512262Z   type: 'test'
+2026-11-22T16:42:45.2512467Z   ...
+2026-11-22T16:42:45.2512826Z # Subtest: plain stderr is passed through, squashed onto one line
+2026-11-22T16:42:45.2513814Z ok 25 - plain stderr is passed through, squashed onto one line
+2026-11-22T16:42:45.2514718Z   ---
+2026-11-22T16:42:45.2515086Z   duration_ms: 0.202469
+2026-11-22T16:42:45.2515501Z   type: 'test'
+2026-11-22T16:42:45.2515851Z   ...
+2026-11-22T16:42:45.2516599Z # Subtest: empty stderr falls back to the error message, then to a generic line
+2026-11-22T16:42:45.2517715Z ok 26 - empty stderr falls back to the error message, then to a generic line
+2026-11-22T16:42:45.2518411Z   ---
+2026-11-22T16:42:45.2519014Z   duration_ms: 0.230541
+2026-11-22T16:42:45.2519430Z   type: 'test'
+2026-11-22T16:42:45.2519784Z   ...
+2026-11-22T16:42:45.2520446Z # Subtest: very long output is truncated to the documented length
+2026-11-22T16:42:45.2521370Z ok 27 - very long output is truncated to the documented length
+2026-11-22T16:42:45.2521984Z   ---
+2026-11-22T16:42:45.2522348Z   duration_ms: 0.234199
+2026-11-22T16:42:45.2522757Z   type: 'test'
+2026-11-22T16:42:45.2523116Z   ...
+2026-11-22T16:42:45.2523919Z # Subtest: mintKey issues a server-side key that only resolves through the keys table
+2026-11-22T16:42:45.2525173Z ok 28 - mintKey issues a server-side key that only resolves through the keys table
+2026-11-22T16:42:45.2525924Z   ---
+2026-11-22T16:42:45.2526298Z   duration_ms: 142.676794
+2026-11-22T16:42:45.2526734Z   type: 'test'
+2026-11-22T16:42:45.2527089Z   ...
+2026-11-22T16:42:45.2527762Z # Subtest: anonymous subjects are stable but never expose the raw IP
+2026-11-22T16:42:45.2528986Z ok 29 - anonymous subjects are stable but never expose the raw IP
+2026-11-22T16:42:45.2529636Z   ---
+2026-11-22T16:42:45.2529957Z   duration_ms: 0.74813
+2026-11-22T16:42:45.2530210Z   type: 'test'
+2026-11-22T16:42:45.2530422Z   ...
+2026-11-22T16:42:45.2530717Z # Subtest: registration is capped per IP per day
+2026-11-22T16:42:45.2531117Z ok 30 - registration is capped per IP per day
+2026-11-22T16:42:45.2531421Z   ---
+2026-11-22T16:42:45.2531626Z   duration_ms: 57.850501
+2026-11-22T16:42:45.2531864Z   type: 'test'
+2026-11-22T16:42:45.2532069Z   ...
+2026-11-22T16:42:45.2532453Z # Subtest: charge enforces hourly request, word, daily, and global limits
+2026-11-22T16:42:45.2533016Z ok 31 - charge enforces hourly request, word, daily, and global limits
+2026-11-22T16:42:45.2533376Z   ---
+2026-11-22T16:42:45.2533573Z   duration_ms: 26.034967
+2026-11-22T16:42:45.2533808Z   type: 'test'
+2026-11-22T16:42:45.2534008Z   ...
+2026-11-22T16:42:45.2534351Z # Subtest: refund returns words and optionally the request slot
+2026-11-22T16:42:45.2534827Z ok 32 - refund returns words and optionally the request slot
+2026-11-22T16:42:45.2535152Z   ---
+2026-11-22T16:42:45.2535355Z   duration_ms: 16.17643
+2026-11-22T16:42:45.2535838Z   type: 'test'
+2026-11-22T16:42:45.2536050Z   ...
+2026-11-22T16:42:45.2536383Z # Subtest: kill switch answers 503 before anything is counted
+2026-11-22T16:42:45.2536838Z ok 33 - kill switch answers 503 before anything is counted
+2026-11-22T16:42:45.2537152Z   ---
+2026-11-22T16:42:45.2537351Z   duration_ms: 0.684432
+2026-11-22T16:42:45.2537587Z   type: 'test'
+2026-11-22T16:42:45.2537787Z   ...
+2026-11-22T16:42:45.2538133Z # Subtest: a single job over the word cap is a 400 before counting
+2026-11-22T16:42:45.2538919Z ok 34 - a single job over the word cap is a 400 before counting
+2026-11-22T16:42:45.2539263Z   ---
+2026-11-22T16:42:45.2539560Z   duration_ms: 0.699299
+2026-11-22T16:42:45.2539871Z   type: 'test'
+2026-11-22T16:42:45.2540230Z   ...
+2026-11-22T16:42:45.2540638Z # Subtest: counters are read back from the database, not from process memory
+2026-11-22T16:42:45.2541438Z ok 35 - counters are read back from the database, not from process memory
+2026-11-22T16:42:45.2542094Z   ---
+2026-11-22T16:42:45.2542473Z   duration_ms: 9.880661
+2026-11-22T16:42:45.2542898Z   type: 'test'
+2026-11-22T16:42:45.2543264Z   ...
+2026-11-22T16:42:45.2543877Z # Subtest: hour and day windows reset with time
+2026-11-22T16:42:45.2544614Z ok 36 - hour and day windows reset with time
+2026-11-22T16:42:45.2545180Z   ---
+2026-11-22T16:42:45.2545569Z   duration_ms: 11.938704
+2026-11-22T16:42:45.2546018Z   type: 'test'
+2026-11-22T16:42:45.2546396Z   ...
+2026-11-22T16:42:45.2547490Z # Subtest: circuit breaker ignores bad input and opens on transient upstream errors
+2026-11-22T16:42:45.2548897Z ok 37 - circuit breaker ignores bad input and opens on transient upstream errors
+2026-11-22T16:42:45.2549641Z   ---
+2026-11-22T16:42:45.2550003Z   duration_ms: 1.385655
+2026-11-22T16:42:45.2550416Z   type: 'test'
+2026-11-22T16:42:45.2550775Z   ...
+2026-11-22T16:42:45.2551523Z # Subtest: admission is bounded by the shared job store, not by process memory
+2026-11-22T16:42:45.2552646Z ok 38 - admission is bounded by the shared job store, not by process memory
+2026-11-22T16:42:45.2553372Z   ---
+2026-11-22T16:42:45.2553744Z   duration_ms: 77.028392
+2026-11-22T16:42:45.2554176Z   type: 'test'
+2026-11-22T16:42:45.2554544Z   ...
+2026-11-22T16:42:45.2555277Z # Subtest: waitForSlot gives up at the deadline instead of queueing forever
+2026-11-22T16:42:45.2556373Z ok 39 - waitForSlot gives up at the deadline instead of queueing forever
+2026-11-22T16:42:45.2557100Z   ---
+2026-11-22T16:42:45.2557524Z   duration_ms: 154.391031
+2026-11-22T16:42:45.2557964Z   type: 'test'
+2026-11-22T16:42:45.2558324Z   ...
+2026-11-22T16:42:45.2559324Z # Subtest: queue state reports saturation honestly, not just an idle-looking ok
+2026-11-22T16:42:45.2560469Z ok 40 - queue state reports saturation honestly, not just an idle-looking ok
+2026-11-22T16:42:45.2561175Z   ---
+2026-11-22T16:42:45.2561553Z   duration_ms: 13.594305
+2026-11-22T16:42:45.2561973Z   type: 'test'
+2026-11-22T16:42:45.2562327Z   ...
+2026-11-22T16:42:45.2563094Z # Subtest: refunds land in the window that was charged, not in the current one
+2026-11-22T16:42:45.2564191Z ok 41 - refunds land in the window that was charged, not in the current one
+2026-11-22T16:42:45.2564905Z   ---
+2026-11-22T16:42:45.2565297Z   duration_ms: 5.275618
+2026-11-22T16:42:45.2565728Z   type: 'test'
+2026-11-22T16:42:45.2566092Z   ...
+2026-11-22T16:42:45.2566753Z # Subtest: a full queue is reported immediately, not after the wait
+2026-11-22T16:42:45.2567683Z ok 42 - a full queue is reported immediately, not after the wait
+2026-11-22T16:42:45.2568052Z   ---
+2026-11-22T16:42:45.2568265Z   duration_ms: 0.28345
+2026-11-22T16:42:45.2568829Z   type: 'test'
+2026-11-22T16:42:45.2569065Z   ...
+2026-11-22T16:42:45.2569589Z # Subtest: a job round-trips through the store with its public shape intact
+2026-11-22T16:42:45.2570468Z ok 43 - a job round-trips through the store with its public shape intact
+2026-11-22T16:42:45.2571168Z   ---
+2026-11-22T16:42:45.2571541Z   duration_ms: 104.03493
+2026-11-22T16:42:45.2571979Z   type: 'test'
+2026-11-22T16:42:45.2572343Z   ...
+2026-11-22T16:42:45.2573147Z # Subtest: listing is per tenant and newest first
+2026-11-22T16:42:45.2573936Z ok 44 - listing is per tenant and newest first
+2026-11-22T16:42:45.2574488Z   ---
+2026-11-22T16:42:45.2574847Z   duration_ms: 28.624748
+2026-11-22T16:42:45.2575282Z   type: 'test'
+2026-11-22T16:42:45.2575672Z   ...
+2026-11-22T16:42:45.2576202Z # Subtest: claimNext takes jobs in order and enforces the global limit
+2026-11-22T16:42:45.2577181Z ok 45 - claimNext takes jobs in order and enforces the global limit
+2026-11-22T16:42:45.2577667Z   ---
+2026-11-22T16:42:45.2577882Z   duration_ms: 63.782753
+2026-11-22T16:42:45.2578129Z   type: 'test'
+2026-11-22T16:42:45.2578334Z   ...
+2026-11-22T16:42:45.2579055Z # Subtest: a deleted job cannot be resurrected by a later update
+2026-11-22T16:42:45.2579920Z ok 46 - a deleted job cannot be resurrected by a later update
+2026-11-22T16:42:45.2580285Z   ---
+2026-11-22T16:42:45.2580498Z   duration_ms: 17.14221
+2026-11-22T16:42:45.2580734Z   type: 'test'
+2026-11-22T16:42:45.2580952Z   ...
+2026-11-22T16:42:45.2581305Z # Subtest: reapStale only fails jobs that are past the deadline
+2026-11-22T16:42:45.2581799Z ok 47 - reapStale only fails jobs that are past the deadline
+2026-11-22T16:42:45.2582137Z   ---
+2026-11-22T16:42:45.2582345Z   duration_ms: 34.509222
+2026-11-22T16:42:45.2582591Z   type: 'test'
+2026-11-22T16:42:45.2582795Z   ...
+2026-11-22T16:42:45.2583170Z # Subtest: a claimed job whose script survived is re-queued, not failed
+2026-11-22T16:42:45.2583918Z ok 48 - a claimed job whose script survived is re-queued, not failed
+2026-11-22T16:42:45.2584269Z   ---
+2026-11-22T16:42:45.2584471Z   duration_ms: 43.908787
+2026-11-22T16:42:45.2584715Z   type: 'test'
+2026-11-22T16:42:45.2584916Z   ...
+2026-11-22T16:42:45.2585410Z # Subtest: failRunning fails everything a previous process left in flight
+2026-11-22T16:42:45.2585976Z ok 49 - failRunning fails everything a previous process left in flight
+2026-11-22T16:42:45.2586341Z   ---
+2026-11-22T16:42:45.2586550Z   duration_ms: 68.235437
+2026-11-22T16:42:45.2586781Z   type: 'test'
+2026-11-22T16:42:45.2586976Z   ...
+2026-11-22T16:42:45.2587356Z # Subtest: sweep prunes by job TTL and expires finished audio separately
+2026-11-22T16:42:45.2587895Z ok 50 - sweep prunes by job TTL and expires finished audio separately
+2026-11-22T16:42:45.2588258Z   ---
+2026-11-22T16:42:45.2588455Z   duration_ms: 15.220863
+2026-11-22T16:42:45.2589048Z   type: 'test'
+2026-11-22T16:42:45.2589408Z   ...
+2026-11-22T16:42:45.2590007Z # Subtest: a legacy jobs.json is imported once and keeps its ids
+2026-11-22T16:42:45.2590552Z ok 51 - a legacy jobs.json is imported once and keeps its ids
+2026-11-22T16:42:45.2590891Z   ---
+2026-11-22T16:42:45.2591097Z   duration_ms: 5.112673
+2026-11-22T16:42:45.2591338Z   type: 'test'
+2026-11-22T16:42:45.2591545Z   ...
+2026-11-22T16:42:45.2591996Z # Subtest: GET /healthz answers 200 with a reachable database, /health stays as an alias
+2026-11-22T16:42:45.2593170Z ok 52 - GET /healthz answers 200 with a reachable database, /health stays as an alias
+2026-11-22T16:42:45.2593881Z   ---
+2026-11-22T16:42:45.2594220Z   duration_ms: 491.644271
+2026-11-22T16:42:45.2594660Z   type: 'test'
+2026-11-22T16:42:45.2595106Z   ...
+2026-11-22T16:42:45.2595817Z # Subtest: forged and pre-v3 keys are rejected with 401 invalid_key
+2026-11-22T16:42:45.2596891Z not ok 53 - forged and pre-v3 keys are rejected with 401 invalid_key
+2026-11-22T16:42:45.2597609Z   ---
+2026-11-22T16:42:45.2598021Z   duration_ms: 594.744648
+2026-11-22T16:42:45.2598664Z   type: 'test'
+2026-11-22T16:42:45.2599389Z   location: '/home/runner/work/koe/koe/test/keys.test.js:123:1'
+2026-11-22T16:42:45.2600156Z   failureType: 'testCodeFailure'
+2026-11-22T16:42:45.2600675Z   error: |-
+2026-11-22T16:42:45.2601157Z     Expected values to be strictly equal:
+2026-11-22T16:42:45.2601697Z     
+2026-11-22T16:42:45.2602056Z     406 !== 401
+2026-11-22T16:42:45.2602432Z     
+2026-11-22T16:42:45.2602803Z   code: 'ERR_ASSERTION'
+2026-11-22T16:42:45.2603263Z   name: 'AssertionError'
+2026-11-22T16:42:45.2603984Z   expected: 401
+2026-11-22T16:42:45.2604449Z   actual: 406
+2026-11-22T16:42:45.2604891Z   operator: 'strictEqual'
+2026-11-22T16:42:45.2605358Z   stack: |-
+2026-11-22T16:42:45.2606086Z     TestContext.<anonymous> (/home/runner/work/koe/koe/test/keys.test.js:141:10)
+2026-11-22T16:42:45.2607279Z     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-11-22T16:42:45.2608328Z     async Test.run (node:internal/test_runner/test:1054:7)
+2026-11-22T16:42:45.2609532Z     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+2026-11-22T16:42:45.2610329Z   ...
+2026-11-22T16:42:45.2611050Z # Subtest: a key over the hourly word limit gets 429 and nothing is counted
+2026-11-22T16:42:45.2612135Z ok 54 - a key over the hourly word limit gets 429 and nothing is counted
+2026-11-22T16:42:45.2612837Z   ---
+2026-11-22T16:42:45.2613222Z   duration_ms: 737.871078
+2026-11-22T16:42:45.2613677Z   type: 'test'
+2026-11-22T16:42:45.2614066Z   ...
+2026-11-22T16:42:45.2614771Z # Subtest: the global daily ceiling rejects with 429 before counting
+2026-11-22T16:42:45.2615792Z ok 55 - the global daily ceiling rejects with 429 before counting
+2026-11-22T16:42:45.2616445Z   ---
+2026-11-22T16:42:45.2616825Z   duration_ms: 745.966349
+2026-11-22T16:42:45.2617265Z   type: 'test'
+2026-11-22T16:42:45.2617641Z   ...
+2026-11-22T16:42:45.2618325Z # Subtest: a single job over the word cap is a 400 before counting
+2026-11-22T16:42:45.2619856Z ok 56 - a single job over the word cap is a 400 before counting
+2026-11-22T16:42:45.2620494Z   ---
+2026-11-22T16:42:45.2620882Z   duration_ms: 726.33659
+2026-11-22T16:42:45.2621317Z   type: 'test'
+2026-11-22T16:42:45.2621704Z   ...
+2026-11-22T16:42:45.2622416Z # Subtest: a failed generation refunds both the words and the request
+2026-11-22T16:42:45.2623441Z ok 57 - a failed generation refunds both the words and the request
+2026-11-22T16:42:45.2624101Z   ---
+2026-11-22T16:42:45.2624477Z   duration_ms: 662.984392
+2026-11-22T16:42:45.2624934Z   type: 'test'
+2026-11-22T16:42:45.2625329Z   ...
+2026-11-22T16:42:45.2626039Z # Subtest: the 4th mint from one IP on the same UTC day is a 429
+2026-11-22T16:42:45.2626966Z ok 58 - the 4th mint from one IP on the same UTC day is a 429
+2026-11-22T16:42:45.2627579Z   ---
+2026-11-22T16:42:45.2627957Z   duration_ms: 545.85052
+2026-11-22T16:42:45.2628410Z   type: 'test'
+2026-11-22T16:42:45.2628990Z   ...
+2026-11-22T16:42:45.2629701Z # Subtest: KOE_KILL_SWITCH answers 503 on every generation entry point
+2026-11-22T16:42:45.2630754Z not ok 59 - KOE_KILL_SWITCH answers 503 on every generation entry point
+2026-11-22T16:42:45.2631451Z   ---
+2026-11-22T16:42:45.2631837Z   duration_ms: 573.320531
+2026-11-22T16:42:45.2632279Z   type: 'test'
+2026-11-22T16:42:45.2632904Z   location: '/home/runner/work/koe/koe/test/keys.test.js:246:1'
+2026-11-22T16:42:45.2633641Z   failureType: 'testCodeFailure'
+2026-11-22T16:42:45.2634117Z   error: |-
+2026-11-22T16:42:45.2634587Z     Expected values to be strictly equal:
+2026-11-22T16:42:45.2635093Z     
+2026-11-22T16:42:45.2635438Z     406 !== 503
+2026-11-22T16:42:45.2635793Z     
+2026-11-22T16:42:45.2636153Z   code: 'ERR_ASSERTION'
+2026-11-22T16:42:45.2636581Z   name: 'AssertionError'
+2026-11-22T16:42:45.2636983Z   expected: 503
+2026-11-22T16:42:45.2637361Z   actual: 406
+2026-11-22T16:42:45.2637741Z   operator: 'strictEqual'
+2026-11-22T16:42:45.2638159Z   stack: |-
+2026-11-22T16:42:45.2639053Z     TestContext.<anonymous> (/home/runner/work/koe/koe/test/keys.test.js:266:10)
+2026-11-22T16:42:45.2640205Z     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-11-22T16:42:45.2641166Z     async Test.run (node:internal/test_runner/test:1054:7)
+2026-11-22T16:42:45.2642093Z     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+2026-11-22T16:42:45.2642821Z   ...
+2026-11-22T16:42:45.2643539Z # Subtest: killing and restarting the process preserves keys and counters
+2026-11-22T16:42:45.2644586Z ok 60 - killing and restarting the process preserves keys and counters
+2026-11-22T16:42:45.2645490Z   ---
+2026-11-22T16:42:45.2645910Z   duration_ms: 1379.675804
+2026-11-22T16:42:45.2646354Z   type: 'test'
+2026-11-22T16:42:45.2646732Z   ...
+2026-11-22T16:42:45.2647475Z # Subtest: rejections are logged by reason and key prefix, never by full key
+2026-11-22T16:42:45.2648757Z ok 61 - rejections are logged by reason and key prefix, never by full key
+2026-11-22T16:42:45.2649459Z   ---
+2026-11-22T16:42:45.2649829Z   duration_ms: 762.131245
+2026-11-22T16:42:45.2650265Z   type: 'test'
+2026-11-22T16:42:45.2650624Z   ...
+2026-11-22T16:42:45.2651245Z # Subtest: kitten is a registered engine that produces WAV
+2026-11-22T16:42:45.2652095Z ok 62 - kitten is a registered engine that produces WAV
+2026-11-22T16:42:45.2652674Z   ---
+2026-11-22T16:42:45.2653047Z   duration_ms: 441.17645
+2026-11-22T16:42:45.2653473Z   type: 'test'
+2026-11-22T16:42:45.2653824Z   ...
+2026-11-22T16:42:45.2655152Z # [kitten] could not fetch the voice list from the sidecar (fetch failed) — using the built-in Kitten voice catalog
+2026-11-22T16:42:45.2656909Z # [kokoro] could not fetch the voice list from the sidecar (fetch failed) — using the built-in Kokoro voice catalog
+2026-11-22T16:42:45.2658184Z # Subtest: the built-in catalog is used while the sidecar is unreachable
+2026-11-22T16:42:45.2659418Z ok 63 - the built-in catalog is used while the sidecar is unreachable
+2026-11-22T16:42:45.2660118Z   ---
+2026-11-22T16:42:45.2660473Z   duration_ms: 7.240099
+2026-11-22T16:42:45.2661151Z   type: 'test'
+2026-11-22T16:42:45.2661516Z   ...
+2026-11-22T16:42:45.2662130Z # Subtest: the sidecar's own voice list wins when it answers
+2026-11-22T16:42:45.2662967Z ok 64 - the sidecar's own voice list wins when it answers
+2026-11-22T16:42:45.2663556Z   ---
+2026-11-22T16:42:45.2663910Z   duration_ms: 18.336754
+2026-11-22T16:42:45.2664322Z   type: 'test'
+2026-11-22T16:42:45.2664682Z   ...
+2026-11-22T16:42:45.2665244Z # Subtest: a locale filter only returns matching voices
+2026-11-22T16:42:45.2666034Z ok 65 - a locale filter only returns matching voices
+2026-11-22T16:42:45.2666613Z   ---
+2026-11-22T16:42:45.2666967Z   duration_ms: 3.652058
+2026-11-22T16:42:45.2667379Z   type: 'test'
+2026-11-22T16:42:45.2667728Z   ...
+2026-11-22T16:42:45.2668425Z # Subtest: synthesize sends text, a lowercased voice and a clamped speed
+2026-11-22T16:42:45.2669657Z ok 66 - synthesize sends text, a lowercased voice and a clamped speed
+2026-11-22T16:42:45.2670344Z   ---
+2026-11-22T16:42:45.2670728Z   duration_ms: 24.409636
+2026-11-22T16:42:45.2671184Z   type: 'test'
+2026-11-22T16:42:45.2697931Z   ...
+2026-11-22T16:42:45.2698709Z # [kitten] attempt 1/2 failed (http_500), retrying in 250ms
+2026-11-22T16:42:45.2699556Z # Subtest: a sidecar 500 is retried once and surfaces as one readable line
+2026-11-22T16:42:45.2700362Z ok 67 - a sidecar 500 is retried once and surfaces as one readable line
+2026-11-22T16:42:45.2700821Z   ---
+2026-11-22T16:42:45.2701144Z   duration_ms: 262.903151
+2026-11-22T16:42:45.2701422Z   type: 'test'
+2026-11-22T16:42:45.2701728Z   ...
+2026-11-22T16:42:45.2702382Z # Subtest: a 4xx is never retried — the request itself is wrong
+2026-11-22T16:42:45.2703154Z ok 68 - a 4xx is never retried — the request itself is wrong
+2026-11-22T16:42:45.2703611Z   ---
+2026-11-22T16:42:45.2703836Z   duration_ms: 5.993102
+2026-11-22T16:42:45.2704203Z   type: 'test'
+2026-11-22T16:42:45.2704503Z   ...
+2026-11-22T16:42:45.2704982Z # Subtest: an already-aborted job never reaches the sidecar
+2026-11-22T16:42:45.2705567Z ok 69 - an already-aborted job never reaches the sidecar
+2026-11-22T16:42:45.2706006Z   ---
+2026-11-22T16:42:45.2706322Z   duration_ms: 0.745837
+2026-11-22T16:42:45.2706575Z   type: 'test'
+2026-11-22T16:42:45.2706885Z   ...
+2026-11-22T16:42:45.2707368Z # Subtest: healthy() tracks the sidecar, cached for the TTL
+2026-11-22T16:42:45.2708181Z ok 70 - healthy() tracks the sidecar, cached for the TTL
+2026-11-22T16:42:45.2708896Z   ---
+2026-11-22T16:42:45.2709242Z   duration_ms: 7.155007
+2026-11-22T16:42:45.2709632Z   type: 'test'
+2026-11-22T16:42:45.2709977Z   ...
+2026-11-22T16:42:45.2710597Z # Subtest: kitten ids never collide with another engine's
+2026-11-22T16:42:45.2711305Z ok 71 - kitten ids never collide with another engine's
+2026-11-22T16:42:45.2711625Z   ---
+2026-11-22T16:42:45.2711827Z   duration_ms: 0.56629
+2026-11-22T16:42:45.2712052Z   type: 'test'
+2026-11-22T16:42:45.2712419Z   ...
+2026-11-22T16:42:45.2713025Z # Subtest: healthz stays 200 and reports kokoro as unavailable
+2026-11-22T16:42:45.2713874Z ok 72 - healthz stays 200 and reports kokoro as unavailable
+2026-11-22T16:42:45.2714451Z   ---
+2026-11-22T16:42:45.2714854Z   duration_ms: 837.740944
+2026-11-22T16:42:45.2715264Z   type: 'test'
+2026-11-22T16:42:45.2715610Z   ...
+2026-11-22T16:42:45.2716259Z # Subtest: engine:"kokoro" answers 503 within 10s and charges nothing
+2026-11-22T16:42:45.2717174Z ok 73 - engine:"kokoro" answers 503 within 10s and charges nothing
+2026-11-22T16:42:45.2717762Z   ---
+2026-11-22T16:42:45.2718109Z   duration_ms: 12.976761
+2026-11-22T16:42:45.2718660Z   type: 'test'
+2026-11-22T16:42:45.2719012Z   ...
+2026-11-22T16:42:45.2719816Z # Subtest: an edge voice passed with engine:"kokoro" still 503s while the sidecar is down
+2026-11-22T16:42:45.2720950Z ok 74 - an edge voice passed with engine:"kokoro" still 503s while the sidecar is down
+2026-11-22T16:42:45.2721575Z   ---
+2026-11-22T16:42:45.2721890Z   duration_ms: 3.871789
+2026-11-22T16:42:45.2722135Z   type: 'test'
+2026-11-22T16:42:45.2722342Z   ...
+2026-11-22T16:42:45.2722676Z # Subtest: edge still routes normally with the sidecar down
+2026-11-22T16:42:45.2723348Z ok 75 - edge still routes normally with the sidecar down
+2026-11-22T16:42:45.2723670Z   ---
+2026-11-22T16:42:45.2723878Z   duration_ms: 10.681999
+2026-11-22T16:42:45.2724119Z   type: 'test'
+2026-11-22T16:42:45.2724318Z   ...
+2026-11-22T16:42:45.2724655Z # Subtest: piper still routes normally with the sidecar down
+2026-11-22T16:42:45.2725122Z ok 76 - piper still routes normally with the sidecar down
+2026-11-22T16:42:45.2725447Z   ---
+2026-11-22T16:42:45.2725646Z   duration_ms: 13.704792
+2026-11-22T16:42:45.2725884Z   type: 'test'
+2026-11-22T16:42:45.2726095Z   ...
+2026-11-22T16:42:45.2726365Z # Subtest: an unknown engine is still a 400
+2026-11-22T16:42:45.2726732Z ok 77 - an unknown engine is still a 400
+2026-11-22T16:42:45.2727012Z   ---
+2026-11-22T16:42:45.2727212Z   duration_ms: 9.672341
+2026-11-22T16:42:45.2727442Z   type: 'test'
+2026-11-22T16:42:45.2727646Z   ...
+2026-11-22T16:42:45.2727911Z # Subtest: google is registered nowhere
+2026-11-22T16:42:45.2728263Z ok 78 - google is registered nowhere
+2026-11-22T16:42:45.2728759Z   ---
+2026-11-22T16:42:45.2728986Z   duration_ms: 8.619049
+2026-11-22T16:42:45.2729230Z   type: 'test'
+2026-11-22T16:42:45.2729440Z   ...
+2026-11-22T16:42:45.2729761Z # Subtest: GET /voices serves each engine's own catalog
+2026-11-22T16:42:45.2730192Z ok 79 - GET /voices serves each engine's own catalog
+2026-11-22T16:42:45.2730500Z   ---
+2026-11-22T16:42:45.2730703Z   duration_ms: 7.833518
+2026-11-22T16:42:45.2730936Z   type: 'test'
+2026-11-22T16:42:45.2731136Z   ...
+2026-11-22T16:42:45.2731530Z # Subtest: the server process is still healthy after every kokoro failure
+2026-11-22T16:42:45.2732105Z ok 80 - the server process is still healthy after every kokoro failure
+2026-11-22T16:42:45.2732466Z   ---
+2026-11-22T16:42:45.2732668Z   duration_ms: 3.690611
+2026-11-22T16:42:45.2732906Z   type: 'test'
+2026-11-22T16:42:45.2733107Z   ...
+2026-11-22T16:42:45.2733480Z # Subtest: healthz reports kokoro as available while the sidecar is up
+2026-11-22T16:42:45.2734023Z ok 81 - healthz reports kokoro as available while the sidecar is up
+2026-11-22T16:42:45.2734387Z   ---
+2026-11-22T16:42:45.2734593Z   duration_ms: 703.31608
+2026-11-22T16:42:45.2734873Z   type: 'test'
+2026-11-22T16:42:45.2735110Z   ...
+2026-11-22T16:42:45.2735519Z # Subtest: GET /voices?engine=kokoro serves the sidecar's own catalog
+2026-11-22T16:42:45.2736092Z ok 82 - GET /voices?engine=kokoro serves the sidecar's own catalog
+2026-11-22T16:42:45.2736476Z   ---
+2026-11-22T16:42:45.2736699Z   duration_ms: 8.558859
+2026-11-22T16:42:45.2737278Z   type: 'test'
+2026-11-22T16:42:45.2737692Z   ...
+2026-11-22T16:42:45.2738416Z # Subtest: an edge voice with engine:"kokoro" is a 400 carrying validVoices
+2026-11-22T16:42:45.2739654Z ok 83 - an edge voice with engine:"kokoro" is a 400 carrying validVoices
+2026-11-22T16:42:45.2740332Z   ---
+2026-11-22T16:42:45.2740651Z   duration_ms: 5.320432
+2026-11-22T16:42:45.2740915Z   type: 'test'
+2026-11-22T16:42:45.2741142Z   ...
+2026-11-22T16:42:45.2741502Z # Subtest: a valid kokoro voice produces an MP3 end to end
+2026-11-22T16:42:45.2742075Z ok 84 - a valid kokoro voice produces an MP3 end to end
+2026-11-22T16:42:45.2742413Z   ---
+2026-11-22T16:42:45.2742648Z   duration_ms: 439.219225
+2026-11-22T16:42:45.2742923Z   type: 'test'
+2026-11-22T16:42:45.2743163Z   ...
+2026-11-22T16:42:45.2743537Z # Subtest: the server stays healthy after the kokoro round trip
+2026-11-22T16:42:45.2744084Z ok 85 - the server stays healthy after the kokoro round trip
+2026-11-22T16:42:45.2744457Z   ---
+2026-11-22T16:42:45.2744683Z   duration_ms: 3.540269
+2026-11-22T16:42:45.2744929Z   type: 'test'
+2026-11-22T16:42:45.2745160Z   ...
+2026-11-22T16:42:45.2745910Z # [kokoro] could not fetch the voice list from the sidecar (fetch failed) — using the built-in Kokoro voice catalog
+2026-11-22T16:42:45.2746753Z # Subtest: listVoices: falls back to the built-in catalog when the sidecar is unreachable
+2026-11-22T16:42:45.2747482Z ok 86 - listVoices: falls back to the built-in catalog when the sidecar is unreachable
+2026-11-22T16:42:45.2748707Z   ---
+2026-11-22T16:42:45.2748948Z   duration_ms: 1.968386
+2026-11-22T16:42:45.2749192Z   type: 'test'
+2026-11-22T16:42:45.2749432Z   ...
+2026-11-22T16:42:45.2750160Z # [kokoro] kokoro ignores rates below 1.0 (the sidecar accepts 1.0–2.0); requested 0.85 was clamped to 1.0
+2026-11-22T16:42:45.2751495Z # [kokoro] kokoro has no pitch control — the requested pitch was ignored
+2026-11-22T16:42:45.2752610Z # Subtest: listVoices: fetches from the sidecar and derives metadata
+2026-11-22T16:42:45.2753384Z ok 87 - listVoices: fetches from the sidecar and derives metadata
+2026-11-22T16:42:45.2753763Z   ---
+2026-11-22T16:42:45.2753975Z   duration_ms: 33.588022
+2026-11-22T16:42:45.2754223Z   type: 'test'
+2026-11-22T16:42:45.2754439Z   ...
+2026-11-22T16:42:45.2754760Z # Subtest: listVoices: lang filter narrows the catalog
+2026-11-22T16:42:45.2755198Z ok 88 - listVoices: lang filter narrows the catalog
+2026-11-22T16:42:45.2755524Z   ---
+2026-11-22T16:42:45.2755739Z   duration_ms: 0.45366
+2026-11-22T16:42:45.2755969Z   type: 'test'
+2026-11-22T16:42:45.2756169Z   ...
+2026-11-22T16:42:45.2756554Z # Subtest: buildRequestBody: maps rate to speed and never sends pitch
+2026-11-22T16:42:45.2757103Z ok 89 - buildRequestBody: maps rate to speed and never sends pitch
+2026-11-22T16:42:45.2757456Z   ---
+2026-11-22T16:42:45.2757655Z   duration_ms: 0.657661
+2026-11-22T16:42:45.2757885Z   type: 'test'
+2026-11-22T16:42:45.2758093Z   ...
+2026-11-22T16:42:45.2758431Z # Subtest: synthesize: success returns bytes and audio/mpeg
+2026-11-22T16:42:45.2759169Z ok 90 - synthesize: success returns bytes and audio/mpeg
+2026-11-22T16:42:45.2759492Z   ---
+2026-11-22T16:42:45.2759698Z   duration_ms: 18.318834
+2026-11-22T16:42:45.2759939Z   type: 'test'
+2026-11-22T16:42:45.2760145Z   ...
+2026-11-22T16:42:45.2760474Z # [kokoro] attempt 1/3 failed (http_503), retrying in 10ms
+2026-11-22T16:42:45.2760929Z # [kokoro] attempt 2/3 failed (http_503), retrying in 20ms
+2026-11-22T16:42:45.2761416Z # Subtest: synthesize: sidecar 503 is retried twice, then fails
+2026-11-22T16:42:45.2761903Z ok 91 - synthesize: sidecar 503 is retried twice, then fails
+2026-11-22T16:42:45.2762224Z   ---
+2026-11-22T16:42:45.2762429Z   duration_ms: 56.223433
+2026-11-22T16:42:45.2762661Z   type: 'test'
+2026-11-22T16:42:45.2762861Z   ...
+2026-11-22T16:42:45.2763203Z # Subtest: synthesize: a 4xx (unknown voice) is never retried
+2026-11-22T16:42:45.2763659Z ok 92 - synthesize: a 4xx (unknown voice) is never retried
+2026-11-22T16:42:45.2763971Z   ---
+2026-11-22T16:42:45.2764365Z   duration_ms: 7.425454
+2026-11-22T16:42:45.2764603Z   type: 'test'
+2026-11-22T16:42:45.2764802Z   ...
+2026-11-22T16:42:45.2765140Z # [kokoro] attempt 1/3 failed (read_timeout), retrying in 10ms
+2026-11-22T16:42:45.2765630Z # [kokoro] attempt 2/3 failed (read_timeout), retrying in 20ms
+2026-11-22T16:42:45.2766110Z # Subtest: synthesize: read timeout fails fast and is retried
+2026-11-22T16:42:45.2766571Z ok 93 - synthesize: read timeout fails fast and is retried
+2026-11-22T16:42:45.2766906Z   ---
+2026-11-22T16:42:45.2767113Z   duration_ms: 1238.366628
+2026-11-22T16:42:45.2767350Z   type: 'test'
+2026-11-22T16:42:45.2767560Z   ...
+2026-11-22T16:42:45.2767873Z # [kokoro] attempt 1/3 failed (connect), retrying in 10ms
+2026-11-22T16:42:45.2768317Z # [kokoro] attempt 2/3 failed (connect), retrying in 20ms
+2026-11-22T16:42:45.2769100Z # Subtest: synthesize: connection refused fails cleanly instead of hanging
+2026-11-22T16:42:45.2769678Z ok 94 - synthesize: connection refused fails cleanly instead of hanging
+2026-11-22T16:42:45.2770057Z   ---
+2026-11-22T16:42:45.2770257Z   duration_ms: 34.448043
+2026-11-22T16:42:45.2770524Z   type: 'test'
+2026-11-22T16:42:45.2770732Z   ...
+2026-11-22T16:42:45.2771080Z # Subtest: synthesize: honours an already-aborted caller signal
+2026-11-22T16:42:45.2771578Z ok 95 - synthesize: honours an already-aborted caller signal
+2026-11-22T16:42:45.2771908Z   ---
+2026-11-22T16:42:45.2772109Z   duration_ms: 1.693521
+2026-11-22T16:42:45.2772490Z   type: 'test'
+2026-11-22T16:42:45.2772689Z   ...
+2026-11-22T16:42:45.2773368Z # [kokoro] could not fetch the voice list from the sidecar (fetch failed) — using the built-in Kokoro voice catalog
+2026-11-22T16:42:45.2774314Z # [kitten] could not fetch the voice list from the sidecar (fetch failed) — using the built-in Kitten voice catalog
+2026-11-22T16:42:45.2774990Z # Subtest: hosted MCP reports a kitten job as WAV, not MP3
+2026-11-22T16:42:45.2775447Z ok 96 - hosted MCP reports a kitten job as WAV, not MP3
+2026-11-22T16:42:45.2775761Z   ---
+2026-11-22T16:42:45.2775983Z   duration_ms: 670.541395
+2026-11-22T16:42:45.2776223Z   type: 'test'
+2026-11-22T16:42:45.2776421Z   ...
+2026-11-22T16:42:45.2776727Z # Subtest: stdio MCP saves a kitten job as a .wav file
+2026-11-22T16:42:45.2777138Z ok 97 - stdio MCP saves a kitten job as a .wav file
+2026-11-22T16:42:45.2777469Z   ---
+2026-11-22T16:42:45.2777673Z   duration_ms: 2446.540244
+2026-11-22T16:42:45.2777913Z   type: 'test'
+2026-11-22T16:42:45.2778113Z   ...
+2026-11-22T16:42:45.2778706Z # Subtest: GET /mcp serves the public setup page to browsers
+2026-11-22T16:42:45.2779350Z ok 98 - GET /mcp serves the public setup page to browsers
+2026-11-22T16:42:45.2779675Z   ---
+2026-11-22T16:42:45.2779880Z   duration_ms: 613.681513
+2026-11-22T16:42:45.2780121Z   type: 'test'
+2026-11-22T16:42:45.2780326Z   ...
+2026-11-22T16:42:45.2780622Z # Subtest: GET / serves the landing page
+2026-11-22T16:42:45.2780973Z ok 99 - GET / serves the landing page
+2026-11-22T16:42:45.2781245Z   ---
+2026-11-22T16:42:45.2781441Z   duration_ms: 5.17536
+2026-11-22T16:42:45.2781676Z   type: 'test'
+2026-11-22T16:42:45.2781915Z   ...
+2026-11-22T16:42:45.2782249Z # Subtest: GET /docs serves the agent reference without a key
+2026-11-22T16:42:45.2782717Z ok 100 - GET /docs serves the agent reference without a key
+2026-11-22T16:42:45.2783049Z   ---
+2026-11-22T16:42:45.2783249Z   duration_ms: 4.217435
+2026-11-22T16:42:45.2783481Z   type: 'test'
+2026-11-22T16:42:45.2783686Z   ...
+2026-11-22T16:42:45.2783970Z # Subtest: GET /studio serves the studio page
+2026-11-22T16:42:45.2784347Z ok 101 - GET /studio serves the studio page
+2026-11-22T16:42:45.2784633Z   ---
+2026-11-22T16:42:45.2784842Z   duration_ms: 4.537605
+2026-11-22T16:42:45.2785074Z   type: 'test'
+2026-11-22T16:42:45.2785311Z   ...
+2026-11-22T16:42:45.2785584Z # Subtest: brand assets are served publicly
+2026-11-22T16:42:45.2785940Z ok 102 - brand assets are served publicly
+2026-11-22T16:42:45.2786217Z   ---
+2026-11-22T16:42:45.2786425Z   duration_ms: 8.567842
+2026-11-22T16:42:45.2786655Z   type: 'test'
+2026-11-22T16:42:45.2787012Z   ...
+2026-11-22T16:42:45.2787443Z # Subtest: the homepage advertises a 1200x630 social card that is actually served
+2026-11-22T16:42:45.2788064Z ok 103 - the homepage advertises a 1200x630 social card that is actually served
+2026-11-22T16:42:45.2788450Z   ---
+2026-11-22T16:42:45.2788862Z   duration_ms: 7.599176
+2026-11-22T16:42:45.2789095Z   type: 'test'
+2026-11-22T16:42:45.2789291Z   ...
+2026-11-22T16:42:45.2789697Z # Subtest: every public page advertises a 1200x630 card that is actually served
+2026-11-22T16:42:45.2790303Z ok 104 - every public page advertises a 1200x630 card that is actually served
+2026-11-22T16:42:45.2790682Z   ---
+2026-11-22T16:42:45.2790883Z   duration_ms: 15.866981
+2026-11-22T16:42:45.2791116Z   type: 'test'
+2026-11-22T16:42:45.2791319Z   ...
+2026-11-22T16:42:45.2791689Z # Subtest: GET /mcp without HTML Accept returns a text hint, not a 405
+2026-11-22T16:42:45.2792214Z ok 105 - GET /mcp without HTML Accept returns a text hint, not a 405
+2026-11-22T16:42:45.2792568Z   ---
+2026-11-22T16:42:45.2792775Z   duration_ms: 1.898444
+2026-11-22T16:42:45.2793002Z   type: 'test'
+2026-11-22T16:42:45.2793205Z   ...
+2026-11-22T16:42:45.2793576Z # Subtest: GET /mcp-sample-andrew.mp3 serves the public voice sample
+2026-11-22T16:42:45.2794107Z ok 106 - GET /mcp-sample-andrew.mp3 serves the public voice sample
+2026-11-22T16:42:45.2794461Z   ---
+2026-11-22T16:42:45.2794658Z   duration_ms: 3.667476
+2026-11-22T16:42:45.2794886Z   type: 'test'
+2026-11-22T16:42:45.2795249Z   ...
+2026-11-22T16:42:45.2795584Z # Subtest: unknown /mcp-sample-*.mp3 names are rejected
+2026-11-22T16:42:45.2796022Z ok 107 - unknown /mcp-sample-*.mp3 names are rejected
+2026-11-22T16:42:45.2796330Z   ---
+2026-11-22T16:42:45.2796538Z   duration_ms: 2.017086
+2026-11-22T16:42:45.2796768Z   type: 'test'
+2026-11-22T16:42:45.2796969Z   ...
+2026-11-22T16:42:45.2797236Z # Subtest: POST /mcp requires a free key
+2026-11-22T16:42:45.2797595Z not ok 108 - POST /mcp requires a free key
+2026-11-22T16:42:45.2797877Z   ---
+2026-11-22T16:42:45.2798082Z   duration_ms: 15.73538
+2026-11-22T16:42:45.2798317Z   type: 'test'
+2026-11-22T16:42:45.2798851Z   location: '/home/runner/work/koe/koe/test/mcp.test.js:223:1'
+2026-11-22T16:42:45.2799245Z   failureType: 'testCodeFailure'
+2026-11-22T16:42:45.2799518Z   error: |-
+2026-11-22T16:42:45.2799771Z     Expected values to be strictly equal:
+2026-11-22T16:42:45.2800045Z     
+2026-11-22T16:42:45.2800236Z     406 !== 401
+2026-11-22T16:42:45.2800447Z     
+2026-11-22T16:42:45.2800641Z   code: 'ERR_ASSERTION'
+2026-11-22T16:42:45.2800882Z   name: 'AssertionError'
+2026-11-22T16:42:45.2801125Z   expected: 401
+2026-11-22T16:42:45.2801331Z   actual: 406
+2026-11-22T16:42:45.2801548Z   operator: 'strictEqual'
+2026-11-22T16:42:45.2801783Z   stack: |-
+2026-11-22T16:42:45.2802170Z     TestContext.<anonymous> (/home/runner/work/koe/koe/test/mcp.test.js:229:10)
+2026-11-22T16:42:45.2802774Z     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-11-22T16:42:45.2803301Z     async Test.run (node:internal/test_runner/test:1054:7)
+2026-11-22T16:42:45.2803802Z     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+2026-11-22T16:42:45.2804194Z   ...
+2026-11-22T16:42:45.2804543Z # Subtest: hosted MCP lists the expected tools and answers calls
+2026-11-22T16:42:45.2805050Z ok 109 - hosted MCP lists the expected tools and answers calls
+2026-11-22T16:42:45.2805386Z   ---
+2026-11-22T16:42:45.2805585Z   duration_ms: 280.292692
+2026-11-22T16:42:45.2805832Z   type: 'test'
+2026-11-22T16:42:45.2806040Z   ...
+2026-11-22T16:42:45.2806416Z # Subtest: signed audio links work without a key, and expire with the job
+2026-11-22T16:42:45.2806971Z ok 110 - signed audio links work without a key, and expire with the job
+2026-11-22T16:42:45.2807330Z   ---
+2026-11-22T16:42:45.2807529Z   duration_ms: 66.576124
+2026-11-22T16:42:45.2807768Z   type: 'test'
+2026-11-22T16:42:45.2807969Z   ...
+2026-11-22T16:42:45.2808308Z # Subtest: mcp.html: bumpBytes carries across byte boundaries
+2026-11-22T16:42:45.2809343Z ok 111 - mcp.html: bumpBytes carries across byte boundaries
+2026-11-22T16:42:45.2809701Z   ---
+2026-11-22T16:42:45.2809905Z   duration_ms: 2.284607
+2026-11-22T16:42:45.2810172Z   type: 'test'
+2026-11-22T16:42:45.2810384Z   ...
+2026-11-22T16:42:45.2810700Z # Subtest: mcp.html: the unwrapped ++b[i] carry is gone
+2026-11-22T16:42:45.2811134Z ok 112 - mcp.html: the unwrapped ++b[i] carry is gone
+2026-11-22T16:42:45.2811452Z   ---
+2026-11-22T16:42:45.2811661Z   duration_ms: 1.171292
+2026-11-22T16:42:45.2811888Z   type: 'test'
+2026-11-22T16:42:45.2812092Z   ...
+2026-11-22T16:42:45.2812496Z # Subtest: mcp.html: solvePow finds a nonce that really solves the challenge
+2026-11-22T16:42:45.2813079Z ok 113 - mcp.html: solvePow finds a nonce that really solves the challenge
+2026-11-22T16:42:45.2813451Z   ---
+2026-11-22T16:42:45.2813655Z   duration_ms: 7327.588302
+2026-11-22T16:42:45.2813893Z   type: 'test'
+2026-11-22T16:42:45.2814093Z   ...
+2026-11-22T16:42:45.2814444Z # Subtest: index.html: bumpBytes carries across byte boundaries
+2026-11-22T16:42:45.2815442Z ok 114 - index.html: bumpBytes carries across byte boundaries
+2026-11-22T16:42:45.2816142Z   ---
+2026-11-22T16:42:45.2816585Z   duration_ms: 1.949499
+2026-11-22T16:42:45.2816995Z   type: 'test'
+2026-11-22T16:42:45.2817266Z   ...
+2026-11-22T16:42:45.2817660Z # Subtest: index.html: the unwrapped ++b[i] carry is gone
+2026-11-22T16:42:45.2818150Z ok 115 - index.html: the unwrapped ++b[i] carry is gone
+2026-11-22T16:42:45.2818904Z   ---
+2026-11-22T16:42:45.2819113Z   duration_ms: 0.369252
+2026-11-22T16:42:45.2819346Z   type: 'test'
+2026-11-22T16:42:45.2819549Z   ...
+2026-11-22T16:42:45.2819956Z # Subtest: index.html: solvePow finds a nonce that really solves the challenge
+2026-11-22T16:42:45.2820567Z ok 116 - index.html: solvePow finds a nonce that really solves the challenge
+2026-11-22T16:42:45.2820949Z   ---
+2026-11-22T16:42:45.2821153Z   duration_ms: 6887.171608
+2026-11-22T16:42:45.2821390Z   type: 'test'
+2026-11-22T16:42:45.2821598Z   ...
+2026-11-22T16:42:45.2821960Z # Subtest: health is public and advertises the free-tier policy
+2026-11-22T16:42:45.2822451Z ok 117 - health is public and advertises the free-tier policy
+2026-11-22T16:42:45.2822789Z   ---
+2026-11-22T16:42:45.2822989Z   duration_ms: 551.893181
+2026-11-22T16:42:45.2823226Z   type: 'test'
+2026-11-22T16:42:45.2823431Z   ...
+2026-11-22T16:42:45.2823808Z # Subtest: the MCP server card is public and lists every registered tool
+2026-11-22T16:42:45.2824365Z ok 118 - the MCP server card is public and lists every registered tool
+2026-11-22T16:42:45.2824721Z   ---
+2026-11-22T16:42:45.2824923Z   duration_ms: 6.984548
+2026-11-22T16:42:45.2825151Z   type: 'test'
+2026-11-22T16:42:45.2825350Z   ...
+2026-11-22T16:42:45.2825666Z # Subtest: public policy endpoints do not require a key
+2026-11-22T16:42:45.2826097Z ok 119 - public policy endpoints do not require a key
+2026-11-22T16:42:45.2826403Z   ---
+2026-11-22T16:42:45.2826612Z   duration_ms: 21.751881
+2026-11-22T16:42:45.2826848Z   type: 'test'
+2026-11-22T16:42:45.2827048Z   ...
+2026-11-22T16:42:45.2827472Z # Subtest: free keys can be minted through the PoW gate and are capped per IP per day
+2026-11-22T16:42:45.2828122Z ok 120 - free keys can be minted through the PoW gate and are capped per IP per day
+2026-11-22T16:42:45.2828706Z   ---
+2026-11-22T16:42:45.2829072Z   duration_ms: 575.116955
+2026-11-22T16:42:45.2829345Z   type: 'test'
+2026-11-22T16:42:45.2829547Z   ...
+2026-11-22T16:42:45.2829923Z # Subtest: /api/register is a thin alias of /keys behind the same gate
+2026-11-22T16:42:45.2830483Z ok 121 - /api/register is a thin alias of /keys behind the same gate
+2026-11-22T16:42:45.2830832Z   ---
+2026-11-22T16:42:45.2831033Z   duration_ms: 5.752028
+2026-11-22T16:42:45.2831269Z   type: 'test'
+2026-11-22T16:42:45.2831466Z   ...
+2026-11-22T16:42:45.2831801Z # Subtest: protected routes reject missing and invalid keys
+2026-11-22T16:42:45.2832262Z ok 122 - protected routes reject missing and invalid keys
+2026-11-22T16:42:45.2832589Z   ---
+2026-11-22T16:42:45.2832790Z   duration_ms: 5.173182
+2026-11-22T16:42:45.2833167Z   type: 'test'
+2026-11-22T16:42:45.2833380Z   ...
+2026-11-22T16:42:45.2833715Z # Subtest: stats shell is public and stats data is admin-only
+2026-11-22T16:42:45.2834185Z ok 123 - stats shell is public and stats data is admin-only
+2026-11-22T16:42:45.2834513Z   ---
+2026-11-22T16:42:45.2834709Z   duration_ms: 9.816688
+2026-11-22T16:42:45.2834940Z   type: 'test'
+2026-11-22T16:42:45.2835138Z   ...
+2026-11-22T16:42:45.2835426Z # Subtest: each tenant key sees its own usage
+2026-11-22T16:42:45.2835794Z ok 124 - each tenant key sees its own usage
+2026-11-22T16:42:45.2836079Z   ---
+2026-11-22T16:42:45.2836285Z   duration_ms: 8.071212
+2026-11-22T16:42:45.2836508Z   type: 'test'
+2026-11-22T16:42:45.2836708Z   ...
+2026-11-22T16:42:45.2836975Z # Subtest: jobs are isolated between tenants
+2026-11-22T16:42:45.2837347Z ok 125 - jobs are isolated between tenants
+2026-11-22T16:42:45.2837668Z   ---
+2026-11-22T16:42:45.2837873Z   duration_ms: 84.044218
+2026-11-22T16:42:45.2838113Z   type: 'test'
+2026-11-22T16:42:45.2838330Z   ...
+2026-11-22T16:42:45.2838869Z # Subtest: request validation happens after auth
+2026-11-22T16:42:45.2839271Z ok 126 - request validation happens after auth
+2026-11-22T16:42:45.2839564Z   ---
+2026-11-22T16:42:45.2839760Z   duration_ms: 18.626399
+2026-11-22T16:42:45.2839990Z   type: 'test'
+2026-11-22T16:42:45.2840193Z   ...
+2026-11-22T16:42:45.2840622Z # Subtest: a script over its engine's word cap is rejected before the sidecar or quota
+2026-11-22T16:42:45.2841459Z ok 127 - a script over its engine's word cap is rejected before the sidecar or quota
+2026-11-22T16:42:45.2841865Z   ---
+2026-11-22T16:42:45.2842062Z   duration_ms: 7.884069
+2026-11-22T16:42:45.2842288Z   type: 'test'
+2026-11-22T16:42:45.2842490Z   ...
+2026-11-22T16:42:45.2842800Z # Subtest: MCP discovery is public, tool calls are not
+2026-11-22T16:42:45.2843220Z ok 128 - MCP discovery is public, tool calls are not
+2026-11-22T16:42:45.2843533Z   ---
+2026-11-22T16:42:45.2843729Z   duration_ms: 49.184075
+2026-11-22T16:42:45.2843965Z   type: 'test'
+2026-11-22T16:42:45.2844161Z   ...
+2026-11-22T16:42:45.2844538Z # Subtest: legacy raw-IP visitors are re-keyed through the guard hash
+2026-11-22T16:42:45.2845077Z ok 129 - legacy raw-IP visitors are re-keyed through the guard hash
+2026-11-22T16:42:45.2845466Z   ---
+2026-11-22T16:42:45.2845670Z   duration_ms: 2.523464
+2026-11-22T16:42:45.2845895Z   type: 'test'
+2026-11-22T16:42:45.2846097Z   ...
+2026-11-22T16:42:45.2846433Z # Subtest: requests and words land on one anonymous subject
+2026-11-22T16:42:45.2846889Z ok 130 - requests and words land on one anonymous subject
+2026-11-22T16:42:45.2847207Z   ---
+2026-11-22T16:42:45.2847401Z   duration_ms: 1.600286
+2026-11-22T16:42:45.2847635Z   type: 'test'
+2026-11-22T16:42:45.2847834Z   ...
+2026-11-22T16:42:45.2848185Z # Subtest: product users and all visitors are counted separately
+2026-11-22T16:42:45.2848904Z ok 131 - product users and all visitors are counted separately
+2026-11-22T16:42:45.2849243Z   ---
+2026-11-22T16:42:45.2849455Z   duration_ms: 1.975839
+2026-11-22T16:42:45.2849689Z   type: 'test'
+2026-11-22T16:42:45.2849887Z   ...
+2026-11-22T16:42:45.2850259Z # Subtest: health, dashboard polling, and private IPs are not counted
+2026-11-22T16:42:45.2850794Z ok 132 - health, dashboard polling, and private IPs are not counted
+2026-11-22T16:42:45.2851149Z   ---
+2026-11-22T16:42:45.2851348Z   duration_ms: 1.503965
+2026-11-22T16:42:45.2851574Z   type: 'test'
+2026-11-22T16:42:45.2851783Z   ...
+2026-11-22T16:42:45.2852082Z # Subtest: POST /keys counts as a new registration
+2026-11-22T16:42:45.2852483Z ok 133 - POST /keys counts as a new registration
+2026-11-22T16:42:45.2852784Z   ---
+2026-11-22T16:42:45.2852977Z   duration_ms: 0.799386
+2026-11-22T16:42:45.2853204Z   type: 'test'
+2026-11-22T16:42:45.2853399Z   ...
+2026-11-22T16:42:45.2853783Z # Subtest: the legacy /api/register alias still counts as a registration
+2026-11-22T16:42:45.2854338Z ok 134 - the legacy /api/register alias still counts as a registration
+2026-11-22T16:42:45.2854697Z   ---
+2026-11-22T16:42:45.2855075Z   duration_ms: 0.429183
+2026-11-22T16:42:45.2855329Z   type: 'test'
+2026-11-22T16:42:45.2855525Z   ...
+2026-11-22T16:42:45.2855896Z # Subtest: static assets count as HTTP hits but do not create visitors
+2026-11-22T16:42:45.2856721Z ok 135 - static assets count as HTTP hits but do not create visitors
+2026-11-22T16:42:45.2857084Z   ---
+2026-11-22T16:42:45.2857289Z   duration_ms: 0.462917
+2026-11-22T16:42:45.2857517Z   type: 'test'
+2026-11-22T16:42:45.2857727Z   ...
+2026-11-22T16:42:45.2858038Z # Subtest: only real HTML documents count as page views
+2026-11-22T16:42:45.2858639Z ok 136 - only real HTML documents count as page views
+2026-11-22T16:42:45.2859197Z   ---
+2026-11-22T16:42:45.2859430Z   duration_ms: 1.196499
+2026-11-22T16:42:45.2859672Z   type: 'test'
+2026-11-22T16:42:45.2859875Z   ...
+2026-11-22T16:42:45.2860267Z # Subtest: crawler page views are traffic, never visitors or page views
+2026-11-22T16:42:45.2861239Z ok 137 - crawler page views are traffic, never visitors or page views
+2026-11-22T16:42:45.2861925Z   ---
+2026-11-22T16:42:45.2862251Z   duration_ms: 1.261963
+2026-11-22T16:42:45.2862658Z   type: 'test'
+2026-11-22T16:42:45.2863009Z   ...
+2026-11-22T16:42:45.2863416Z # Subtest: a missing user agent is a person, not a bot
+2026-11-22T16:42:45.2863848Z ok 138 - a missing user agent is a person, not a bot
+2026-11-22T16:42:45.2864160Z   ---
+2026-11-22T16:42:45.2864365Z   duration_ms: 0.76935
+2026-11-22T16:42:45.2864762Z   type: 'test'
+2026-11-22T16:42:45.2864974Z   ...
+2026-11-22T16:42:45.2865294Z # Subtest: the funnel counts each visitor once per stage
+2026-11-22T16:42:45.2865733Z ok 139 - the funnel counts each visitor once per stage
+2026-11-22T16:42:45.2866043Z   ---
+2026-11-22T16:42:45.2866250Z   duration_ms: 1.960019
+2026-11-22T16:42:45.2866479Z   type: 'test'
+2026-11-22T16:42:45.2866678Z   ...
+2026-11-22T16:42:45.2867045Z # Subtest: daily uniques and the daily ledger carry the new fields
+2026-11-22T16:42:45.2867558Z ok 140 - daily uniques and the daily ledger carry the new fields
+2026-11-22T16:42:45.2867905Z   ---
+2026-11-22T16:42:45.2868110Z   duration_ms: 0.493033
+2026-11-22T16:42:45.2868339Z   type: 'test'
+2026-11-22T16:42:45.2868778Z   ...
+2026-11-22T16:42:45.2869290Z # Subtest: word accounting records the engine mix
+2026-11-22T16:42:45.2869712Z ok 141 - word accounting records the engine mix
+2026-11-22T16:42:45.2870013Z   ---
+2026-11-22T16:42:45.2870221Z   duration_ms: 0.496049
+2026-11-22T16:42:45.2870473Z   type: 'test'
+2026-11-22T16:42:45.2870688Z   ...
+2026-11-22T16:42:45.2870994Z # Subtest: signals are always derivable, never empty
+2026-11-22T16:42:45.2871421Z ok 142 - signals are always derivable, never empty
+2026-11-22T16:42:45.2871726Z   ---
+2026-11-22T16:42:45.2871929Z   duration_ms: 0.337281
+2026-11-22T16:42:45.2872159Z   type: 'test'
+2026-11-22T16:42:45.2872369Z   ...
+2026-11-22T16:42:45.2872640Z # Subtest: MCP discovery is not a tool call
+2026-11-22T16:42:45.2873008Z ok 143 - MCP discovery is not a tool call
+2026-11-22T16:42:45.2873297Z   ---
+2026-11-22T16:42:45.2873505Z   duration_ms: 0.66211
+2026-11-22T16:42:45.2873743Z   type: 'test'
+2026-11-22T16:42:45.2873949Z   ...
+2026-11-22T16:42:45.2874352Z # Subtest: every test file is in the npm test list, and nothing stale is left
+2026-11-22T16:42:45.2874949Z ok 144 - every test file is in the npm test list, and nothing stale is left
+2026-11-22T16:42:45.2875333Z   ---
+2026-11-22T16:42:45.2875544Z   duration_ms: 1.701375
+2026-11-22T16:42:45.2875779Z   type: 'test'
+2026-11-22T16:42:45.2875988Z   ...
+2026-11-22T16:42:45.2876185Z 1..144
+2026-11-22T16:42:45.2876378Z # tests 144
+2026-11-22T16:42:45.2876575Z # suites 0
+2026-11-22T16:42:45.2876772Z # pass 141
+2026-11-22T16:42:45.2876972Z # fail 3
+2026-11-22T16:42:45.2877169Z # cancelled 0
+2026-11-22T16:42:45.2877373Z # skipped 0
+2026-11-22T16:42:45.2877575Z # todo 0
+2026-11-22T16:42:45.2877793Z # duration_ms 31159.769833
+2026-11-22T16:42:45.2888999Z ##[error]Process completed with exit code 1.
+2026-11-22T16:42:45.3049153Z Post job cleanup.
+2026-11-22T16:42:45.3975007Z [command]/usr/bin/git version
+2026-11-22T16:42:45.4023496Z git version 2.56.1
+2026-11-22T16:42:45.4063614Z Temporarily overriding HOME='/home/runner/work/_temp/a9ca8bf1-be7e-49af-8b88-ba8897867b00' before making global git config changes
+2026-11-22T16:42:45.4065141Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-22T16:42:45.4069259Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/koe/koe
+2026-11-22T16:42:45.4112527Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-22T16:42:45.4154896Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-22T16:42:45.4470008Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-22T16:42:45.4517240Z http.https://github.com/.extraheader
+2026-11-22T16:42:45.4519079Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-22T16:42:45.4579809Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-22T16:42:45.4890420Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-22T16:42:45.4926096Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-22T16:42:45.5356808Z Cleaning up orphan processes
+2026-11-22T16:42:45.5751680Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

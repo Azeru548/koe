@@ -145,7 +145,7 @@ function observeRejected(req) {
 // point 503 before auth, quota, queue or upstream work is considered.
 const GENERATION_PATHS = new Set(["/tts", "/tts-preview", "/tts-preview-piper", "/mcp"]);
 app.use((req, res, next) => {
-  if (req.method === "POST" && GENERATION_PATHS.has(req.path) && guard.cfg.killSwitch && !isMcpDiscovery(req)) {
+  if (req.method === "POST" && GENERATION_PATHS.has(req.path) && guard.cfg.killSwitch) {
     observeRejected(req);
     guard.logReject("kill_switch", req.ctx.rawKey, req.ctx.ip);
     return res.status(503).json({ error: "temporarily_disabled" });
@@ -157,9 +157,6 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   if (OPEN_PATHS.has(req.path)) return next();
   if (req.method === "GET" && req.path === "/mcp") return next();
-  // initialize / tools/list are open so a client can inspect the tools before
-  // minting a key; tools/call still falls through to the key checks below.
-  if (isMcpDiscovery(req)) return next();
 
   // Public voice samples used by the /mcp setup page.
   if (req.method === "GET" && req.path.startsWith("/mcp-sample-") && req.path.endsWith(".mp3")) return next();
@@ -183,6 +180,11 @@ app.use((req, res, next) => {
       hint: "POST /keys to get a new key",
     });
   }
+
+  // Discovery (initialize / tools/list / ping) is the one thing an agent may do
+  // before it mints a key: it has to see the tools to decide. A key that was
+  // actually presented is still validated above, so a forged one stays a 401.
+  if (isMcpDiscovery(req)) return next();
 
   // The MCP endpoint never falls back to anonymous traffic.
   if (isMcpPost(req)) {

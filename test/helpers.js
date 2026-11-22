@@ -26,6 +26,7 @@ async function json(base, pathname, { method = "GET", key, body } = {}) {
   const res = await fetch(`${base}${pathname}`, {
     method,
     headers: {
+      "Accept": "application/json, text/event-stream",
       ...(body ? { "Content-Type": "application/json" } : {}),
       ...(key ? { "x-api-key": key } : {}),
     },

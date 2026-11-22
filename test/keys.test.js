@@ -141,9 +141,18 @@ test("forged and pre-v3 keys are rejected with 401 invalid_key", async () => {
   assert.equal(withForged.status, 401);
   assert.equal(withForged.data.error, "invalid_key");
 
+  // Discovery is the one thing that must work before a key exists, so an agent
+  // can see the tools it is being asked to sign up for.
   const withoutKey = await json(s.base, "/mcp", { method: "POST", body: mcpBody });
-  assert.equal(withoutKey.status, 401);
-  assert.equal(withoutKey.data.error, "invalid_key");
+  assert.equal(withoutKey.status, 200);
+
+  // A tool call still does not.
+  const callWithoutKey = await json(s.base, "/mcp", {
+    method: "POST",
+    body: { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "get_usage", arguments: {} } },
+  });
+  assert.equal(callWithoutKey.status, 401);
+  assert.equal(callWithoutKey.data.error, "invalid_key");
 
   // ...and a genuinely minted key is accepted.
   const minted = await mintKey(s.base);
