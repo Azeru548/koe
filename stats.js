@@ -359,13 +359,21 @@ function signals(q) {
   const keyed = Number(a.registers) || 0;
   const generatedKeys = Object.entries(store.visitors)
     .filter(([id, v]) => id.startsWith("key:") && v.stages && v.stages.generated).length;
-  const conv = keyed > 0 ? generatedKeys / keyed : null;
+  // Stages only exist from the build that added them, so keys minted before it
+  // cannot be placed in the funnel. Saying "0% converted" would be a lie about
+  // the product instead of a limit of the instrumentation.
+  const measured = Object.values(store.visitors).some((v) => v.stages && Object.keys(v.stages).length);
+  const conv = measured && keyed > 0 ? generatedKeys / keyed : null;
   out.push({
     key: "key-to-job",
     level: conv == null ? "warn" : conv >= 0.5 ? "ok" : conv >= 0.25 ? "warn" : "bad",
-    headline: conv == null ? "No keys minted yet" : `${pct(conv, 0)} of free keys ever generated audio`,
+    headline: conv == null
+      ? (keyed > 0 ? `${keyed} keys minted before stage tracking` : "No keys minted yet")
+      : `${pct(conv, 0)} of free keys ever generated audio`,
     detail: conv == null
-      ? "Nobody has completed setup."
+      ? (keyed > 0
+        ? "Funnel stages start recording with this build; older keys count but cannot be placed in it."
+        : "Nobody has completed setup.")
       : `${generatedKeys} of ${keyed} keys produced at least one job.`,
     value: conv == null ? null : Math.round(conv * 100),
   });
@@ -376,7 +384,7 @@ function signals(q) {
   out.push({
     key: "return-rate",
     level: ret == null ? "warn" : ret >= 0.2 ? "ok" : ret >= 0.08 ? "warn" : "bad",
-    headline: ret == null ? "No visitors recorded yet" : `${returning} of ${seen.length} visitors came back another day`,
+    headline: ret == null ? "No visitor history yet" : `${returning} of ${seen.length} visitors came back another day`,
     detail: ret == null
       ? "Nothing to measure."
       : ret < 0.1
