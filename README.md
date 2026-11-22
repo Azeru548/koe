@@ -162,7 +162,7 @@ Local usage: `npm install && node server.js` → <http://localhost:3000>. `/` re
 | `GET /stats.json` | admin | Machine-readable counters used by the dashboard |
 | `GET /stats` | admin | Server-rendered operator report (`?key=` works) |
 
-Auth accepts `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`. `POST /mcp` always needs a live key row (or the admin key). Status codes: `400` validation or a job over `KOE_MAX_JOB_WORDS`, `401 {"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown, `409` not ready, `410` audio expired, `413` script over the 40,000-char cap, `429 {"reason":…}` rate/queue/global limit, `503 {"error":"temporarily_disabled"}` kill switch, engine unavailable or upstream cool-down.
+Auth accepts `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`. `POST /mcp` needs a live key row (or the admin key) for tool calls; `initialize` and `tools/list` are public so a client can inspect the tools first. Status codes: `400` validation or a job over `KOE_MAX_JOB_WORDS`, `401 {"error":"invalid_key"}` missing/unknown key, `403` another tenant's job or a failed issuance gate, `404` unknown, `409` not ready, `410` audio expired, `413` script over the 40,000-char cap, `429 {"reason":…}` rate/queue/global limit, `503 {"error":"temporarily_disabled"}` kill switch, engine unavailable or upstream cool-down.
 
 Rejections carry a `reason` (`hourly_requests`, `hourly_words`, `daily_words`, `global_daily_words`, `job_too_long`, `kill_switch`, `queue_full`, `invalid_key`, `mint_cap`) and, for limits, a `retryAfterSeconds` reset window.
 

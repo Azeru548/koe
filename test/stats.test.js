@@ -194,3 +194,11 @@ test("signals are always derivable, never empty", () => {
     assert.ok(["ok", "warn", "bad"].includes(s.level), `valid level on ${s.key}`);
   }
 });
+
+test("MCP discovery is not a tool call", () => {
+  const before = stats.query();
+  stats.observe({ path: "/mcp", method: "POST", headers: {}, body: { jsonrpc: "2.0", id: 1, method: "initialize" }, ctx: { ip: "198.51.100.50", tid: null, admin: false } });
+  stats.observe({ path: "/mcp", method: "POST", headers: {}, body: { jsonrpc: "2.0", id: 2, method: "tools/list" }, ctx: { ip: "198.51.100.50", tid: null, admin: false } });
+  const after = stats.query();
+  assert.equal(after.allTime.mcp, before.allTime.mcp, "a handshake is not usage");
+});

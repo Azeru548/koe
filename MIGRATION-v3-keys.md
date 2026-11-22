@@ -9,7 +9,7 @@ product moves: same endpoints, same tools, same limits.
 | Counters | In-memory maps + a JSON snapshot every 30 s | Rows in the same file (`usage`, `mint_ips`, `global_usage`) |
 | Revocation | Not possible without rotating `KOE_SECRET` (which killed every key) | Delete the row — that one key dies on its next request |
 | Issuance | `POST /api/register` with an empty body | `GET /keys/challenge` + `POST /keys` behind proof-of-work (or Turnstile). `POST /api/register` stays as an alias with **the same gate** |
-| `/mcp` auth | Fell back to anonymous traffic when no key was presented | `POST /mcp` always needs a live key (or the admin key) |
+| `/mcp` auth | Fell back to anonymous traffic when no key was presented | `POST /mcp` needs a live key (or the admin key) for tool calls; `initialize`/`tools/list` are public |
 | Oversized job | `413` | `400` for > `KOE_MAX_JOB_WORDS` (2,000 words); `413` remains for > 40,000 characters |
 | Health | `GET /health` | `GET /healthz` (adds `db`, `killSwitch`); `GET /health` kept as an alias |
 | Emergency stop | None | `KOE_KILL_SWITCH=true` → `503 {"error":"temporarily_disabled"}` on every generation endpoint |

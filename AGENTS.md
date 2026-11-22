@@ -38,7 +38,8 @@ Authorization: Bearer koe_sk_...        (or: x-api-key: koe_sk_...)
 - **Stateless**, JSON responses (no SSE), safe behind the Caddy reverse proxy.
 - `GET /mcp` with `Accept: text/html` is the human setup page (tabs for Claude,
   Claude Code, Cursor, and a copy-paste "set this up for me" agent prompt).
-- **`POST /mcp` always needs a live key** (no anonymous fallback). Open the
+- **`POST /mcp` needs a live key for tool calls** (`initialize` and `tools/list`
+  stay open so a client or a directory can inspect the tools first). Open the
   setup page and press *Create key* — it solves the proof-of-work gate and shows
   the key to paste — or mint one yourself with `GET /keys/challenge` +
   `POST /keys` (§6). Keys issued by an older build are no longer valid.
@@ -278,7 +279,7 @@ After the audio TTL, `file` becomes `null`, `audioDeletedAt` is set, and `GET /d
 
 ## 6. Direct HTTP API (no MCP required)
 
-Use this when you are not running through the MCP (scripts, curl, another runtime) or for the recovery flow in §2. Public endpoints are `/healthz` (alias `/health`), `/keys`, `/keys/challenge`, `/api/register`, `/api/limits`, `/`, and `/studio`. Everything else accepts a free tenant key via header `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`; when `KOE_REQUIRE_KEY=true`, a key is mandatory for those routes, and **`POST /mcp` always requires one**. The operator's `API_KEY` is an unlimited admin key.
+Use this when you are not running through the MCP (scripts, curl, another runtime) or for the recovery flow in §2. Public endpoints are `/healthz` (alias `/health`), `/keys`, `/keys/challenge`, `/api/register`, `/api/limits`, `/`, and `/studio`. Everything else accepts a free tenant key via header `x-api-key: <key>`, `Authorization: Bearer <key>`, or `?key=<key>`; when `KOE_REQUIRE_KEY=true`, a key is mandatory for those routes, and **`POST /mcp` requires one for tool calls** (`initialize` and `tools/list` are public). The operator's `API_KEY` is an unlimited admin key.
 
 A key is an opaque server-side record: `koe_sk_<32 hex>`, issued by `POST /keys` and stored in the studio's `KOE_DB_PATH` SQLite file. Unknown or pre-v3 keys are simply absent from that table and answer `401 {"error":"invalid_key","hint":"POST /keys to get a new key"}`.
 

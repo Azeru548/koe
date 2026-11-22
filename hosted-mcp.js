@@ -24,7 +24,11 @@ const { z } = require("zod");
 const engines = require("./engines");
 const { mergeZipAudio } = require("./audio");
 
-const VERSION = "1.0.0";
+// The MCP server's own version. server.json (the registry manifest) carries
+// the same number, so the handshake and the listing can never disagree.
+const VERSION = (() => {
+  try { return require("./mcp/package.json").version; } catch { return "1.3.0"; }
+})();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function intEnv(name, def) {
@@ -86,9 +90,9 @@ const TOOL_SCHEMAS = {
  * The static card served at /.well-known/mcp/server-card.json.
  *
  * Directory scanners (Smithery, Glama, registries) can only READ; they cannot
- * mint a free key, and POST /mcp always answers 401 without one. Without this
- * card they cannot see the tools at all and list the server as broken, so it is
- * public, keyless and cached for a few minutes.
+ * mint a free key. initialize and tools/list on POST /mcp are open, but
+ * tools/call is not, so this card remains the cheapest way for a scanner to
+ * see the tools. It is public, keyless and cached for a few minutes.
  */
 function serverCard({ publicBase = "https://koe.kennedyazeru.space" } = {}) {
   const base = String(publicBase).replace(/\/+$/, "");

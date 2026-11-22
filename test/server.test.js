@@ -261,3 +261,25 @@ test("a script over its engine's word cap is rejected before the sidecar or quot
   assert.equal(after.data.usage.hour.words, before.data.usage.hour.words);
   assert.equal(after.data.usage.hour.requests, before.data.usage.hour.requests);
 });
+
+test("MCP discovery is public, tool calls are not", async () => {
+  const mcp = (body) => fetch(`${base}/mcp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" },
+    body: JSON.stringify(body),
+  });
+
+  const init = await mcp({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "probe", version: "0" } } });
+  const initBody = await init.json();
+  assert.equal(init.status, 200, "initialize is keyless");
+  assert.equal(initBody.result.serverInfo.name, "koe-tts-studio");
+  assert.equal(initBody.result.serverInfo.version, require("../mcp/package.json").version, "the handshake reports the published MCP version");
+
+  const list = await mcp({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+  const listBody = await list.json();
+  assert.equal(list.status, 200, "tools/list is keyless");
+  assert.equal(listBody.result.tools.length, 6);
+
+  const call = await mcp({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "generate_voiceover", arguments: { text: "hello" } } });
+  assert.equal(call.status, 401, "a tool call still needs a key");
+});

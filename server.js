@@ -112,6 +112,18 @@ const OPEN_PATHS = new Set([
 // POST /mcp is the only API surface that ALWAYS needs a live keys-row key.
 const isMcpPost = (req) => req.method === "POST" && req.path === "/mcp";
 
+// Discovery is public on purpose: an agent (or a directory scanner) has to be
+// able to see what this server offers before it signs up for a key. Only the
+// read-only handshake is open — every tool call still needs a live key row.
+const MCP_DISCOVERY_METHODS = new Set(["initialize", "ping", "tools/list", "resources/list", "prompts/list"]);
+function isMcpDiscovery(req) {
+  if (!isMcpPost(req)) return false;
+  const allowed = (m) => typeof m === "string" && (MCP_DISCOVERY_METHODS.has(m) || m.startsWith("notifications/"));
+  const body = req.body;
+  if (Array.isArray(body)) return body.length > 0 && body.every((msg) => allowed(msg && msg.method));
+  return Boolean(body) && allowed(body.method);
+}
+
 // GET /mcp serves the human setup page when a browser asks for HTML; MCP
 // clients hit POST /mcp instead and must authenticate.
 const wantsHtml = (req) => String(req.headers.accept || "").includes("text/html");
@@ -133,7 +145,7 @@ function observeRejected(req) {
 // point 503 before auth, quota, queue or upstream work is considered.
 const GENERATION_PATHS = new Set(["/tts", "/tts-preview", "/tts-preview-piper", "/mcp"]);
 app.use((req, res, next) => {
-  if (req.method === "POST" && GENERATION_PATHS.has(req.path) && guard.cfg.killSwitch) {
+  if (req.method === "POST" && GENERATION_PATHS.has(req.path) && guard.cfg.killSwitch && !isMcpDiscovery(req)) {
     observeRejected(req);
     guard.logReject("kill_switch", req.ctx.rawKey, req.ctx.ip);
     return res.status(503).json({ error: "temporarily_disabled" });
@@ -145,6 +157,9 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   if (OPEN_PATHS.has(req.path)) return next();
   if (req.method === "GET" && req.path === "/mcp") return next();
+  // initialize / tools/list are open so a client can inspect the tools before
+  // minting a key; tools/call still falls through to the key checks below.
+  if (isMcpDiscovery(req)) return next();
 
   // Public voice samples used by the /mcp setup page.
   if (req.method === "GET" && req.path.startsWith("/mcp-sample-") && req.path.endsWith(".mp3")) return next();

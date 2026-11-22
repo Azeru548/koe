@@ -159,6 +159,18 @@ function isPageView(req) {
   return req.path !== "/mcp" || wantsHtml(req);
 }
 
+// MCP discovery is not a tool call. A directory scanner (or an agent deciding
+// whether to sign up) sends initialize and tools/list and never generates
+// anything, so counting that as MCP usage would inflate the product numbers.
+const MCP_DISCOVERY_METHODS = new Set(["initialize", "ping", "tools/list", "resources/list", "prompts/list"]);
+
+function isMcpDiscovery(req) {
+  const body = req.body;
+  const allowed = (m) => typeof m === "string" && (MCP_DISCOVERY_METHODS.has(m) || m.startsWith("notifications/"));
+  if (Array.isArray(body)) return body.length > 0 && body.every((msg) => allowed(msg && msg.method));
+  return Boolean(body) && allowed(body.method);
+}
+
 // Crawlers hit the same pages as people and would otherwise inflate the
 // funnel. Only page views are classified, so a bot posting /tts can never be
 // mistaken for a visitor, and an absent UA is never a bot.
@@ -193,7 +205,7 @@ function stageFor(pathname, kind) {
 function observe(req, { rejected = false } = {}) {
   if (isSystemNoise(req)) return;
   const now = Date.now();
-  const kind = rejected ? null : pathKind(req.method, req.path);
+  const kind = rejected || isMcpDiscovery(req) ? null : pathKind(req.method, req.path);
   const page = !rejected && isPageView(req);
 
   store.allTime.requests++;
