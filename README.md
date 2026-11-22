@@ -407,9 +407,11 @@ cd mcp && TTS_STUDIO_URL=http://localhost:3000 node test-client.js
 
 `/stats.html` is a public shell; its numbers come from the admin-only `/stats.json`. Open the page, paste `API_KEY`, and it reads:
 
-- **Traffic** — all HTTP hits, voiceover jobs, MCP calls, previews, downloads, and new keys, all-time and today.
-- **Product users** — unique subjects with a real product action (voiceover, MCP call, preview, download, or registration) in the last 5 minutes / hour / 24 hours.
-- **Visitors** — all unique subjects, including crawlers and page loads. The dashboard shows these separately so bot traffic cannot inflate the user count.
+- **KPI strip** — visitors in the last 7 days, page views, voiceovers and words all-time, free keys minted, and the download rate.
+- **Website funnel** — unique visitors at each stage (visited a page → opened setup → minted a key → generated audio → downloaded it), with the drop-off between stages and the end-to-end conversion.
+- **Charts** — 14 days of page views and unique visitors, voiceover jobs per day, and the engine mix. Quiet days are drawn as zero rather than skipped.
+- **Signals** — derived readings, not raw counters: usage rate, average job size, download rate, key-to-job conversion, returning visitors, three-day momentum, and how many crawler hits were excluded.
+- **Where people land** — page views per document (`/`, `/mcp`, `/docs`, `/studio`).
 - **Request sources** — top subjects by HTTP requests; **Voiceover users** — top subjects by words generated.
 - **Daily ledger** — 14 days of counters.
 

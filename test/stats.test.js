@@ -103,3 +103,94 @@ test("static assets count as HTTP hits but do not create visitors", () => {
   assert.equal(after.allTime.requests, before.allTime.requests + 1);
   assert.deepEqual(after.windows, before.windows);
 });
+
+const BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36";
+
+function pageView(pathname, ip, ua = BROWSER_UA) {
+  return { path: pathname, method: "GET", headers: { accept: "text/html", "user-agent": ua }, ctx: { ip, tid: null, admin: false } };
+}
+
+test("only real HTML documents count as page views", () => {
+  const before = stats.query();
+  stats.observe(pageView("/", "198.51.100.20"));
+  // GET /mcp without an HTML Accept is the plain-text MCP hint, not a page.
+  stats.observe({ path: "/mcp", method: "GET", headers: { accept: "text/plain" }, ctx: { ip: "198.51.100.21", tid: null, admin: false } });
+  // API calls are not page views.
+  stats.observe({ path: "/voices", method: "GET", headers: { accept: "*/*" }, ctx: { ip: "198.51.100.22", tid: null, admin: false } });
+
+  const after = stats.query();
+  assert.equal(after.allTime.pageviews, before.allTime.pageviews + 1);
+  const root = after.paths.find((p) => p.path === "/");
+  assert.ok(root && root.views >= 1, "the landing hit is attributed to /");
+});
+
+test("crawler page views are traffic, never visitors or page views", () => {
+  const before = stats.query();
+  stats.observe(pageView("/", "198.51.100.30", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"));
+  const after = stats.query();
+
+  assert.equal(after.allTime.requests, before.allTime.requests + 1);
+  assert.equal(after.allTime.bots, before.allTime.bots + 1);
+  assert.equal(after.allTime.pageviews, before.allTime.pageviews, "a crawl is not a read");
+  assert.deepEqual(after.windows, before.windows);
+});
+
+test("a missing user agent is a person, not a bot", () => {
+  const before = stats.query();
+  stats.observe({ path: "/docs", method: "GET", headers: { accept: "text/html" }, ctx: { ip: "198.51.100.31", tid: null, admin: false } });
+  const after = stats.query();
+
+  assert.equal(after.allTime.bots, before.allTime.bots);
+  assert.equal(after.allTime.pageviews, before.allTime.pageviews + 1);
+});
+
+test("the funnel counts each visitor once per stage", () => {
+  const ip = "198.51.100.40";
+  const before = stats.query().funnel;
+
+  stats.observe(pageView("/mcp", ip));
+  stats.observe(pageView("/mcp", ip)); // a reload is the same person
+
+  const mid = stats.query().funnel;
+  assert.equal(mid.visited, before.visited + 1, "two loads are one visitor");
+  assert.equal(mid.setup, before.setup + 1);
+
+  const id = guard.anonSubject(ip);
+  stats.markWords({ subject: { id }, words: 9, engine: "edge" });
+  stats.observe({ path: "/tts", method: "POST", headers: {}, ctx: { ip, tid: null, admin: false } });
+  const gen = stats.query().funnel;
+  assert.equal(gen.generated, mid.generated + 1);
+
+  stats.observe({ path: "/download/abc123", method: "GET", headers: {}, ctx: { ip, tid: null, admin: false } });
+  assert.equal(stats.query().funnel.downloaded, gen.downloaded + 1);
+});
+
+test("daily uniques and the daily ledger carry the new fields", () => {
+  const q = stats.query();
+  assert.ok(q.uniques.today >= 1, "today's unique visitors are counted");
+  assert.ok(q.uniques.d7 >= q.uniques.today, "the 7-day window is at least today");
+
+  const days = stats.recentDays(14);
+  assert.ok(days.length >= 1);
+  assert.equal(typeof days[0].uniques, "number");
+  assert.equal(typeof days[0].pageviews, "number");
+  assert.equal(typeof days[0].paths, "object");
+  assert.equal(typeof days[0].engines, "object");
+});
+
+test("word accounting records the engine mix", () => {
+  const before = stats.query().engines.edge || 0;
+  stats.markWords({ subject: { id: "key:enginemix0001" }, words: 5, engine: "edge" });
+  stats.markWords({ subject: { id: "key:enginemix0001" }, words: 5 });
+  assert.equal(stats.query().engines.edge, before + 1, "an engine-less mark does not touch the mix");
+});
+
+test("signals are always derivable, never empty", () => {
+  const list = stats.query().signals;
+  assert.ok(Array.isArray(list) && list.length >= 6);
+  for (const s of list) {
+    assert.ok(s.key, "signal key");
+    assert.ok(s.headline, "signal headline");
+    assert.ok(["ok", "warn", "bad"].includes(s.level), `valid level on ${s.key}`);
+  }
+});

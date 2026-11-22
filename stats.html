@@ -72,7 +72,7 @@
   .status.online::before { background: var(--success); }
   .status.loading::before { background: var(--accent); }
   .status.offline::before { background: var(--danger); }
-  .status.paused::before { background: var(--warning, #8a5a17); }
+  .status.paused::before { background: var(--warning); }
 
   /* ── Page ─────────────────────────────────────────────── */
   .wrap { max-width: 1180px; margin: 0 auto; padding: 34px 26px 72px; }
@@ -90,21 +90,22 @@
   .btn.ghost { background: transparent; color: var(--ink-2); border-color: var(--line-strong); font-weight: 400; }
   .btn.ghost:hover { background: var(--sheet); color: var(--ink); border-color: var(--line-strong); }
 
+  /* ── KPI strip ────────────────────────────────────────── */
   .readout {
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
     margin-top: 28px; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong);
   }
-  .metric { padding: 16px 18px; border-right: 1px solid var(--line); min-width: 0; }
-  .metric:last-child { border-right: 0; }
+  .metric { padding: 16px 14px; border-right: 1px solid var(--line); min-width: 0; }
+  .metric:nth-child(6n) { border-right: 0; }
   .metric b {
-    display: block; color: var(--ink); font: 500 30px/1 var(--mono);
+    display: block; color: var(--ink); font: 500 27px/1 var(--mono);
     letter-spacing: -.04em; font-variant-numeric: tabular-nums;
   }
   .metric span {
     display: block; margin-top: 8px; color: var(--muted);
-    font: 11px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+    font: 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase;
   }
-  .metric small { display: block; margin-top: 4px; color: var(--faint); font-size: 12px; }
+  .metric small { display: block; margin-top: 4px; color: var(--faint); font-size: 11.5px; }
 
   .section { margin-top: 34px; }
   .section-head {
@@ -128,19 +129,70 @@
   .muted { color: var(--muted); }
   .empty { color: var(--muted); font-style: italic; }
   .subject { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
-  .subject small { display: block; color: var(--faint); font-size: 12px; }
-  .pill {
-    display: inline-block; margin-left: 7px; padding: 1px 5px; border: 1px solid var(--line);
-    border-radius: var(--r-xs); font: 11px/1.4 var(--mono); color: var(--muted); vertical-align: 1px;
-  }
   .note { margin-top: 10px; color: var(--muted); font-size: 12px; }
   .note code { font-family: var(--mono); font-size: 11px; }
-  .split { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .7fr); gap: 30px; align-items: start; }
+  .split { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .8fr); gap: 30px; align-items: start; }
   .split-side { padding-left: 30px; border-left: 1px solid var(--line); }
   .kv td { padding: 8px 10px; }
   .kv td:first-child { color: var(--muted); padding-left: 0; }
   .kv td:last-child { padding-right: 0; }
   .split .section { margin-top: 30px; }
+
+  /* ── Funnel ───────────────────────────────────────────── */
+  .funnel-summary {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    margin: 14px 0 4px; font-size: 12px; color: var(--muted);
+  }
+  .funnel-summary b { font: 500 22px/1 var(--mono); color: var(--ink); letter-spacing: -.03em; }
+  .funnel-row { padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .funnel-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .funnel-name { font-size: 12.5px; color: var(--ink); }
+  .funnel-name em { font-style: normal; color: var(--faint); font-family: var(--mono); font-size: 11px; margin-left: 6px; }
+  .funnel-count { font: 500 15px/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .funnel-track { position: relative; height: 12px; margin-top: 7px; background: var(--sheet-2); border: 1px solid var(--line); border-radius: var(--r-xs); overflow: hidden; }
+  .funnel-bar { position: absolute; inset: 0 auto 0 0; background: var(--ink-2); opacity: .82; }
+  .funnel-row:nth-child(2) .funnel-bar { background: #4a4437; }
+  .funnel-row:nth-child(3) .funnel-bar { background: #6b5a43; }
+  .funnel-row:nth-child(4) .funnel-bar { background: var(--accent); }
+  .funnel-row:nth-child(5) .funnel-bar { background: var(--success); }
+  .funnel-meta { margin-top: 6px; display: flex; justify-content: space-between; gap: 10px; font: 11px/1.3 var(--mono); color: var(--muted); }
+  .funnel-meta .drop { color: var(--danger); }
+  .funnel-meta .flat { color: var(--faint); }
+
+  /* ── Charts ───────────────────────────────────────────── */
+  .chart { margin-top: 12px; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .chart .grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+  .chart .axis { fill: var(--faint); font: 9px var(--mono); }
+  .chart .bar { fill: var(--line-strong); }
+  .chart .bar.accent { fill: var(--accent); opacity: .78; }
+  .chart .bar:hover { opacity: .55; }
+  .chart .line { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; }
+  .chart .dot { fill: var(--ink); }
+  .chart .xlabel { fill: var(--faint); font: 9px var(--mono); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; font: 11px/1.4 var(--mono); color: var(--muted); }
+  .legend i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: -1px; }
+  .legend .sw-bar { background: var(--line-strong); }
+  .legend .sw-line { background: var(--ink); height: 2px; vertical-align: 2px; }
+  .legend .sw-accent { background: var(--accent); }
+  .engine-row { display: grid; grid-template-columns: 64px 1fr 40px; gap: 8px; align-items: center; padding: 6px 0; font: 11.5px/1.2 var(--mono); color: var(--ink-2); }
+  .engine-track { height: 8px; background: var(--sheet-2); border: 1px solid var(--line); border-radius: var(--r-xs); overflow: hidden; }
+  .engine-bar { height: 100%; background: var(--accent); opacity: .7; }
+
+  /* ── Signals ──────────────────────────────────────────── */
+  .signals { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1px; margin-top: 14px; background: var(--line); border: 1px solid var(--line); }
+  .signal { background: var(--sheet); padding: 14px 16px; min-width: 0; }
+  .signal-head { display: flex; align-items: baseline; gap: 8px; }
+  .signal-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; margin-top: 5px; }
+  .signal.ok .signal-dot { background: var(--success); }
+  .signal.warn .signal-dot { background: var(--warning); }
+  .signal.bad .signal-dot { background: var(--danger); }
+  .signal-headline { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .signal-detail { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .signal-key { margin-top: 8px; font: 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+
+  .sharebar { height: 6px; background: var(--sheet-2); border: 1px solid var(--line); border-radius: var(--r-xs); overflow: hidden; min-width: 60px; }
+  .sharebar span { display: block; height: 100%; background: var(--ink-2); opacity: .55; }
 
   footer {
     margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--line);
@@ -152,7 +204,7 @@
   /* ── Gate ─────────────────────────────────────────────── */
   .gate { max-width: 470px; margin: 7vh auto 0; }
   .gate-sheet {
-    background: var(--sheet); border: 1px solid var(--line-strong); border-radius: var(--r-md, 6px);
+    background: var(--sheet); border: 1px solid var(--line-strong); border-radius: var(--r-md);
     box-shadow: var(--shadow-sheet); padding: 26px 26px 24px;
   }
   .gate-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
@@ -174,6 +226,12 @@
   .err { min-height: 18px; margin-top: 10px; color: var(--danger); font-size: 12px; }
   .gate-note { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--faint); font-size: 12px; }
 
+  @media (max-width: 1100px) {
+    .readout { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .metric:nth-child(6n) { border-right: 1px solid var(--line); }
+    .metric:nth-child(3n) { border-right: 0; }
+    .metric:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+  }
   @media (max-width: 900px) {
     .split { grid-template-columns: 1fr; gap: 0; }
     .split-side { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
@@ -186,9 +244,10 @@
     h1 { font-size: 31px; }
     .readout { grid-template-columns: 1fr 1fr; }
     .metric { padding: 14px 12px; }
-    .metric:nth-child(2) { border-right: 0; }
-    .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-    .metric b { font-size: 25px; }
+    .metric:nth-child(3n) { border-right: 1px solid var(--line); }
+    .metric:nth-child(2n) { border-right: 0; }
+    .metric:nth-child(-n+4) { border-bottom: 1px solid var(--line); }
+    .metric b { font-size: 23px; }
     .dash-head { align-items: flex-start; }
     .actions { margin-top: 4px; }
     .stamp { width: 100%; }
@@ -196,9 +255,7 @@
     .gate-sheet { padding: 22px 18px; }
     th, td { padding: 8px 6px; }
     .rank { width: 26px; }
-    .subject { font-size: 12px; }
     .mono { font-size: 11px; }
-    .daily th, .daily td { padding-left: 2px; padding-right: 2px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
@@ -232,7 +289,7 @@
         <span class="workspace-name">Operator</span>
       </div>
       <h2 id="gateTitle">Open the analytics log</h2>
-      <p>This page reads traffic, voiceover, and capacity counters from the running instance. The data endpoint requires the admin API key.</p>
+      <p>This page reads traffic, funnel, and capacity counters from the running instance. The data endpoint requires the admin API key.</p>
       <form id="keyForm" novalidate>
         <div class="field">
           <label for="keyInput">Admin API key</label>
@@ -261,71 +318,104 @@
       </div>
     </header>
 
-    <section class="readout" aria-label="Live readout">
+    <section class="readout" aria-label="Key metrics">
+      <div class="metric">
+        <b id="m-visitors7">…</b>
+        <span>visitors · 7d</span>
+        <small id="m-visitors7-note">…</small>
+      </div>
+      <div class="metric">
+        <b id="m-pv">…</b>
+        <span>page views · 7d</span>
+        <small id="m-pv-note">…</small>
+      </div>
       <div class="metric">
         <b id="m-tts">…</b>
         <span>voiceovers all-time</span>
-        <small id="m-tts-note">0 today</small>
+        <small id="m-tts-note">…</small>
       </div>
       <div class="metric">
         <b id="m-words">…</b>
-        <span>words today</span>
-        <small>from generation accounting</small>
+        <span>words all-time</span>
+        <small id="m-words-note">…</small>
       </div>
       <div class="metric">
-        <b id="m-users">…</b>
-        <span>product users 24h</span>
-        <small id="m-visitors">… visitors</small>
+        <b id="m-keys">…</b>
+        <span>free keys minted</span>
+        <small id="m-keys-note">…</small>
       </div>
       <div class="metric">
-        <b id="m-slots">…</b>
-        <span>active / queued</span>
-        <small id="m-limit">…</small>
+        <b id="m-dl">…</b>
+        <span>download rate</span>
+        <small id="m-dl-note">…</small>
       </div>
+    </section>
+
+    <section class="section" aria-labelledby="funnelTitle">
+      <div class="section-head">
+        <h2 id="funnelTitle">Website funnel</h2>
+        <p>unique visitors per stage · all time</p>
+      </div>
+      <p class="funnel-summary" id="funnelSummary">&nbsp;</p>
+      <div id="funnel"><p class="empty">No funnel data yet.</p></div>
+      <p class="note">
+        A visitor counts once per stage no matter how many times they reload. Someone who mints a key leaves the anonymous
+        audience and continues as a keyed subject, so the later stages are totals, not strict intersections.
+      </p>
     </section>
 
     <div class="split">
       <section class="section" aria-labelledby="trafficTitle">
         <div class="section-head">
-          <h2 id="trafficTitle">Traffic</h2>
-          <p>all-time and today</p>
+          <h2 id="trafficTitle">Reach</h2>
+          <p>last 14 days · page views and unique visitors</p>
         </div>
-        <div class="table-wrap">
-          <table>
-            <caption class="sr-only">HTTP traffic and product actions, all-time and today</caption>
-            <thead><tr><th>Metric</th><th class="n">All-time</th><th class="n">Today</th></tr></thead>
-            <tbody>
-              <tr><td>All HTTP hits <span class="muted">(bots, crawls, pages)</span></td><td class="n" id="r-req-a">…</td><td class="n" id="r-req-t">…</td></tr>
-              <tr><td>Voiceover jobs</td><td class="n" id="r-tts-a">…</td><td class="n" id="r-tts-t">…</td></tr>
-              <tr><td>MCP calls</td><td class="n" id="r-mcp-a">…</td><td class="n" id="r-mcp-t">…</td></tr>
-              <tr><td>Previews</td><td class="n" id="r-prev-a">…</td><td class="n" id="r-prev-t">…</td></tr>
-              <tr><td>Downloads</td><td class="n" id="r-dl-a">…</td><td class="n" id="r-dl-t">…</td></tr>
-              <tr><td>New keys</td><td class="n" id="r-reg-a">…</td><td class="n" id="r-reg-t">…</td></tr>
-            </tbody>
-          </table>
+        <div class="chart" id="trafficChart" role="img" aria-label="Daily page views and unique visitors"></div>
+        <div class="legend">
+          <span><i class="sw-bar"></i>page views</span>
+          <span><i class="sw-line"></i>unique visitors</span>
+          <span id="trafficPeak" class="muted"></span>
         </div>
-        <p class="note" id="trafficNote">All HTTP hits include bots and page loads. Product users are unique subjects with a voiceover, MCP call, preview, download, or key registration.</p>
       </section>
 
-      <aside class="section split-side" aria-labelledby="capacityTitle">
+      <aside class="section split-side">
         <div class="section-head">
-          <h2 id="capacityTitle">Capacity</h2>
-          <p>live</p>
+          <h2>Voiceovers</h2>
+          <p>jobs per day</p>
         </div>
-        <table class="kv">
-          <caption class="sr-only">Server capacity and queue state</caption>
-          <tbody>
-            <tr><td>Workers active</td><td class="n" id="c-active">…</td></tr>
-            <tr><td>Waiting</td><td class="n" id="c-queued">…</td></tr>
-            <tr><td>Concurrency</td><td class="n" id="c-concurrency">…</td></tr>
-            <tr><td>Queue capacity</td><td class="n" id="c-queue">…</td></tr>
-            <tr><td>Jobs on disk</td><td class="n" id="c-jobs">…</td></tr>
-            <tr><td>Jobs today</td><td class="n" id="c-jobs-today">…</td></tr>
-            <tr><td>Uptime</td><td class="n" id="c-uptime">…</td></tr>
-          </tbody>
-        </table>
+        <div class="chart" id="jobsChart" role="img" aria-label="Voiceover jobs per day"></div>
+        <div class="legend"><span><i class="sw-accent"></i>jobs generated</span></div>
+
+        <div class="section-head" style="margin-top:26px">
+          <h2>Engine mix</h2>
+          <p>jobs all-time</p>
+        </div>
+        <div id="engineMix"><p class="empty">No jobs yet.</p></div>
       </aside>
     </div>
+
+    <section class="section" aria-labelledby="signalsTitle">
+      <div class="section-head">
+        <h2 id="signalsTitle">Signals</h2>
+        <p>derived from the counters below</p>
+      </div>
+      <div class="signals" id="signals"></div>
+    </section>
+
+    <section class="section" aria-labelledby="pathsTitle">
+      <div class="section-head">
+        <h2 id="pathsTitle">Where people land</h2>
+        <p>page views by document · all time</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption class="sr-only">Page views per document</caption>
+          <thead><tr><th>Page</th><th class="n">Views</th><th class="n">Share</th><th style="width:34%"><span class="sr-only">Share bar</span></th></tr></thead>
+          <tbody id="pathsBody"><tr><td colspan="4" class="empty">No page views recorded yet.</td></tr></tbody>
+        </table>
+      </div>
+      <p class="note" id="pathsNote">Crawler page views are excluded from this table.</p>
+    </section>
 
     <section class="section" aria-labelledby="topWordsTitle">
       <div class="section-head">
@@ -353,22 +443,43 @@
           <tbody id="topRequestsBody"><tr><td colspan="5" class="empty">No requests recorded yet.</td></tr></tbody>
         </table>
       </div>
-      <p class="note">Crawlers and bots appear here as visitors. Only product actions count as users.</p>
+      <p class="note">Crawler page views are excluded from visitors, but their HTTP hits still appear in the totals.</p>
     </section>
 
-    <section class="section" aria-labelledby="daysTitle">
-      <div class="section-head">
-        <h2 id="daysTitle">Daily ledger</h2>
-        <p>last 14 days kept</p>
-      </div>
-      <div class="table-wrap">
-        <table class="daily">
-          <caption class="sr-only">Daily traffic and product totals</caption>
-          <thead><tr><th>Day</th><th class="n">Requests</th><th class="n">Jobs</th><th class="n">Downloads</th><th class="n">New keys</th><th class="n">Words</th></tr></thead>
-          <tbody id="daysBody"><tr><td colspan="6" class="empty">No daily history yet.</td></tr></tbody>
+    <div class="split">
+      <section class="section" aria-labelledby="daysTitle">
+        <div class="section-head">
+          <h2 id="daysTitle">Daily ledger</h2>
+          <p>last 14 days kept</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Daily traffic and product totals</caption>
+            <thead><tr><th>Day</th><th class="n">Visitors</th><th class="n">Views</th><th class="n">Requests</th><th class="n">Jobs</th><th class="n">Keys</th></tr></thead>
+            <tbody id="daysBody"><tr><td colspan="6" class="empty">No daily history yet.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="section split-side" aria-labelledby="capacityTitle">
+        <div class="section-head">
+          <h2 id="capacityTitle">Capacity</h2>
+          <p>live</p>
+        </div>
+        <table class="kv">
+          <caption class="sr-only">Server capacity and queue state</caption>
+          <tbody>
+            <tr><td>Workers active</td><td class="n" id="c-active">…</td></tr>
+            <tr><td>Waiting</td><td class="n" id="c-queued">…</td></tr>
+            <tr><td>Concurrency</td><td class="n" id="c-concurrency">…</td></tr>
+            <tr><td>Queue capacity</td><td class="n" id="c-queue">…</td></tr>
+            <tr><td>Jobs on disk</td><td class="n" id="c-jobs">…</td></tr>
+            <tr><td>Jobs today</td><td class="n" id="c-jobs-today">…</td></tr>
+            <tr><td>Uptime</td><td class="n" id="c-uptime">…</td></tr>
+          </tbody>
         </table>
-      </div>
-    </section>
+      </aside>
+    </div>
 
     <footer>
       <span>Counters persist to disk · auto-refresh every 15s</span>
@@ -390,12 +501,21 @@
   var paused = false;
   var lastGood = null;
 
+  var STAGE_LABELS = {
+    visited: ["Visited a page", "landing"],
+    setup: ["Opened setup", "/mcp or /docs"],
+    keyed: ["Minted a free key", "POST /keys"],
+    generated: ["Generated audio", "POST /tts"],
+    downloaded: ["Downloaded it", "GET /download"],
+  };
+
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
   function n(v) { return Number(v || 0).toLocaleString(); }
+  function pct(v, digits) { return (Number(v || 0)).toFixed(digits == null ? 0 : digits) + "%"; }
   function ago(ts) {
     var s = Math.max(0, Math.round((Date.now() - Number(ts || 0)) / 1000));
     if (s < 60) return s + "s ago";
@@ -432,6 +552,92 @@
     $("dash").classList.remove("hidden");
   }
 
+  /* ── charts ─────────────────────────────────────────── */
+  var CW = 640, CH = 190, PAD = { t: 12, r: 10, b: 24, l: 34 };
+
+  function niceMax(v) {
+    if (!(v > 0)) return 5;
+    var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+    var f = v / p;
+    var m = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+    return Math.max(5, m * p);
+  }
+
+  function comboChart(rows, opts) {
+    opts = opts || {};
+    var w = CW - PAD.l - PAD.r, h = CH - PAD.t - PAD.b;
+    var peak = 0;
+    rows.forEach(function (r) { peak = Math.max(peak, Number(r.bars) || 0, Number(r.line) || 0); });
+    var max = niceMax(peak);
+    var slot = w / Math.max(1, rows.length);
+    var bw = Math.max(2, Math.min(26, slot * 0.56));
+    var out = [];
+
+    [0, 0.5, 1].forEach(function (f) {
+      var y = PAD.t + h - f * h;
+      out.push('<line class="grid" x1="' + PAD.l + '" y1="' + y.toFixed(1) + '" x2="' + (PAD.l + w) + '" y2="' + y.toFixed(1) + '"/>');
+      out.push('<text class="axis" x="' + (PAD.l - 6) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + Math.round(max * f) + '</text>');
+    });
+
+    rows.forEach(function (r, i) {
+      var v = Number(r.bars) || 0;
+      var bh = (v / max) * h;
+      var x = PAD.l + slot * i + (slot - bw) / 2;
+      var y = PAD.t + h - bh;
+      out.push('<rect class="bar' + (opts.accent ? " accent" : "") + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) +
+        '" width="' + bw.toFixed(1) + '" height="' + Math.max(0, bh).toFixed(1) + '"><title>' +
+        esc(r.day + " · " + n(v) + (opts.unit ? " " + opts.unit : "")) + '</title></rect>');
+    });
+
+    if (opts.line) {
+      var pts = rows.map(function (r, i) {
+        var v = Number(r.line) || 0;
+        var x = PAD.l + slot * i + slot / 2;
+        var y = PAD.t + h - (v / max) * h;
+        return x.toFixed(1) + "," + y.toFixed(1);
+      });
+      out.push('<polyline class="line" points="' + pts.join(" ") + '"/>');
+      rows.forEach(function (r, i) {
+        var v = Number(r.line) || 0;
+        if (!v) return;
+        var x = PAD.l + slot * i + slot / 2;
+        var y = PAD.t + h - (v / max) * h;
+        out.push('<circle class="dot" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="1.9"><title>' +
+          esc(r.day + " · " + n(v) + " visitors") + '</title></circle>');
+      });
+    }
+
+    var every = Math.ceil(rows.length / 7);
+    rows.forEach(function (r, i) {
+      if (i % every !== 0 && i !== rows.length - 1) return;
+      var x = PAD.l + slot * i + slot / 2;
+      out.push('<text class="xlabel" x="' + x.toFixed(1) + '" y="' + (CH - 6) + '" text-anchor="middle">' + esc(r.label) + '</text>');
+    });
+
+    return '<svg viewBox="0 0 ' + CW + ' ' + CH + '" preserveAspectRatio="none" aria-hidden="true">' + out.join("") + '</svg>';
+  }
+
+  // A continuous 14-day axis: quiet days must show as zero, not be skipped.
+  function axis(days, count) {
+    var byDay = {};
+    (days || []).forEach(function (d) { byDay[d.day] = d; });
+    var out = [];
+    var today = new Date();
+    for (var i = count - 1; i >= 0; i--) {
+      var dt = new Date(today.getTime() - i * 864e5);
+      var iso = dt.toISOString().slice(0, 10);
+      var rec = byDay[iso] || {};
+      out.push({
+        day: iso,
+        label: iso.slice(5),
+        bars: Number(rec.pageviews) || 0,
+        line: Number(rec.uniques) || 0,
+        jobs: Number(rec.tts) || 0,
+      });
+    }
+    return out;
+  }
+
   function rows(list, empty) {
     if (!list || !list.length) {
       return '<tr><td colspan="5" class="empty">' + esc(empty) + "</td></tr>";
@@ -445,32 +651,147 @@
     }).join("");
   }
 
+  function renderFunnel(f) {
+    var order = ["visited", "setup", "keyed", "generated", "downloaded"];
+    var top = Number(f.visited) || 0;
+    var base = top || 1;
+    var html = "";
+    var prev = null;
+
+    order.forEach(function (stage) {
+      var count = Number(f[stage]) || 0;
+      var meta = STAGE_LABELS[stage] || [stage, ""];
+      var share = Math.max(0, Math.min(100, (count / base) * 100));
+      var drop = prev == null ? null : (prev > 0 ? (prev - count) / prev : null);
+      html += '<div class="funnel-row">' +
+        '<div class="funnel-top">' +
+          '<span class="funnel-name">' + esc(meta[0]) + "<em>" + esc(meta[1]) + "</em></span>" +
+          '<span class="funnel-count">' + n(count) + "</span>" +
+        "</div>" +
+        '<div class="funnel-track"><div class="funnel-bar" style="width:' + share.toFixed(1) + '%"></div></div>' +
+        '<div class="funnel-meta"><span>' + pct(share, 1) + " of page visitors</span>" +
+          '<span class="' + (drop == null ? "flat" : drop > 0 ? "drop" : "flat") + '">' +
+            (drop == null ? "entry point" : (drop > 0 ? "−" : "+") + pct(Math.abs(drop) * 100, 0) + " step") +
+          "</span>" +
+        "</div>" +
+      "</div>";
+      if (count > 0) prev = count;
+    });
+
+    $("funnel").innerHTML = html;
+    var end = Number(f.downloaded) || 0;
+    var conv = top > 0 ? (end / top) * 100 : 0;
+    $("funnelSummary").innerHTML = top > 0
+      ? "<b>" + pct(conv, 1) + "</b><span>of page visitors reach a downloaded file — " +
+        n(end) + " of " + n(top) + " people.</span>"
+      : "<b>—</b><span>No page visitors recorded yet, so the funnel has nothing to measure.</span>";
+  }
+
+  function renderSignals(list) {
+    if (!list || !list.length) {
+      $("signals").innerHTML = '<div class="signal warn"><div class="signal-head"><span class="signal-dot"></span>' +
+        '<span class="signal-headline">No signals yet</span></div><div class="signal-detail">The instance has not recorded enough traffic to derive anything.</div></div>';
+      return;
+    }
+    $("signals").innerHTML = list.map(function (s) {
+      return '<div class="signal ' + esc(s.level || "warn") + '">' +
+        '<div class="signal-head"><span class="signal-dot"></span>' +
+          '<span class="signal-headline">' + esc(s.headline) + "</span></div>" +
+        '<div class="signal-detail">' + esc(s.detail) + "</div>" +
+        '<div class="signal-key">' + esc(s.key) + "</div>" +
+      "</div>";
+    }).join("");
+  }
+
+  function renderPaths(paths) {
+    var list = paths || [];
+    if (!list.length) {
+      $("pathsBody").innerHTML = '<tr><td colspan="4" class="empty">No page views recorded yet.</td></tr>';
+      return;
+    }
+    var total = list.reduce(function (sum, p) { return sum + (Number(p.views) || 0); }, 0) || 1;
+    var names = { "/": "Landing", "/mcp": "MCP setup", "/docs": "Docs", "/studio": "Studio" };
+    $("pathsBody").innerHTML = list.map(function (p) {
+      var share = (Number(p.views) || 0) / total;
+      return '<tr><td><span class="mono">' + esc(names[p.path] || p.path) + "</span>" +
+        '<div class="muted" style="font-size:11.5px">' + esc(p.path) + "</div></td>" +
+        '<td class="n">' + n(p.views) + "</td>" +
+        '<td class="n">' + pct(share * 100, 1) + "</td>" +
+        '<td><div class="sharebar"><span style="width:' + (share * 100).toFixed(1) + '%"></span></div></td></tr>';
+    }).join("");
+  }
+
+  function renderEngines(engines) {
+    var entries = Object.keys(engines || {}).map(function (k) { return [k, Number(engines[k]) || 0]; })
+      .sort(function (a, b) { return b[1] - a[1]; });
+    if (!entries.length) {
+      $("engineMix").innerHTML = '<p class="empty">No jobs yet.</p>';
+      return;
+    }
+    var total = entries.reduce(function (sum, e) { return sum + e[1]; }, 0) || 1;
+    $("engineMix").innerHTML = entries.map(function (e) {
+      return '<div class="engine-row"><span>' + esc(e[0]) + "</span>" +
+        '<div class="engine-track"><div class="engine-bar" style="width:' + ((e[1] / total) * 100).toFixed(1) + '%"></div></div>' +
+        '<span class="n">' + n(e[1]) + "</span></div>";
+    }).join("");
+  }
+
   function render(d) {
     var w = d.windows || {};
     var j = d.jobs || {};
     var slots = d.slots || {};
     var all = d.allTime || {};
     var today = d.today || {};
-    var users = w["24h"] ? w["24h"].users : 0;
+    var uniques = d.uniques || {};
+    var days = axis(d.days, 14);
+
     var visitors = w["24h"] ? w["24h"].visitors : 0;
+    var users = w["24h"] ? w["24h"].users : 0;
 
+    var views7 = days.reduce(function (s, r) { return s + r.bars; }, 0);
+    var jobs7 = days.reduce(function (s, r) { return s + r.jobs; }, 0);
+
+    $("m-visitors7").textContent = n(uniques.d7);
+    $("m-visitors7-note").textContent = n(uniques.today) + " today · " + n(uniques.yesterday) + " yesterday";
+    $("m-pv").textContent = n(views7);
+    $("m-pv-note").textContent = n(all.pageviews) + " all-time · " + n(all.bots) + " crawler views dropped";
     $("m-tts").textContent = n(all.tts);
-    $("m-tts-note").textContent = n(today.tts) + " today";
-    $("m-words").textContent = n(today.words);
-    $("m-users").textContent = n(users);
-    $("m-visitors").textContent = n(visitors) + " visitors";
-    $("m-slots").textContent = n(slots.active) + " / " + n(slots.queued);
-    $("m-limit").textContent = n(slots.concurrency) + " workers · " + n(slots.queueMax) + " queue";
+    $("m-tts-note").textContent = n(today.tts) + " today · " + n(jobs7) + " in 14d";
+    $("m-words").textContent = n(all.words);
+    $("m-words-note").textContent = n(today.words) + " words today";
+    $("m-keys").textContent = n(all.registers);
+    $("m-keys-note").textContent = n(users) + " product users in 24h";
 
-    [["req", "requests"], ["tts", "tts"], ["mcp", "mcp"], ["prev", "previews"], ["dl", "downloads"], ["reg", "registers"]].forEach(function (r) {
-      $("r-" + r[0] + "-a").textContent = n(all[r[1]]);
-      $("r-" + r[0] + "-t").textContent = n(today[r[1]]);
-    });
+    var dlRate = Number(all.tts) > 0 ? (Number(all.downloads) || 0) / Number(all.tts) : null;
+    $("m-dl").textContent = dlRate == null ? "—" : Math.round(dlRate * 100) + "%";
+    $("m-dl-note").textContent = n(all.downloads) + " of " + n(all.tts) + " jobs fetched";
 
-    $("trafficNote").textContent =
-      "All HTTP hits include bots and page loads. " +
-      n(visitors) + " visitors and " + n(users) + " product users in the last 24h. " +
-      "Product users are unique subjects with a voiceover, MCP call, preview, download, or key registration.";
+    renderFunnel(d.funnel || {});
+    renderSignals(d.signals || []);
+    renderPaths(d.paths || []);
+    renderEngines(d.engines || {});
+
+    $("trafficChart").innerHTML = comboChart(days, { line: true });
+    var peak = days.reduce(function (best, r) { return r.bars > best.bars ? r : best; }, { bars: 0 });
+    $("trafficPeak").textContent = peak.bars ? "peak " + n(peak.bars) + " views on " + peak.day.slice(5) : "";
+
+    $("jobsChart").innerHTML = comboChart(days.map(function (r) {
+      return { day: r.day, label: r.label, bars: r.jobs };
+    }), { accent: true, unit: "jobs" });
+
+    var wordList = (d.top || []).filter(function (s) { return Number(s.words) > 0; });
+    $("topWordsBody").innerHTML = rows(wordList, "No voiceovers yet. Generate one in the studio or through MCP.");
+    $("topRequestsBody").innerHTML = rows(d.topRequests || d.top || [], "No requests recorded yet.");
+
+    var dayRows = (d.days || []).map(function (x) {
+      return '<tr><td class="mono">' + esc(x.day) + "</td>" +
+        '<td class="n">' + n(x.uniques) + "</td>" +
+        '<td class="n">' + n(x.pageviews) + "</td>" +
+        '<td class="n">' + n(x.requests) + "</td>" +
+        '<td class="n">' + n(x.tts) + "</td>" +
+        '<td class="n">' + n(x.registers) + "</td></tr>";
+    }).join("");
+    $("daysBody").innerHTML = dayRows || '<tr><td colspan="6" class="empty">No daily history yet.</td></tr>';
 
     $("c-active").textContent = n(slots.active);
     $("c-queued").textContent = n(slots.queued);
@@ -481,21 +802,8 @@
     var up = d.uptimeSec || 0;
     $("c-uptime").textContent = Math.floor(up / 3600) + "h " + Math.floor((up % 3600) / 60) + "m";
 
-    var wordList = (d.top || []).filter(function (s) { return Number(s.words) > 0; });
-    $("topWordsBody").innerHTML = rows(wordList, "No voiceovers yet. Generate one in the studio or through MCP.");
-    $("topRequestsBody").innerHTML = rows(d.topRequests || d.top || [], "No requests recorded yet.");
-
-    var days = (d.days || []).map(function (x) {
-      return "<tr><td class=\"mono\">" + esc(x.day) + "</td>" +
-        '<td class="n">' + n(x.requests) + "</td>" +
-        '<td class="n">' + n(x.tts) + "</td>" +
-        '<td class="n">' + n(x.downloads) + "</td>" +
-        '<td class="n">' + n(x.registers) + "</td>" +
-        '<td class="n">' + n(x.words) + "</td></tr>";
-    }).join("");
-    $("daysBody").innerHTML = days || '<tr><td colspan="6" class="empty">No daily history yet.</td></tr>';
-
-    $("subline").textContent = "server up " + Math.floor(up / 3600) + "h " + Math.floor((up % 3600) / 60) + "m · " + n(j.total) + " jobs on disk";
+    $("subline").textContent = "server up " + Math.floor(up / 3600) + "h " + Math.floor((up % 3600) / 60) + "m · " +
+      n(j.total) + " jobs on disk · " + n(visitors) + " visitors in the last 24h";
     $("updated").textContent = "updated " + new Date().toLocaleTimeString();
     lastGood = new Date();
     showDash();

@@ -677,6 +677,11 @@ app.get("/stats.json", (req, res) => {
     today: q.today,
     windows: q.windows,
     days: stats.recentDays(14),
+    funnel: q.funnel,
+    signals: q.signals,
+    paths: q.paths,
+    engines: q.engines,
+    uniques: q.uniques,
     top: stats.topSubjects(10, "words").map((s) => ({ id: s.id, requests: s.requests, words: s.words, last: s.last, actions: s.actions || 0 })),
     topRequests: stats.topSubjects(10, "requests").map((s) => ({ id: s.id, requests: s.requests, words: s.words, last: s.last, actions: s.actions || 0 })),
     jobs: { total: jobs.length, today: jobsToday.length, wordsToday, byStatus },
@@ -798,7 +803,7 @@ app.post("/tts", async (req, res) => {
   // Count the words against the same subject that observe() counted the request
   // for — including the admin caller, whose charge is skipped but whose work
   // still belongs on the dashboard.
-  stats.markWords({ subject, words });
+  stats.markWords({ subject, words, engine });
 
   const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const parts = splitText(text);
@@ -1024,7 +1029,7 @@ async function handlePreview({ engine, req, res, defaultVoice, defaultText, rate
     guard.logReject("queue_full", req.ctx.rawKey, req.ctx.ip, `words=${words}`);
     return res.status(429).json({ error: "The synthesis queue is full — try again shortly", retryAfterSeconds: 30 });
   }
-  stats.markWords({ subject, words });
+  stats.markWords({ subject, words, engine });
   const submittedAt = Date.now();
 
   let released = false;

@@ -347,9 +347,10 @@ delete the variable. Manual runs from the Actions tab keep working either way.
 
 `/stats.html` is a public shell. Enter `API_KEY` once; the key is kept in that browser's local storage. The page calls the admin-only `/stats.json` and shows:
 
-- traffic and product actions, all-time and today
-- product users (real actions) versus all visitors (including bots)
-- top voiceover users by words and top request sources by HTTP requests
+- a KPI strip (7-day visitors, page views, voiceovers, words, keys, download rate)
+- the website funnel with per-stage drop-off, and 14-day charts for reach and jobs
+- derived signals (usage rate, job size, download rate, key-to-job, returning visitors, momentum)
+- page views per document, top voiceover users, top request sources
 - live capacity and the 14-day daily ledger
 
 Counters persist to `/data/stats.json` (`KOE_STATS_FILE`). Anonymous ids are keyed HMACs via `guard.anonSubject()`; raw IPs are never stored. Existing raw-IP records are migrated on load.
