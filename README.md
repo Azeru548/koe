@@ -1,5 +1,7 @@
 # Koe TTS Studio + MCP
 
+[![Koe TTS Studio MCP server](https://mcprush.com/badge/koe-tts-studio-mcp/card.svg)](https://mcprush.com/to/koe-tts-studio-mcp?ref=badge)
+
 A self-hosted text-to-speech studio (Microsoft neural voices via edge-tts, optional offline Piper, Kokoro and Kitten) and an **MCP server** so agents can generate voiceovers on demand — free, no ElevenLabs.
 
 It is built to be a **free public product**:
