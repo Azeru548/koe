@@ -20,7 +20,7 @@ koe container (Node 20 + edge-tts + Piper)
 - Generated audio is still ephemeral by design.
 - `koe-watchdog.timer` checks every 2 minutes; `koe-diskguard.timer` runs daily.
 
-The public instance is **<https://koe.kennedyazeru.space>**.
+Koe used to run a public instance at <https://koe.kennedyazeru.space>. It has been retired: the domain now serves the static landing page and docs, and this guide is for deploying **your own** instance. Substitute your host everywhere a URL appears below.
 
 ## 1. Prerequisites
 
@@ -147,11 +147,11 @@ The instance checkout is a **deployment artifact**. `rebuild.sh` uses `git reset
 ## 5. Verify
 
 ```bash
-curl -fsS https://koe.kennedyazeru.space/health
-curl -I https://koe.kennedyazeru.space/
-curl -I https://koe.kennedyazeru.space/studio
-curl -I https://koe.kennedyazeru.space/mcp
-curl -I https://koe.kennedyazeru.space/stats.html
+curl -fsS https://YOUR-HOST/health
+curl -I https://YOUR-HOST/
+curl -I https://YOUR-HOST/studio
+curl -I https://YOUR-HOST/mcp
+curl -I https://YOUR-HOST/stats.html
 ```
 
 Expected: `/health` is `200` with `backend:"native"`, `engines.edge:true`, `engines.piper:true`, `authRequired:true`, `keyRequired:true`. `/` is `302` to `/mcp`. `/studio`, `/mcp` (browser `Accept: text/html`), and `/stats.html` are `200`. `/stats.json` is `401` or `403` without `API_KEY` and `200` with it.
@@ -263,7 +263,7 @@ credential is stored in GitHub. Set this up once, with your AWS credentials
    | `AWS_DEPLOY_ROLE_ARN` | the ARN returned by `create-role` |
    | `KOE_INSTANCE_ID` | the instance id, e.g. `i-022095021f7a993a7` |
    | `AWS_REGION` | optional, default `eu-north-1` |
-   | `KOE_SITE_URL` | optional, default `https://koe.kennedyazeru.space` |
+   | `KOE_SITE_URL` | optional, your instance's public URL |
 
 4. The instance must be visible to Systems Manager: Amazon Linux 2023 ships the
    agent, it only needs an instance profile carrying

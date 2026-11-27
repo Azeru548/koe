@@ -110,9 +110,10 @@ test("GET / serves the landing page", async () => {
     html.indexOf("</figure>", html.indexOf('class="print"')),
   );
   assert.doesNotMatch(figure, /<svg|<rect/, "the hero portrait must not be framed");
-  // and it links onward to the setup page rather than replacing it
-  assert.match(html, /href="\/mcp"/);
-  assert.match(html, /koe\.kennedyazeru\.space\/mcp/);
+  // and it links onward — to the repo and the run-it-yourself steps — rather
+  // than being a dead end for a visitor who wants the server
+  assert.match(html, /href="https:\/\/github\.com\/Azeru548\/koe"/);
+  assert.match(html, /href="#connect"/);
 });
 
 test("GET /docs serves the agent reference without a key", async () => {
@@ -121,7 +122,8 @@ test("GET /docs serves the agent reference without a key", async () => {
   const html = await res.text();
   assert.match(html, /<title>Koe docs/);
   assert.match(html, /generate_voiceover/, "the tool list must be on the page");
-  assert.match(html, /href="\/mcp"/, "docs must link back to setup");
+  assert.match(html, /id="run"/, "docs must explain how to run it yourself");
+  assert.match(html, /href="https:\/\/github\.com\/Azeru548\/koe"/, "docs must link to the repo");
 });
 
 test("GET /studio serves the studio page", async () => {

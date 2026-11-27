@@ -212,8 +212,8 @@ function callerSubject(req) {
 }
 
 // The public entry point is the landing page; setup lives at /mcp, the studio at /studio.
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "landing.html")));
-app.get("/studio", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+app.get("/studio", (req, res) => res.sendFile(path.join(__dirname, "studio.html")));
 app.get("/docs", (req, res) => res.sendFile(path.join(__dirname, "docs.html")));
 
 // Crawler files. Served explicitly: there is no express.static for the root.

@@ -1,0 +1,48 @@
+# Koe is served as a static site on Netlify: the landing page and the docs.
+# The studio, key issuance and the MCP endpoint are self-hosted now, so the
+# build only copies HTML and assets (see netlify/build.sh).
+
+[build]
+  command = "bash netlify/build.sh"
+  publish = "site"
+
+# Pretty URL for the docs.
+[[redirects]]
+  from = "/docs"
+  to = "/docs.html"
+  status = 200
+
+# Old hosted-product routes. There is no public instance any more, so point the
+# addresses people may still have bookmarked at the "run it yourself" section.
+[[redirects]]
+  from = "/mcp"
+  to = "/docs#run"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/studio"
+  to = "/docs#run"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/stats.html"
+  to = "/docs#run"
+  status = 301
+  force = true
+
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/*.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/*.mp3"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

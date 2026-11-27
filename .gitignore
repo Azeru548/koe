@@ -80,3 +80,6 @@ desktop.ini
 .idea/
 *.swp
 *~
+
+# Netlify build output (netlify/build.sh)
+site/

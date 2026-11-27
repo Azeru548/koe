@@ -17,17 +17,17 @@ agent / browser ──free tenant key──> TTS Studio ──> edge-tts ──>
 - **Ephemeral audio** — generated zips are deleted after 15 minutes; job metadata after 1 hour; a restart wipes all audio. Nothing depends on permanent storage.
 - **One small SQLite file** — issued keys and every counter live in `KOE_DB_PATH` (`./koe.db` by default), so limits survive restarts and a key is revocable by deleting its row. Keys are persisted as SHA-256 hashes, never plaintext, so a dumped database cannot be replayed as live keys. `KOE_SECRET` still signs download links and hashed subjects.
 
-## Use it from any agent (hosted MCP)
+## Use it from any agent
 
-The public instance runs at **<https://koe.kennedyazeru.space>**. The **hosted MCP server** is at `https://koe.kennedyazeru.space/mcp`. Agents connect by URL — no install, no local Node, no config file. The same URL serves a human setup page in a browser.
+Koe is self-hosted: there is no public instance to point at. Start your own, then connect agents by URL — no install on the caller's side, no config file.
 
-1. Open <https://koe.kennedyazeru.space/mcp> and click **Create key** (the page solves the proof-of-work challenge for you).
-2. Point your client at `https://koe.kennedyazeru.space/mcp` with `Authorization: Bearer <key>` (or `x-api-key: <key>`).
-3. Ask the agent to call `studio_status`, then `generate_voiceover`.
+1. Run it: `docker compose up -d` (or `npm install && npm start`). The studio UI is at <http://localhost:3000/studio>.
+2. Mint a key on your own install: open <http://localhost:3000/mcp> and press **Create key** (the page solves the proof-of-work challenge for you), or `GET /keys/challenge` then `POST /keys`.
+3. Point your client at `http://localhost:3000/mcp` with `Authorization: Bearer <key>` (or `x-api-key: <key>`), then ask the agent to call `studio_status`, then `generate_voiceover`.
 
 Works with Claude custom connectors (static request header, currently beta), Claude Code (`--transport http`), Cursor, or any streamable-HTTP MCP client. The endpoint is **stateless** and returns JSON (no SSE required), which keeps it compatible with a reverse proxy and ephemeral container disk.
 
-Because the audio lives on the server rather than the caller's disk, hosted `generate_voiceover` returns a **short-lived signed download URL** (`/audio/:id?dl=…`, no API key needed) plus inline audio for short clips. The local stdio server below is still available for developers and saves files directly.
+Over HTTP the audio lives on the server rather than the caller's disk, so `generate_voiceover` returns a **short-lived signed download URL** (`/audio/:id?dl=…`, no API key needed) plus inline audio for short clips. The local stdio server below saves files directly instead.
 
 > **Building an agent?** [AGENTS.md](AGENTS.md) is the full agent-facing reference: exact MCP tool schemas, response shapes, recipes, error handling and the raw HTTP API. [DESIGN.md](DESIGN.md) records the visual system and the analytics measurement language.
 
@@ -93,13 +93,13 @@ Keys are issued **server-side**: `POST /keys` writes an opaque `koe_sk_<32 hex>`
 
 ```bash
 # 1. Ask which anti-abuse gate is active
-curl https://koe.kennedyazeru.space/keys/challenge
+curl http://localhost:3000/keys/challenge
 # → { "mode": "pow", "challenge": "…", "pow": { "leadingZeroHexChars": 4 } }
 #   (or { "mode": "turnstile", "sitekey": "…" } when Turnstile is configured)
 
 # 2. Solve it — proof-of-work: find a nonce whose sha256(challenge + nonce)
 #    starts with 4 zero hex chars (~65k tries, well under a second) — and mint
-curl -X POST https://koe.kennedyazeru.space/keys \
+curl -X POST http://localhost:3000/keys \
      -H "Content-Type: application/json" \
      -d '{"challenge":"<from step 1>","nonce":"0f3a"}'
 # → 201 { "key": "koe_sk_9f2c…", "tenant": "…", "limits": {…} }
@@ -107,7 +107,7 @@ curl -X POST https://koe.kennedyazeru.space/keys \
 # 3. Use it
 curl -H "x-api-key: koe_sk_..." -H "Content-Type: application/json" \
      -d '{"text":"Hello from Koe","voice":"en-US-AndrewNeural"}' \
-     https://koe.kennedyazeru.space/tts
+     http://localhost:3000/tts
 ```
 
 - `POST /api/register` is a thin alias of `POST /keys` — same gate, same `201 {key}` body, so older callers keep working instead of getting a 404.
@@ -285,9 +285,9 @@ The Docker image installs Node 20 + `edge-tts` and best-effort Piper. It keeps r
 
 ## MCP server
 
-### Hosted (recommended)
+### Over HTTP (recommended)
 
-Already running at `POST /mcp` on your deployment — see [Use it from any agent](#use-it-from-any-agent-hosted-mcp) above. There is nothing to install and no environment variables to set; the caller's free key scopes every tool call. `GET /mcp` is the human setup page.
+Already running at `POST /mcp` on your deployment — see [Use it from any agent](#use-it-from-any-agent) above. There is nothing to install on the caller's side; its key scopes every tool call. `GET /mcp` is the human setup page.
 
 ### Local stdio (`mcp/`)
 
@@ -309,7 +309,7 @@ Claude Desktop (`claude_desktop_config.json`):
       "command": "node",
       "args": ["C:/Users/User/koe/mcp/index.js"],
       "env": {
-        "TTS_STUDIO_URL": "https://koe.kennedyazeru.space"
+        "TTS_STUDIO_URL": "http://localhost:3000"
       }
     }
   }
@@ -320,7 +320,7 @@ Claude Code:
 
 ```bash
 claude mcp add koe-tts \
-  -e TTS_STUDIO_URL=https://koe.kennedyazeru.space \
+  -e TTS_STUDIO_URL=http://localhost:3000 \
   -- node C:/Users/User/koe/mcp/index.js
 ```
 
@@ -436,8 +436,8 @@ to publish it to a skill marketplace.
 
 ## Support
 
-Koe is free and has no accounts, cards or paid APIs. Running it costs one small
-box and a domain, paid by one person. If it has been useful, you can
+Koe is free, open source and has no accounts, cards or paid APIs — you run it on
+your own machine. If it has been useful, you can
 [buy me a malt](https://buymeamalt.com/@azeru548) — naira checkout, which Buy Me a
 Coffee can't do for a Nigerian account.
 
@@ -458,8 +458,8 @@ for everyone:
 - **Keep the notices.** Don't strip the copyright or the license, and mark a
   fork as changed (AGPL §5) — "based on Koe" is the fair way to say it.
 
-There is no warranty and no support contract. If the public instance is down or
-rate-limited, the license is what lets you run your own.
+There is no warranty and no support contract. Running it is entirely up to you —
+that is the point of the license.
 
 ## What the license does not cover
 
@@ -467,8 +467,8 @@ The AGPL covers this source code. It grants nothing for the **Koe name, the
 logo, or the domain `koe.kennedyazeru.space`**, and it does not permit presenting
 a fork as the official project or implying endorsement by it. If you run a
 public instance of your own, give it its own name — "based on Koe" is welcome,
-"Koe" as your brand is not. The hosted instance itself (its keys, its quota, its
-uptime) is not part of what this repository licenses.
+"Koe" as your brand is not. Your own instance (its keys, its quota, its uptime)
+is yours to run and not part of what this repository licenses.
 
 ## Contributing
 

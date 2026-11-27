@@ -36,7 +36,7 @@ jobs:
             for (const m of ['express','./guard','./db','./stats','./audio','./voices','./hosted-mcp','./engines','./engines/backend']) {
               require(m);
             }
-            for (const f of ['server.js','index.html','mcp.html','stats.html','hosted-mcp.js','db.js','guard.js','stats.js','voices.js','audio.js']) {
+            for (const f of ['server.js','index.html','studio.html','mcp.html','stats.html','hosted-mcp.js','db.js','guard.js','stats.js','voices.js','audio.js']) {
               require('fs').accessSync(f);
             }
             require('fs').accessSync('assets/logo-mark.png');

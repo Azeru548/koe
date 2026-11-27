@@ -20,7 +20,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 
-const PAGES = ["mcp.html", "index.html"];
+const PAGES = ["mcp.html", "studio.html"];
 
 function source(page) {
   return fs.readFileSync(path.join(__dirname, "..", page), "utf8");

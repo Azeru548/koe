@@ -30,7 +30,7 @@ A neighboring paid TTS vendor cannot copy that honestly: their economics need re
 
 - **Hosted MCP** at `POST /mcp` on the AWS deployment — stateless, JSON (no SSE), safe behind the Caddy reverse proxy. `GET /mcp` is the human setup page with tabs for Claude, Claude Code, and Cursor, plus a copy-paste "set this up for me" agent prompt.
 - **Local stdio MCP** (`mcp/index.js`) for developers: same tools, but it saves audio to a local path and merges multi-part jobs into one file — the shape a video pipeline needs.
-- **Studio UI** (`index.html`) at `/studio` (the root `/` redirects to `/mcp`): script entry, voice catalog, preview, job list, usage.
+- **Studio UI** (`studio.html`) at `/studio` (the root `/` redirects to `/mcp`): script entry, voice catalog, preview, job list, usage.
 - **Raw HTTP API** (`/tts`, `/job/:id`, `/download/:id`, `/audio/:id`, `/jobs`, `/usage`, `/keys`, `/keys/challenge`, `/api/register`, `/healthz`) for scripts and curl.
 - Deployed on a single EC2 instance: Docker container behind Caddy with a Let's Encrypt certificate, persisted counters/job metadata on a mounted volume, and ephemeral audio. Local dev runs `node server.js` on port 3000, with a Docker backend when Docker is present. See `DEPLOY.md` and `ops/`.
 - `AGENTS.md` is the agent-facing contract (tool schemas, response shapes, error recipes); `README.md` is the human/operator reference.

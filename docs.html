@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Koe docs — the agent's reference</title>
-<meta name="description" content="Reference for agents using Koe: the MCP endpoint, the six tools, the HTTP API, quota limits and error codes.">
+<meta name="description" content="Reference for a self-hosted Koe install: how to run it, the MCP endpoint, the six tools, the HTTP API, limits and error codes.">
 <link rel="canonical" href="https://koe.kennedyazeru.space/docs">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Koe">
 <meta property="og:title" content="Koe docs — the agent's reference">
-<meta property="og:description" content="Reference for agents using Koe: the MCP endpoint, the six tools, the HTTP API, quota limits and error codes.">
+<meta property="og:description" content="Reference for a self-hosted Koe install: how to run it, the MCP endpoint, the six tools, the HTTP API, limits and error codes.">
 <meta property="og:url" content="https://koe.kennedyazeru.space/docs">
 <meta property="og:image" content="https://koe.kennedyazeru.space/og-docs.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -20,7 +20,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Koe docs — the agent's reference">
-<meta name="twitter:description" content="Reference for agents using Koe: the MCP endpoint, the six tools, the HTTP API, quota limits and error codes.">
+<meta name="twitter:description" content="Reference for a self-hosted Koe install: how to run it, the MCP endpoint, the six tools, the HTTP API, limits and error codes.">
 <meta name="twitter:image" content="https://koe.kennedyazeru.space/og-docs.jpg">
 <meta name="twitter:image:alt" content="The Koe docs hero: The reference an agent needs">
 <meta name="theme-color" content="#ece3d2">
@@ -210,8 +210,7 @@ footer {
     <nav class="nav" aria-label="Primary">
       <a href="/">Home</a>
       <a href="/docs" aria-current="page">Docs</a>
-      <a href="/mcp">Setup</a>
-      <a href="/studio">Studio</a>
+      <a href="https://github.com/Azeru548/koe" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
   </header>
 </div>
@@ -221,8 +220,9 @@ footer {
     <div class="doc-head">
       <p class="eyebrow">Documentation · for agents</p>
       <h1>The reference an <em>agent</em> needs.</h1>
-      <p class="lede">Everything below is what a client actually calls: one endpoint, a bearer key, six tools and one HTTP surface. If you are wiring Koe up by hand for the first time, the <a href="/mcp">setup page</a> does the key and the copy-paste config for you.</p>
+      <p class="lede">Everything below is what a client actually calls on your own install: one endpoint, a bearer key, six tools and one HTTP surface. Koe is open source under the AGPL-3.0 — <a href="https://github.com/Azeru548/koe" target="_blank" rel="noopener noreferrer">the repo</a> is the source of truth.</p>
       <nav class="contents" aria-label="Contents">
+        <a href="#run">· Run it</a>
         <a href="#connect">1 · Connect</a>
         <a href="#tools">2 · Tools</a>
         <a href="#http">3 · HTTP API</a>
@@ -232,16 +232,28 @@ footer {
       </nav>
     </div>
 
+    <section class="doc" id="run" aria-labelledby="run-title">
+      <h2 id="run-title">Run it yourself</h2>
+      <p class="sub">Koe is open source under the AGPL-3.0 and there is no public instance any more. Everything on this page runs against your own copy — on a laptop, a homelab box or a server you already pay for.</p>
+      <pre>git clone https://github.com/Azeru548/koe
+cd koe &amp;&amp; docker compose up -d
+
+# studio UI      http://localhost:3000/studio
+# MCP endpoint   http://localhost:3000/mcp</pre>
+      <p>No Docker? <code>npm install &amp;&amp; npm start</code> runs the same server, provided <code>edge-tts</code> and Piper are on the host. Kokoro and Kitten are optional sidecars in <code>docker-compose.yml</code>: without them <code>engine: "kokoro"</code> answers <code>503</code> and edge keeps working.</p>
+      <div class="callout"><b>Give the install its own secrets.</b> <code>API_KEY</code> is the admin key, <code>KOE_SECRET</code> signs the tenant keys, and <code>KOE_DB_PATH</code> holds both. Never commit the env file.</div>
+    </section>
+
     <section class="doc" id="connect" aria-labelledby="connect-title">
       <h2 id="connect-title">Connect</h2>
       <p class="sub">Koe speaks Streamable HTTP with plain JSON responses — no SSE stream to keep open, so it survives behind a proxy.</p>
-      <pre>POST https://koe.kennedyazeru.space/mcp
+      <pre>POST http://localhost:3000/mcp
 Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
-      <p><code>POST /mcp</code> always needs a live key; there is no anonymous fallback on that route. Keys are free and self-serve:</p>
+      <p><code>POST /mcp</code> always needs a live key; there is no anonymous fallback on that route. Your install issues them itself:</p>
       <ul>
-        <li><b>In a browser:</b> open <a href="/mcp">/mcp</a> and press <i>Create key</i> — the page solves the proof-of-work and shows the key once.</li>
+        <li><b>In a browser:</b> open your instance's <code>/mcp</code> page and press <i>Create key</i> — the page solves the proof-of-work and shows the key once.</li>
         <li><b>Programmatically:</b> <code>GET /keys/challenge</code>, then <code>POST /keys</code> with <code>{ challenge, nonce }</code> where <code>sha256(challenge + nonce)</code> starts with four zero hex characters.</li>
-        <li><b>Limit:</b> three keys per IP per UTC day. A key is a row in the studio's database — opaque, revocable, and the identity for all quota.</li>
+        <li><b>Limit:</b> three keys per IP per UTC day by default — an env var like everything else. A key is a row in your own database — opaque, revocable, and the identity for all quota.</li>
       </ul>
       <div class="callout"><b>Keys are passwords.</b> Send them in a header, never in a URL you share, and never paste a live key into a public repo.</div>
     </section>
@@ -284,7 +296,7 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
           <tr><td><code>GET /healthz</code></td><td>Alias <code>/health</code>. Never needs a key; <code>503</code> if the database is unreachable.</td></tr>
         </table>
       </div>
-      <pre>curl -s -X POST https://koe.kennedyazeru.space/tts \
+      <pre>curl -s -X POST http://localhost:3000/tts \
   -H "x-api-key: $KOE_KEY" -H "content-type: application/json" \
   -d '{"text":"A short line of narration.","voice":"en-US-JennyNeural"}'
 # → { "jobId": "1794…-56ajg", "parts": 1, "wordCount": 5 }</pre>
@@ -292,11 +304,11 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
 
     <section class="doc" id="limits" aria-labelledby="limits-title">
       <h2 id="limits-title">Limits</h2>
-      <p class="sub">The free tier is bounded per key, per job and instance-wide. Nothing here requires a card, and a rejected request never burns quota.</p>
+      <p class="sub">These are the defaults your install ships with; every one is an env var you can raise or switch off. Nothing here requires a card.</p>
       <div class="table-wrap">
         <table>
           <tr><th>Scope</th><th>Limit</th></tr>
-          <tr><td>Free key</td><td>60 requests / hour · 2,000 words / hour · 20,000 words / day</td></tr>
+          <tr><td>Registered key</td><td>60 requests / hour · 2,000 words / hour · 20,000 words / day</td></tr>
           <tr><td>Anonymous</td><td>20 requests / hour · 500 words / hour · 3,000 words / day</td></tr>
           <tr><td>One job</td><td>2,000 words · 40,000 characters</td></tr>
           <tr><td>Instance</td><td>6 concurrent jobs · 20-job queue · 30,000 words / day</td></tr>
@@ -305,7 +317,7 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
           <tr><td>Audio</td><td>Deleted after 15 minutes; job metadata after an hour</td></tr>
         </table>
       </div>
-      <p>Straight from <a href="/api/limits">/api/limits</a>, live from <code>get_usage</code>. The instance shares one upstream endpoint, so serialize big jobs rather than fanning out.</p>
+      <p>Straight from <code>GET /api/limits</code> on a running instance, and from <code>get_usage</code>. One upstream endpoint serves edge-tts, so serialize big jobs rather than fanning out.</p>
     </section>
 
     <section class="doc" id="errors" aria-labelledby="errors-title">
@@ -314,7 +326,7 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
         <table>
           <tr><th>Code</th><th>Meaning and fix</th></tr>
           <tr><td><code>400</code></td><td>Bad input: empty text, unknown engine, a voice id from another engine, or a job over 2,000 words.</td></tr>
-          <tr><td><code>401</code></td><td>Missing or unknown key. Mint a new one at <a href="/mcp">/mcp</a>.</td></tr>
+          <tr><td><code>401</code></td><td>Missing or unknown key. Mint a new one at your instance's <code>/mcp</code> page.</td></tr>
           <tr><td><code>403</code></td><td>Another tenant's job, or a failed issuance gate (expired or reused challenge).</td></tr>
           <tr><td><code>409</code></td><td>The job exists but is not finished; poll <code>GET /job/:id</code>.</td></tr>
           <tr><td><code>410</code></td><td>Audio expired (15 minutes) or the instance restarted. Regenerate.</td></tr>
@@ -343,13 +355,11 @@ Authorization: Bearer koe_sk_…        (or: x-api-key: koe_sk_…)</pre>
     <div class="foot-row">
       <nav class="foot-links" aria-label="Footer">
         <a href="/">Home</a>
-        <a href="/mcp">Setup &amp; key</a>
-        <a href="/studio">Studio</a>
-        <a href="/health">Health</a>
+        <a href="https://github.com/Azeru548/koe" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
         <a href="mailto:pixelpro548@gmail.com">Support</a>
         <a href="https://buymeamalt.com/@azeru548" target="_blank" rel="noopener noreferrer">Buy me a malt ↗</a>
       </nav>
-      <span class="colophon">声 · free · no account, no card</span>
+      <span class="colophon">声 · open source · AGPL-3.0</span>
     </div>
   </div>
 </footer>
